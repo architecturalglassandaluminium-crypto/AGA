@@ -1,0 +1,21 @@
+# Deep Copilot / AI session artifacts
+.deep-copilot/
+
+# Logs and temp files
+*.log
+*.tmp
+head_*.tmp
+argv-out.json
+serve-8800.err.log
+serve-8800.out.log
+serve-tmp.mjs
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Node
+node_modules/
+
+# Local VS Code settings (keep tasks.json and launch.json tracked)
+.vscode/settings.json
