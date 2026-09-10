@@ -32,12 +32,27 @@
     </header>
 
     <!-- NAVIGATION -->
-    <nav class="main-navigation">
-        <button type="button" class="nav-button active" data-view="dashboard">Dashboard</button>
-        <button type="button" class="nav-button" data-view="new-window">New Window</button>
-        <button type="button" class="nav-button" data-view="windows">Windows</button>
-        <button type="button" class="nav-button" data-view="scanner">Scan QR</button>
-        <button type="button" class="nav-button" data-view="employees">Employees</button>
+    <nav class="main-navigation" aria-label="Main navigation">
+        <button type="button" class="nav-button active" data-view="dashboard" aria-label="Dashboard">
+            <span class="nav-icon" aria-hidden="true">🏠</span>
+            <span class="nav-label">Dashboard</span>
+        </button>
+        <button type="button" class="nav-button" data-view="new-window" aria-label="New Window">
+            <span class="nav-icon" aria-hidden="true">➕</span>
+            <span class="nav-label">New</span>
+        </button>
+        <button type="button" class="nav-button" data-view="windows" aria-label="Windows">
+            <span class="nav-icon" aria-hidden="true">📋</span>
+            <span class="nav-label">Windows</span>
+        </button>
+        <button type="button" class="nav-button" data-view="scanner" aria-label="Scan QR">
+            <span class="nav-icon" aria-hidden="true">📷</span>
+            <span class="nav-label">Scan</span>
+        </button>
+        <button type="button" class="nav-button" data-view="employees" aria-label="Employees">
+            <span class="nav-icon" aria-hidden="true">👷</span>
+            <span class="nav-label">Team</span>
+        </button>
     </nav>
 
     <main class="app-container">
@@ -53,21 +68,55 @@
 
             <!-- STATUS CARDS -->
             <div class="dashboard-cards">
-                <div class="dashboard-card">
-                    <span class="dashboard-card-label">Total Windows</span>
+                <div class="dashboard-card card-total">
+                    <span class="dashboard-card-icon" aria-hidden="true">🪟</span>
                     <strong id="totalWindows" class="dashboard-card-value">0</strong>
+                    <span class="dashboard-card-label">Total Windows</span>
                 </div>
-                <div class="dashboard-card">
-                    <span class="dashboard-card-label">Measured</span>
+                <div class="dashboard-card card-measured">
+                    <span class="dashboard-card-icon" aria-hidden="true">📏</span>
                     <strong id="measuredWindows" class="dashboard-card-value">0</strong>
+                    <span class="dashboard-card-label">Measured</span>
                 </div>
-                <div class="dashboard-card">
-                    <span class="dashboard-card-label">In Production</span>
+                <div class="dashboard-card card-production">
+                    <span class="dashboard-card-icon" aria-hidden="true">⚙️</span>
                     <strong id="productionWindows" class="dashboard-card-value">0</strong>
+                    <span class="dashboard-card-label">In Production</span>
                 </div>
-                <div class="dashboard-card">
-                    <span class="dashboard-card-label">Ready</span>
+                <div class="dashboard-card card-ready">
+                    <span class="dashboard-card-icon" aria-hidden="true">🚚</span>
                     <strong id="readyWindows" class="dashboard-card-value">0</strong>
+                    <span class="dashboard-card-label">Ready / Done</span>
+                </div>
+            </div>
+
+            <!-- PRODUCTION PIPELINE -->
+            <div class="section-card pipeline-card">
+                <div class="section-card-header">
+                    <h3>Production Pipeline</h3>
+                    <span class="measurement-note">Live status distribution</span>
+                </div>
+                <div id="pipelineBar" class="pipeline-bar">
+                    <div class="pipeline-segment" data-status="Measured">
+                        <span class="pipeline-count" id="pipelineMeasured">0</span>
+                        <small>Measured</small>
+                    </div>
+                    <div class="pipeline-segment" data-status="In Production">
+                        <span class="pipeline-count" id="pipelineProduction">0</span>
+                        <small>Production</small>
+                    </div>
+                    <div class="pipeline-segment" data-status="Ready for Installation">
+                        <span class="pipeline-count" id="pipelineReady">0</span>
+                        <small>Ready</small>
+                    </div>
+                    <div class="pipeline-segment" data-status="Installed">
+                        <span class="pipeline-count" id="pipelineInstalled">0</span>
+                        <small>Installed</small>
+                    </div>
+                    <div class="pipeline-segment" data-status="Completed">
+                        <span class="pipeline-count" id="pipelineCompleted">0</span>
+                        <small>Done</small>
+                    </div>
                 </div>
             </div>
 

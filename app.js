@@ -1,8 +1,8 @@
 ﻿/* =========================================================
-  AGA ARCHITECTURAL GLASS & ALUMINIUM
-  Window Workshop Management App
-  Validation + Error Handling
-  ========================================================= */
+AGA ARCHITECTURAL GLASS & ALUMINIUM
+Window Workshop Management App
+Validation + Error Handling
+========================================================= */
 
 "use strict";
 
@@ -1720,6 +1720,38 @@ function renderDashboard() {
         counts["Installed"] +
         counts["Completed"]
     );
+
+    /*
+       Production pipeline counts.
+    */
+
+    setTextIfExists(
+        "pipelineMeasured",
+        counts["Measured"]
+    );
+
+    setTextIfExists(
+        "pipelineProduction",
+        counts["In Production"] +
+        counts["Frame Manufactured"] +
+        counts["Glazed"] +
+        counts["Quality Checked"]
+    );
+
+    setTextIfExists(
+        "pipelineReady",
+        counts["Ready for Installation"]
+    );
+
+    setTextIfExists(
+        "pipelineInstalled",
+        counts["Installed"]
+    );
+
+    setTextIfExists(
+        "pipelineCompleted",
+        counts["Completed"]
+    );
 }
 
 function setTextIfExists(id, value) {
@@ -1776,9 +1808,15 @@ function renderRecentWindows() {
         row.className =
             "recent-window";
 
+        const w = item.finalWidth || item.width;
+        const h = item.finalHeight || item.height;
+
         row.innerHTML = `
-            <strong>${escapeHtml(item.windowNumber)}</strong>
-            <span>${escapeHtml(item.customerName)}</span>
+            <div class="recent-window-main">
+                <strong>${escapeHtml(item.windowNumber)}</strong>
+                <span>${escapeHtml(item.customerName)}</span>
+                <small>${escapeHtml(item.windowLocation || "No location")} · ${escapeHtml(w)}×${escapeHtml(h)} mm</small>
+            </div>
             <span class="status-badge">${escapeHtml(item.status)}</span>
         `;
 

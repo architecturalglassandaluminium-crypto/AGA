@@ -36,9 +36,16 @@
     --text-light: #6b7280;
     --text-muted: #9ca3af;
 
-    --radius: 8px;
-    --shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+    --radius: 12px;
+    --radius-sm: 8px;
+    --shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
     --shadow-lg: 0 20px 50px rgba(0, 0, 0, 0.25);
+
+    /* Dashboard card accents */
+    --card-total: #2563eb;
+    --card-measured: #0891b2;
+    --card-production: #d97706;
+    --card-ready: #16a34a;
 }
 
 html {
@@ -151,11 +158,24 @@ img {
     border: none;
     background: transparent;
     padding: 10px 16px;
-    border-radius: 6px;
+    border-radius: var(--radius-sm);
     color: var(--secondary);
     font-weight: 600;
     white-space: nowrap;
     font-size: 14px;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.nav-icon {
+    font-size: 15px;
+    line-height: 1;
+}
+
+.nav-label {
+    font-size: 14px;
+    font-weight: 600;
 }
 
 .nav-button:hover {
@@ -212,30 +232,136 @@ img {
 .dashboard-cards {
     display: grid;
     grid-template-columns: repeat(4, 1fr);
-    gap: 16px;
-    margin-bottom: 25px;
+    gap: 14px;
+    margin-bottom: 22px;
 }
 
 .dashboard-card {
     background: var(--surface);
     border: 1px solid var(--border);
     border-radius: var(--radius);
-    padding: 20px;
+    padding: 16px 14px;
     box-shadow: var(--shadow);
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    transition: transform 0.15s, box-shadow 0.15s;
+}
+
+.dashboard-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 18px rgba(0, 0, 0, 0.12);
+}
+
+.dashboard-card-icon {
+    font-size: 22px;
+    line-height: 1;
 }
 
 .dashboard-card-label {
-    font-size: 13px;
+    font-size: 11px;
     text-transform: uppercase;
+    letter-spacing: 0.4px;
     color: var(--text-light);
-    margin-bottom: 8px;
-    display: block;
+    order: 3;
 }
 
 .dashboard-card-value {
-    font-size: 32px;
-    font-weight: 700;
+    font-size: 28px;
+    font-weight: 800;
     color: var(--primary);
+    order: 2;
+}
+
+/* Colored accents per card */
+.card-total {
+    border-left: 4px solid var(--card-total);
+}
+.card-total .dashboard-card-value {
+    color: var(--card-total);
+}
+
+.card-measured {
+    border-left: 4px solid var(--card-measured);
+}
+.card-measured .dashboard-card-value {
+    color: var(--card-measured);
+}
+
+.card-production {
+    border-left: 4px solid var(--card-production);
+}
+.card-production .dashboard-card-value {
+    color: var(--card-production);
+}
+
+.card-ready {
+    border-left: 4px solid var(--card-ready);
+}
+.card-ready .dashboard-card-value {
+    color: var(--card-ready);
+}
+
+/* -------------------------
+   PRODUCTION PIPELINE
+------------------------- */
+
+.pipeline-card {
+    margin-bottom: 20px;
+}
+
+.pipeline-bar {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+    position: relative;
+}
+
+.pipeline-segment {
+    flex: 1 1 0;
+    min-width: 90px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    padding: 10px 0;
+    border-radius: var(--radius-sm);
+    background: var(--surface-light);
+    border: 1px solid var(--border);
+}
+
+.pipeline-count {
+    font-size: 20px;
+    font-weight: 800;
+    color: var(--primary);
+}
+
+.pipeline-segment small {
+    font-size: 11px;
+    color: var(--text-light);
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+}
+
+.pipeline-segment[data-status="Measured"] .pipeline-count {
+    color: var(--card-measured);
+}
+
+.pipeline-segment[data-status="In Production"] .pipeline-count {
+    color: var(--card-production);
+}
+
+.pipeline-segment[data-status="Ready for Installation"] .pipeline-count {
+    color: #92400e;
+}
+
+.pipeline-segment[data-status="Installed"] .pipeline-count {
+    color: #155e75;
+}
+
+.pipeline-segment[data-status="Completed"] .pipeline-count {
+    color: var(--card-ready);
 }
 
 /* -------------------------
@@ -246,8 +372,8 @@ img {
     background: var(--surface);
     border: 1px solid var(--border);
     border-radius: var(--radius);
-    padding: 22px;
-    margin-bottom: 20px;
+    padding: 16px;
+    margin-bottom: 16px;
     box-shadow: var(--shadow);
 }
 
@@ -308,11 +434,12 @@ img {
 .form-group textarea {
     width: 100%;
     border: 1px solid var(--border);
-    border-radius: 6px;
-    padding: 10px 12px;
+    border-radius: var(--radius-sm);
+    padding: 8px 10px;
     background: white;
     color: var(--text);
     outline: none;
+    font-size: 14px;
     transition: border 0.2s, box-shadow 0.2s;
 }
 
@@ -391,17 +518,21 @@ img {
     justify-content: center;
     gap: 7px;
     border: none;
-    border-radius: 6px;
-    padding: 10px 18px;
+    border-radius: var(--radius-sm);
+    padding: 9px 16px;
     font-weight: 700;
     background: var(--accent);
     color: white;
-    transition: background 0.2s;
+    transition: background 0.2s, transform 0.1s;
     text-decoration: none;
 }
 
 .primary-button:hover {
     background: var(--accent-dark);
+}
+
+.primary-button:active {
+    transform: scale(0.97);
 }
 
 .secondary-button {
@@ -410,8 +541,8 @@ img {
     justify-content: center;
     gap: 7px;
     border: 1px solid var(--border);
-    border-radius: 6px;
-    padding: 9px 16px;
+    border-radius: var(--radius-sm);
+    padding: 8px 14px;
     font-weight: 600;
     background: white;
     color: var(--secondary);
@@ -452,10 +583,11 @@ img {
 .window-filter-bar input,
 .window-filter-bar select {
     border: 1px solid var(--border);
-    border-radius: 6px;
-    padding: 10px 12px;
+    border-radius: var(--radius-sm);
+    padding: 8px 10px;
     background: white;
     width: 100%;
+    font-size: 14px;
 }
 
 .window-card {
@@ -513,12 +645,12 @@ img {
 
 .recent-window {
     display: grid;
-    grid-template-columns: 1fr auto auto;
+    grid-template-columns: 1fr auto;
     align-items: center;
     gap: 12px;
     padding: 12px 14px;
     border: 1px solid var(--border);
-    border-radius: var(--radius);
+    border-radius: var(--radius-sm);
     background: var(--surface-light);
     cursor: pointer;
     transition: background 0.15s, border-color 0.15s;
@@ -529,13 +661,30 @@ img {
     border-color: var(--border-dark);
 }
 
-.recent-window strong {
-    color: var(--primary);
+.recent-window-main {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    min-width: 0;
 }
 
-.recent-window > span {
+.recent-window-main strong {
+    color: var(--primary);
+    font-size: 14px;
+}
+
+.recent-window-main span {
+    color: var(--text);
     font-size: 13px;
-    color: var(--text-light);
+    font-weight: 600;
+}
+
+.recent-window-main small {
+    color: var(--text-muted);
+    font-size: 12px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
 
@@ -1303,6 +1452,10 @@ img {
         grid-template-columns: repeat(2, 1fr);
     }
 
+    .pipeline-segment {
+        flex: 1 1 30%;
+    }
+
     .form-grid,
     .form-grid.four {
         grid-template-columns: repeat(2, 1fr);
@@ -1333,7 +1486,7 @@ img {
     }
 
     .header-content {
-        padding: 14px 15px;
+        padding: 12px 14px;
         flex-direction: column;
         align-items: flex-start;
     }
@@ -1354,35 +1507,108 @@ img {
         display: none;
     }
 
+    /*
+       Bottom, thumb-friendly navigation on phones.
+       Icons sit above small labels, evenly spread.
+    */
     .main-navigation {
-        top: 62px;
-        padding: 6px;
+        position: fixed;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        top: auto;
+        z-index: 2000;
+        background: var(--primary);
+        color: white;
+        border-top: 1px solid var(--primary-dark);
+        box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35);
+        display: flex;
+        justify-content: space-around;
+        align-items: center;
+        gap: 0;
+        padding: 8px 0 10px;
+        overflow-x: visible;
     }
 
     .nav-button {
-        padding: 9px 12px;
-        font-size: 12px;
+        border: none;
+        background: transparent;
+        padding: 6px 0;
+        flex: 1 1 0;
+        color: rgba(255, 255, 255, 0.75);
+        font-weight: 600;
+        white-space: nowrap;
+        font-size: 10px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 3px;
+        line-height: 1;
+    }
+
+    .nav-icon {
+        font-size: 20px;
+        line-height: 1;
+    }
+
+    .nav-label {
+        font-size: 10px;
+    }
+
+    .nav-button.active {
+        color: #ffffff;
+        background: transparent;
+        border-radius: 0;
+        box-shadow: inset 0 -3px 0 rgba(255, 255, 255, 0.85);
+    }
+
+    /* Make room for the fixed bottom bar. */
+    body {
+        padding-bottom: 62px;
     }
 
     .app-container {
-        padding: 15px;
+        padding: 14px 14px 20px;
     }
 
     .page-header h2 {
-        font-size: 21px;
+        font-size: 20px;
+    }
+
+    .page-header {
+        margin-bottom: 14px;
     }
 
     .dashboard-cards {
         grid-template-columns: 1fr 1fr;
         gap: 10px;
+        margin-bottom: 16px;
     }
 
     .dashboard-card {
-        padding: 14px;
+        padding: 12px 10px;
+    }
+
+    .dashboard-card-icon {
+        font-size: 18px;
     }
 
     .dashboard-card-value {
-        font-size: 25px;
+        font-size: 22px;
+    }
+
+    .dashboard-card-label {
+        font-size: 9px;
+    }
+
+    .pipeline-segment {
+        flex: 1 1 40%;
+        min-width: 0;
+        padding: 8px 0;
+    }
+
+    .pipeline-count {
+        font-size: 16px;
     }
 
     .form-grid,
@@ -1392,7 +1618,7 @@ img {
     }
 
     .section-card {
-        padding: 15px;
+        padding: 13px;
     }
 
     .measurement-table {
@@ -1404,7 +1630,8 @@ img {
     }
 
     .recent-window {
-        grid-template-columns: 1fr auto;
+        grid-template-columns: 1fr;
+        gap: 8px;
     }
 
     .employee-list {
@@ -1418,6 +1645,7 @@ img {
     .form-actions .primary-button,
     .form-actions .secondary-button {
         width: 100%;
+        min-height: 46px;
     }
 
     .modal {
@@ -1429,7 +1657,7 @@ img {
     }
 
     .modal-body {
-        padding: 15px;
+        padding: 14px;
     }
 
     .details-top {
@@ -1459,6 +1687,11 @@ img {
 
     .qr-reader {
         max-width: 100%;
+    }
+
+    /* Keep the scanner controls clear of the bottom nav. */
+    #scanner-view {
+        padding-bottom: 76px;
     }
 }
 
