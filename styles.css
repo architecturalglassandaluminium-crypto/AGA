@@ -733,7 +733,7 @@ img {
 .window-rows-table {
     width: 100%;
     border-collapse: collapse;
-    min-width: 720px;
+    min-width: 840px;
 }
 
 .window-rows-table th,
@@ -806,6 +806,134 @@ img {
 .window-rows-actions {
     margin-top: 14px;
     justify-content: flex-start;
+}
+
+/* Row photo: add button, thumbnail, remove */
+
+.window-row-photo-cell {
+    width: 96px;
+}
+
+.row-photo {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 40px;
+}
+
+.row-photo-add {
+    border: 1px dashed var(--border-dark);
+    background: var(--surface-light);
+    border-radius: var(--radius-sm);
+    width: 40px;
+    height: 40px;
+    font-size: 18px;
+    line-height: 1;
+    cursor: pointer;
+    transition: border-color 0.15s ease, background 0.15s ease;
+}
+
+.row-photo-add:hover {
+    border-color: var(--accent);
+    background: #eef4ff;
+}
+
+.row-photo-preview {
+    position: relative;
+    display: inline-block;
+    line-height: 0;
+}
+
+.row-photo-preview img {
+    width: 56px;
+    height: 56px;
+    object-fit: cover;
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--border);
+    display: block;
+}
+
+.row-photo-remove {
+    position: absolute;
+    top: -7px;
+    right: -7px;
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    border: 1px solid var(--danger);
+    background: white;
+    color: var(--danger);
+    font-size: 13px;
+    line-height: 1;
+    cursor: pointer;
+    padding: 0;
+}
+
+.row-photo-remove:hover {
+    background: var(--danger);
+    color: white;
+}
+
+/* Saved photo thumbnail in a project row / window card */
+
+.saved-photo-cell {
+    width: 76px;
+}
+
+.saved-photo {
+    border: 1px solid var(--border);
+    background: white;
+    padding: 0;
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    line-height: 0;
+    overflow: hidden;
+}
+
+.saved-photo img {
+    width: 52px;
+    height: 52px;
+    object-fit: cover;
+    display: block;
+}
+
+.saved-photo:hover {
+    border-color: var(--accent);
+}
+
+.photo-none {
+    font-size: 12px;
+    color: var(--text-muted);
+}
+
+.window-card-photo-line {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+/* Full-size photo viewer (reuses the modal) */
+
+.photo-viewer {
+    text-align: center;
+}
+
+.photo-viewer img {
+    max-width: 100%;
+    max-height: 70vh;
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--border);
+}
+
+/* Printed window schedule photos */
+
+.print-row-photo {
+    width: 34px;
+    height: 34px;
+    object-fit: cover;
+    border: 1px solid #999;
+    border-radius: 3px;
+    display: block;
 }
 
 .recent-window {

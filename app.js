@@ -1240,14 +1240,199 @@ function addProjectWindowRow(rowData = {}) {
                 ${frameColourOptions(rowData.frameColour)}
             </select>
         </td>
+        <td class="window-row-photo-cell">
+            <div class="row-photo" data-field="photo">
+                <input type="file" class="row-photo-input" accept="image/*" capture="environment"
+                    hidden onchange="handleRowPhotoPick(this)">
+
+                <button type="button" class="row-photo-add" title="Add photo"
+                    onclick="this.previousElementSibling.click()">
+                    <span aria-hidden="true">📷</span>
+                </button>
+
+                <div class="row-photo-preview" hidden>
+                    <img alt="Window photo">
+                    <button type="button" class="row-photo-remove" title="Remove photo"
+                        onclick="clearRowPhoto(this)">×</button>
+                </div>
+            </div>
+        </td>
         <td class="window-row-actions">
             <button type="button" class="icon-button" title="Remove window row"
                 onclick="removeProjectWindowRow('${rowId}')">×</button>
         </td>
     `;
 
+    /*
+       Seed the thumbnail when re-opening a saved row.
+    */
+    if (rowData.photo) {
+        setRowPhotoThumbnail(
+            tr.querySelector('[data-field="photo"]'),
+            rowData.photo
+        );
+    }
+
     tbody.appendChild(tr);
 }
+
+/* =========================================================
+   ROW PHOTO
+   =========================================================
+
+   Every window row can carry one photo. The image is held on the
+   file input's sibling <img> as a data URL, so collecting rows on
+   save needs no extra bookkeeping.
+*/
+
+function setRowPhotoThumbnail(photoCell, dataUrl) {
+
+    if (!photoCell || !dataUrl) {
+        return;
+    }
+
+    const img = photoCell.querySelector(".row-photo-preview img");
+    const preview = photoCell.querySelector(".row-photo-preview");
+    const addButton = photoCell.querySelector(".row-photo-add");
+    const input = photoCell.querySelector(".row-photo-input");
+
+    if (img) {
+        img.src = dataUrl;
+    }
+
+    if (preview) {
+        preview.hidden = false;
+    }
+
+    if (addButton) {
+        addButton.hidden = true;
+    }
+
+    /*
+       Remember the data URL so a row can be collected faithfully
+       even if the file input itself is empty (a re-opened row).
+    */
+    if (input) {
+        input.dataset.photo = dataUrl;
+    }
+}
+
+function handleRowPhotoPick(input) {
+
+    try {
+
+        const file = input?.files?.[0];
+
+        if (!file) {
+            return;
+        }
+
+        const validationError = validatePhoto(file);
+
+        if (validationError) {
+            showError(validationError);
+            input.value = "";
+            return;
+        }
+
+        const photoCell = input.closest('[data-field="photo"]');
+
+        const reader = new FileReader();
+
+        reader.onload = () => {
+            setRowPhotoThumbnail(photoCell, String(reader.result));
+        };
+
+        reader.onerror = () => {
+            showError("The photo could not be read. Please try another image.");
+            input.value = "";
+        };
+
+        reader.readAsDataURL(file);
+
+    } catch (error) {
+
+        console.error("Row photo error:", error);
+
+        showError("There was a problem with the selected photo.");
+    }
+}
+
+function clearRowPhoto(button) {
+
+    const photoCell = button?.closest('[data-field="photo"]');
+
+    if (!photoCell) {
+        return;
+    }
+
+    const img = photoCell.querySelector(".row-photo-preview img");
+    const preview = photoCell.querySelector(".row-photo-preview");
+    const addButton = photoCell.querySelector(".row-photo-add");
+    const input = photoCell.querySelector(".row-photo-input");
+
+    if (img) {
+        img.removeAttribute("src");
+    }
+
+    if (preview) {
+        preview.hidden = true;
+    }
+
+    if (addButton) {
+        addButton.hidden = false;
+    }
+
+    if (input) {
+        input.value = "";
+        delete input.dataset.photo;
+    }
+}
+
+window.handleRowPhotoPick = handleRowPhotoPick;
+window.clearRowPhoto = clearRowPhoto;
+
+/*
+   Open a saved window photo full size.
+*/
+function openPhotoViewer(button) {
+
+    try {
+
+        const img = button?.querySelector("img");
+
+        if (!img?.src) {
+            return;
+        }
+
+        const title = $("modalWindowTitle");
+        const content = $("modalWindowContent");
+
+        if (title) {
+            title.textContent = "Window Photo";
+        }
+
+        if (content) {
+            content.innerHTML =
+                `<div class="photo-viewer"><img src="${escapeHtml(img.src)}" alt="Window photo"></div>`;
+        }
+
+        const modal = $("windowModal");
+
+        if (modal) {
+            modal.classList.add("open");
+            modal.setAttribute("aria-hidden", "false");
+        }
+
+    } catch (error) {
+
+        console.error("Photo viewer error:", error);
+
+        showError("The photo could not be opened.");
+    }
+}
+
+window.openPhotoViewer = openPhotoViewer;
 
 function removeProjectWindowRow(rowId) {
 
@@ -1297,6 +1482,9 @@ function collectProjectWindowRows() {
         ),
         frameColour: safeText(
             tr.querySelector('[data-field="frameColour"]')?.value
+        ),
+        photo: safeText(
+            tr.querySelector('.row-photo-input')?.dataset.photo
         )
     }));
 }
@@ -1310,7 +1498,8 @@ function isBlankWindowRow(row) {
         !row.location &&
         !row.length &&
         !row.width &&
-        !row.frameColour;
+        !row.frameColour &&
+        !row.photo;
 }
 
 function resetProjectForm() {
@@ -1474,6 +1663,7 @@ function createProject(event) {
                 length: Number(row.length),
                 width: Number(row.width),
                 frameColour: row.frameColour,
+                photo: row.photo || "",
                 status: "Measured",
                 createdAt: now
             }));
@@ -1733,6 +1923,11 @@ function renderWindowsList(
                 <p>
                     <strong>Frame Color:</strong>
                     ${escapeHtml(item.frameColour)}
+                </p>
+
+                <p class="window-card-photo-line">
+                    <strong>Photo:</strong>
+                    ${savedPhotoHtml(item.photo)}
                 </p>
 
             </div>
@@ -2129,6 +2324,7 @@ function windowRowTableHtml(windows) {
             <td>${escapeHtml(window.length)} mm</td>
             <td>${escapeHtml(window.width)} mm</td>
             <td>${escapeHtml(window.frameColour)}</td>
+            <td class="saved-photo-cell">${savedPhotoHtml(window.photo)}</td>
         </tr>
     `).join("");
 
@@ -2143,12 +2339,30 @@ function windowRowTableHtml(windows) {
                         <th>Length</th>
                         <th>Width</th>
                         <th>Frame Color</th>
+                        <th>Photo</th>
                     </tr>
                 </thead>
                 <tbody>${rows}</tbody>
             </table>
         </div>
     `;
+}
+
+/*
+   A saved window's photo: a small thumbnail that opens full size.
+   The data URL is passed through escapeHtml so a crafted image
+   URL cannot break out of the attribute.
+*/
+function savedPhotoHtml(photo) {
+
+    if (!photo) {
+        return `<span class="photo-none">No photo</span>`;
+    }
+
+    return `<button type="button" class="saved-photo" title="View photo"
+        onclick="openPhotoViewer(this)">
+        <img src="${escapeHtml(photo)}" alt="Window photo">
+    </button>`;
 }
 
 function renderProjects(
@@ -2366,8 +2580,9 @@ function printProject(projectId) {
                     <td>${escapeHtml(window.length)} mm</td>
                     <td>${escapeHtml(window.width)} mm</td>
                     <td>${escapeHtml(window.frameColour)}</td>
+                    <td>${window.photo ? `<img class="print-row-photo" src="${escapeHtml(window.photo)}" alt="">` : "-"}</td>
                 </tr>
-            `).join("") || `<tr><td colspan="6">No windows captured.</td></tr>`;
+            `).join("") || `<tr><td colspan="7">No windows captured.</td></tr>`;
         }
 
         setPrintText("printNotes", "-");
