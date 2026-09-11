@@ -1208,6 +1208,42 @@ function frameColourOptions(selectedValue) {
     }).join("");
 }
 
+/*
+   Show the next window ID on each unsaved row, so the person
+   capturing the window can see what number it will get.
+   Rows already saved keep the ID they were stored with.
+*/
+function refreshRowIdPreviews() {
+
+    const tbody = $("projectWindowRows");
+
+    if (!tbody) {
+        return;
+    }
+
+    let nextId = getHighestWindowId() + 1;
+
+    tbody.querySelectorAll("tr").forEach(tr => {
+
+        const cell = tr.querySelector('[data-field="windowId"]');
+
+        if (!cell) {
+            return;
+        }
+
+        const stored = tr.dataset.windowNumber;
+
+        if (stored) {
+            cell.textContent = stored;
+            return;
+        }
+
+        cell.textContent = formatWindowId(nextId);
+
+        nextId += 1;
+    });
+}
+
 function glassTypeOptions(selectedValue) {
     return GLASS_TYPES.map(type => {
         const selected =
@@ -1238,6 +1274,9 @@ function addProjectWindowRow(rowData = {}) {
     tr.id = rowId;
 
     tr.innerHTML = `
+        <td class="window-row-id-cell">
+            <span class="window-row-id" data-field="windowId">${escapeHtml(rowData.windowNumber || "—")}</span>
+        </td>
         <td>
             <input type="text" class="window-row-input" data-field="description"
                 placeholder="e.g. Bedroom 1 window" value="${escapeHtml(rowData.description)}">
@@ -1299,7 +1338,21 @@ function addProjectWindowRow(rowData = {}) {
         );
     }
 
+    /*
+       Remember a saved ID so refreshing previews does not
+       renumber a row that already exists.
+    */
+    if (rowData.windowNumber) {
+        tr.dataset.windowNumber = rowData.windowNumber;
+    }
+
     tbody.appendChild(tr);
+
+    /*
+       Must run AFTER the row is in the table, otherwise the new
+       row is not yet visible to the preview refresh.
+    */
+    refreshRowIdPreviews();
 }
 
 /* =========================================================
@@ -1479,6 +1532,8 @@ function removeProjectWindowRow(rowId) {
     if (tbody && tbody.querySelectorAll("tr").length === 0) {
         addProjectWindowRow();
     }
+
+    refreshRowIdPreviews();
 }
 
 window.removeProjectWindowRow = removeProjectWindowRow;
@@ -1564,6 +1619,8 @@ function openProjectForm() {
     }
 
     form.hidden = false;
+
+    refreshRowIdPreviews();
 
     form.scrollIntoView({ block: "start" });
 }
@@ -1671,6 +1728,40 @@ function generateProjectNumber() {
     return number;
 }
 
+/*
+   Window ID
+   =========================================================
+
+   Every window gets a human-readable ID that keeps counting up
+   across ALL projects, so the workshop can refer to "window 7"
+   on the floor without ambiguity.
+
+   The next number is derived from the highest ID already saved,
+   and reserved IDs are passed in while building a batch so that
+   the windows of one project do not all receive the same number.
+*/
+
+function getHighestWindowId() {
+
+    let highest = 0;
+
+    getProjects().forEach(project => {
+        (project.windows || []).forEach(window => {
+            const value = Number(window.windowId);
+
+            if (Number.isFinite(value) && value > highest) {
+                highest = value;
+            }
+        });
+    });
+
+    return highest;
+}
+
+function formatWindowId(value) {
+    return `AGA-WIN-${String(value).padStart(4, "0")}`;
+}
+
 function createProject(event) {
 
     event?.preventDefault();
@@ -1688,10 +1779,21 @@ function createProject(event) {
 
         const now = new Date().toISOString();
 
+        /*
+           Continue counting from the highest window ID already
+           stored, so IDs increase across every project.
+        */
+        let nextWindowId = getHighestWindowId() + 1;
+
         const windows = collectProjectWindowRows()
             .filter(row => !isBlankWindowRow(row))
             .map(row => ({
                 id: uuid(),
+
+                windowId: nextWindowId++,
+
+                windowNumber: formatWindowId(nextWindowId - 1),
+
                 description: row.description,
                 location: row.location,
                 length: Number(row.length),
@@ -1925,6 +2027,10 @@ function renderWindowsList(
                 <strong>
                     ${escapeHtml(item.description)}
                 </strong>
+
+                <span class="window-id-badge">
+                    ${escapeHtml(item.windowNumber || formatWindowId(item.windowId) || "—")}
+                </span>
 
                 <span class="project-window-count">
                     ${escapeHtml(item.projectNumber)}
@@ -2359,9 +2465,9 @@ function renderEmployees() {
 
 function windowRowTableHtml(windows) {
 
-    const rows = windows.map((window, index) => `
+    const rows = windows.map(window => `
         <tr>
-            <td>${index + 1}</td>
+            <td><span class="window-id-badge">${escapeHtml(window.windowNumber || formatWindowId(window.windowId) || "—")}</span></td>
             <td>${escapeHtml(window.description)}</td>
             <td>${escapeHtml(window.location)}</td>
             <td>${escapeHtml(window.length)} mm</td>
@@ -2619,7 +2725,7 @@ function printProject(projectId) {
         if (schedule) {
             schedule.innerHTML = windows.map((window, index) => `
                 <tr>
-                    <td>${index + 1}</td>
+                    <td>${escapeHtml(window.windowNumber || formatWindowId(window.windowId) || "—")}</td>
                     <td>${escapeHtml(window.description)}</td>
                     <td>${escapeHtml(window.location)}</td>
                     <td>${escapeHtml(window.length)} mm</td>

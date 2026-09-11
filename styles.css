@@ -810,6 +810,35 @@ img {
 
 /* Row photo: add button, thumbnail, remove */
 
+.window-row-id-cell {
+    width: 110px;
+}
+
+.window-row-id {
+    display: inline-block;
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--primary);
+    background: #eef2f7;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    padding: 5px 8px;
+    white-space: nowrap;
+}
+
+.window-id-badge {
+    display: inline-block;
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--accent-dark);
+    background: #e8effc;
+    border-radius: var(--radius-sm);
+    padding: 3px 8px;
+    white-space: nowrap;
+}
+
 .window-row-photo-cell {
     width: 96px;
 }
