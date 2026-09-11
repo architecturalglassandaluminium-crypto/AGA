@@ -12,6 +12,21 @@ Validation + Error Handling
 
 const STORAGE_KEY = "aga_windows";
 const EMPLOYEE_KEY = "aga_employees";
+const PROJECT_KEY = "aga_projects";
+
+/*
+   Frame colours offered on every window row.
+*/
+const FRAME_COLOURS = [
+    "Natural Aluminium",
+    "Clear Anodised",
+    "Bronze",
+    "Charcoal",
+    "Black",
+    "White",
+    "Dark Bronze",
+    "Custom"
+];
 
 const STATUSES = [
     "Measured",
@@ -183,6 +198,60 @@ function saveEmployees(employees) {
 
         showError(
             "The employee could not be saved."
+        );
+
+        return false;
+    }
+}
+
+/*
+   PROJECTS
+   A project is a single job (site) that contains one or many
+   windows. Each window is stored as a flat row:
+
+       { description, location, length, width, frameColour }
+*/
+
+function getProjects() {
+    try {
+        const stored = localStorage.getItem(PROJECT_KEY);
+
+        if (!stored) {
+            return [];
+        }
+
+        const parsed = JSON.parse(stored);
+
+        if (!Array.isArray(parsed)) {
+            console.warn("Invalid project data found in localStorage.");
+            return [];
+        }
+
+        return parsed;
+    } catch (error) {
+        console.error("Could not read projects:", error);
+
+        showError(
+            "The saved project data could not be loaded. Please refresh the page."
+        );
+
+        return [];
+    }
+}
+
+function saveProjects(projects) {
+    try {
+        localStorage.setItem(
+            PROJECT_KEY,
+            JSON.stringify(projects)
+        );
+
+        return true;
+    } catch (error) {
+        console.error("Could not save projects:", error);
+
+        showError(
+            "The project could not be saved. Your browser storage may be full."
         );
 
         return false;
@@ -1109,6 +1178,352 @@ function addEmployee(event) {
 }
 
 /* =========================================================
+   PROJECT WINDOW ROWS
+   =========================================================
+
+   Each row of the project table is one window:
+   Description, Location, Length, Width, Frame Color.
+   Rows live in the DOM and are collected on save.
+*/
+
+let projectRowCounter = 0;
+
+function frameColourOptions(selectedValue) {
+    return FRAME_COLOURS.map(colour => {
+        const selected =
+            safeText(colour).toLowerCase() ===
+            safeText(selectedValue).toLowerCase()
+                ? " selected"
+                : "";
+
+        return `<option value="${escapeHtml(colour)}"${selected}>${escapeHtml(colour)}</option>`;
+    }).join("");
+}
+
+function addProjectWindowRow(rowData = {}) {
+
+    const tbody = $("projectWindowRows");
+
+    if (!tbody) {
+        return;
+    }
+
+    projectRowCounter += 1;
+
+    const rowId = `projectRow-${projectRowCounter}`;
+
+    const tr = document.createElement("tr");
+
+    tr.className = "window-row";
+    tr.id = rowId;
+
+    tr.innerHTML = `
+        <td>
+            <input type="text" class="window-row-input" data-field="description"
+                placeholder="e.g. Bedroom 1 window" value="${escapeHtml(rowData.description)}">
+        </td>
+        <td>
+            <input type="text" class="window-row-input" data-field="location"
+                placeholder="e.g. First floor" value="${escapeHtml(rowData.location)}">
+        </td>
+        <td>
+            <input type="number" class="window-row-input" data-field="length" min="0" step="1"
+                placeholder="mm" value="${escapeHtml(rowData.length)}">
+        </td>
+        <td>
+            <input type="number" class="window-row-input" data-field="width" min="0" step="1"
+                placeholder="mm" value="${escapeHtml(rowData.width)}">
+        </td>
+        <td>
+            <select class="window-row-input" data-field="frameColour">
+                <option value="">Select colour</option>
+                ${frameColourOptions(rowData.frameColour)}
+            </select>
+        </td>
+        <td class="window-row-actions">
+            <button type="button" class="icon-button" title="Remove window row"
+                onclick="removeProjectWindowRow('${rowId}')">×</button>
+        </td>
+    `;
+
+    tbody.appendChild(tr);
+}
+
+function removeProjectWindowRow(rowId) {
+
+    const row = $(rowId);
+
+    if (!row) {
+        return;
+    }
+
+    const tbody = $("projectWindowRows");
+
+    row.remove();
+
+    /*
+       Always keep at least one row so the workshop can start
+       capturing immediately.
+    */
+    if (tbody && tbody.querySelectorAll("tr").length === 0) {
+        addProjectWindowRow();
+    }
+}
+
+window.removeProjectWindowRow = removeProjectWindowRow;
+
+function collectProjectWindowRows() {
+
+    const tbody = $("projectWindowRows");
+
+    if (!tbody) {
+        return [];
+    }
+
+    return Array.from(
+        tbody.querySelectorAll("tr")
+    ).map(tr => ({
+        description: safeText(
+            tr.querySelector('[data-field="description"]')?.value
+        ),
+        location: safeText(
+            tr.querySelector('[data-field="location"]')?.value
+        ),
+        length: safeText(
+            tr.querySelector('[data-field="length"]')?.value
+        ),
+        width: safeText(
+            tr.querySelector('[data-field="width"]')?.value
+        ),
+        frameColour: safeText(
+            tr.querySelector('[data-field="frameColour"]')?.value
+        )
+    }));
+}
+
+/*
+   A blank row (all five fields empty) is simply ignored, so an
+   unused row never blocks the save.
+*/
+function isBlankWindowRow(row) {
+    return !row.description &&
+        !row.location &&
+        !row.length &&
+        !row.width &&
+        !row.frameColour;
+}
+
+function resetProjectForm() {
+
+    const form = $("projectForm");
+
+    if (form) {
+        form.reset();
+    }
+
+    const tbody = $("projectWindowRows");
+
+    if (tbody) {
+        tbody.innerHTML = "";
+    }
+
+    projectRowCounter = 0;
+
+    addProjectWindowRow();
+
+    if (form) {
+        form.hidden = true;
+    }
+}
+
+function openProjectForm() {
+
+    const form = $("projectForm");
+
+    if (!form) {
+        return;
+    }
+
+    form.hidden = false;
+
+    form.scrollIntoView({ block: "start" });
+}
+
+/* =========================================================
+   PROJECT VALIDATION
+   ========================================================= */
+
+function validateProjectForm() {
+
+    const errors = [];
+
+    const projectName = safeText($("prjName")?.value);
+    const customerName = safeText($("prjCustomerName")?.value);
+    const customerEmail = safeText($("prjCustomerEmail")?.value);
+    const customerPhone = safeText($("prjCustomerPhone")?.value);
+
+    const nameError = validateRequired(projectName, "Project name");
+    if (nameError) {
+        errors.push(nameError);
+    } else if (projectName.length > 150) {
+        errors.push("Project name cannot exceed 150 characters.");
+    }
+
+    const customerError = validateRequired(customerName, "Customer name");
+    if (customerError) {
+        errors.push(customerError);
+    } else if (customerName.length < 2) {
+        errors.push("Customer name must contain at least 2 characters.");
+    } else if (customerName.length > 150) {
+        errors.push("Customer name cannot exceed 150 characters.");
+    }
+
+    if (customerEmail) {
+        const emailError = validateEmail(customerEmail);
+        if (emailError) {
+            errors.push(emailError);
+        }
+    }
+
+    if (customerPhone && customerPhone.length > 30) {
+        errors.push("Customer phone number is too long.");
+    }
+
+    const rows = collectProjectWindowRows()
+        .filter(row => !isBlankWindowRow(row));
+
+    if (rows.length === 0) {
+        errors.push("Add at least one window row to the project.");
+    }
+
+    rows.forEach((row, index) => {
+        const position = `Window row ${index + 1}`;
+
+        if (!row.description) {
+            errors.push(`${position}: description is required.`);
+        }
+
+        if (!row.location) {
+            errors.push(`${position}: location is required.`);
+        }
+
+        const lengthError = validateMeasurement(row.length, `${position} length`);
+        if (lengthError) {
+            errors.push(lengthError);
+        }
+
+        const widthError = validateMeasurement(row.width, `${position} width`);
+        if (widthError) {
+            errors.push(widthError);
+        }
+
+        if (!row.frameColour) {
+            errors.push(`${position}: frame color is required.`);
+        }
+    });
+
+    return errors;
+}
+
+/* =========================================================
+   CREATE PROJECT
+   ========================================================= */
+
+function generateProjectNumber() {
+
+    const projects = getProjects();
+
+    const year = new Date().getFullYear();
+
+    let number;
+
+    do {
+        number =
+            `AGA-PRJ-${year}-` +
+            Math.floor(1000 + Math.random() * 9000);
+    } while (
+        projects.some(project => project.projectNumber === number)
+    );
+
+    return number;
+}
+
+function createProject(event) {
+
+    event?.preventDefault();
+
+    try {
+
+        const errors = validateProjectForm();
+
+        if (errors.length > 0) {
+            displayValidationErrors(errors);
+            return;
+        }
+
+        const projects = getProjects();
+
+        const now = new Date().toISOString();
+
+        const windows = collectProjectWindowRows()
+            .filter(row => !isBlankWindowRow(row))
+            .map(row => ({
+                id: uuid(),
+                description: row.description,
+                location: row.location,
+                length: Number(row.length),
+                width: Number(row.width),
+                frameColour: row.frameColour,
+                status: "Measured",
+                createdAt: now
+            }));
+
+        const newProject = {
+            id: uuid(),
+
+            projectNumber: generateProjectNumber(),
+
+            projectName: safeText($("prjName")?.value),
+            customerName: safeText($("prjCustomerName")?.value),
+            customerEmail: safeText($("prjCustomerEmail")?.value),
+            customerPhone: safeText($("prjCustomerPhone")?.value),
+            siteAddress: safeText($("prjSiteAddress")?.value),
+
+            windows,
+
+            createdAt: now,
+            updatedAt: now
+        };
+
+        projects.push(newProject);
+
+        if (!saveProjects(projects)) {
+            return;
+        }
+
+        showSuccess(
+            `${newProject.projectNumber} saved with ${windows.length} window${windows.length === 1 ? "" : "s"}.`
+        );
+
+        resetProjectForm();
+
+        renderAll();
+
+    } catch (error) {
+
+        console.error(
+            "Unexpected error creating project:",
+            error
+        );
+
+        showError(
+            error.message ||
+            "Something went wrong while saving the project."
+        );
+    }
+}
+
+/* =========================================================
    PHOTO PREVIEW
    ========================================================= */
 
@@ -1185,7 +1600,7 @@ function filterWindows() {
             );
 
         const windows =
-            getWindows();
+            getAllWindowsWithProject();
 
         const filtered =
             windows.filter(item => {
@@ -1202,6 +1617,15 @@ function filterWindows() {
                         .toLowerCase()
                         .includes(search) ||
                     safeText(item.customerName)
+                        .toLowerCase()
+                        .includes(search) ||
+                    safeText(item.projectName)
+                        .toLowerCase()
+                        .includes(search) ||
+                    safeText(item.description)
+                        .toLowerCase()
+                        .includes(search) ||
+                    safeText(item.frameColour)
                         .toLowerCase()
                         .includes(search);
 
@@ -1236,7 +1660,7 @@ function filterWindows() {
    ========================================================= */
 
 function renderWindowsList(
-    windows = getWindows()
+    windows = getAllWindowsWithProject()
 ) {
 
     const container =
@@ -1252,7 +1676,8 @@ function renderWindowsList(
 
         container.innerHTML = `
             <div class="empty-state">
-                No windows found.
+                <h4>No windows yet</h4>
+                <p>Add windows by creating a project.</p>
             </div>
         `;
 
@@ -1267,21 +1692,23 @@ function renderWindowsList(
         card.className =
             "window-card";
 
-        const w = item.finalWidth || item.width;
-        const h = item.finalHeight || item.height;
-
         card.innerHTML = `
             <div class="window-card-header">
                 <strong>
-                    ${escapeHtml(item.windowNumber)}
+                    ${escapeHtml(item.description)}
                 </strong>
 
-                <span class="status-badge">
-                    ${escapeHtml(item.status)}
+                <span class="project-window-count">
+                    ${escapeHtml(item.projectNumber)}
                 </span>
             </div>
 
             <div class="window-card-body">
+
+                <p>
+                    <strong>Project:</strong>
+                    ${escapeHtml(item.projectName)}
+                </p>
 
                 <p>
                     <strong>Customer:</strong>
@@ -1290,48 +1717,61 @@ function renderWindowsList(
 
                 <p>
                     <strong>Location:</strong>
-                    ${escapeHtml(item.windowLocation || "-")}
+                    ${escapeHtml(item.location || "-")}
                 </p>
 
                 <p>
-                    <strong>Size:</strong>
-                    ${escapeHtml(w)} ×
-                    ${escapeHtml(h)} mm
+                    <strong>Length:</strong>
+                    ${escapeHtml(item.length)} mm
                 </p>
 
                 <p>
-                    <strong>Frame:</strong>
+                    <strong>Width:</strong>
+                    ${escapeHtml(item.width)} mm
+                </p>
+
+                <p>
+                    <strong>Frame Color:</strong>
                     ${escapeHtml(item.frameColour)}
                 </p>
 
-                <p class="manufacturer-line">
-                    <strong>Manufactured By:</strong>
-                    ${escapeHtml(item.manufacturedBy || "Not yet")}
-                </p>
-
-            </div>
-
-            <div class="window-card-actions">
-                <button
-                    type="button"
-                    class="secondary-button card-action"
-                    onclick="viewWindow('${item.id}')"
-                >
-                    View
-                </button>
-
-                <button
-                    type="button"
-                    class="secondary-button card-action"
-                    onclick="printWindow('${item.id}')"
-                >
-                    Print
-                </button>
             </div>
         `;
 
         container.appendChild(card);
     });
+}
+
+/* =========================================================
+   FLATTEN PROJECTS INTO WINDOWS
+   =========================================================
+
+   A window is now captured as a row inside a project, so the
+   flat "all windows" list is derived rather than stored twice.
+   Each derived window keeps a back-reference to its project so
+   the source of truth stays the project record.
+*/
+
+function getAllWindowsWithProject() {
+
+    const flat = [];
+
+    getProjects().forEach(project => {
+
+        (project.windows || []).forEach(window => {
+
+            flat.push({
+                projectId: project.id,
+                projectNumber: project.projectNumber,
+                projectName: project.projectName,
+                customerName: project.customerName,
+                siteAddress: project.siteAddress,
+                ...window
+            });
+        });
+    });
+
+    return flat;
 }
 
 /* =========================================================
@@ -1671,13 +2111,304 @@ function renderEmployees() {
 }
 
 /* =========================================================
+   RENDER PROJECTS
+   =========================================================
+
+   A project shows its own details once, then every window as a
+   single table row:
+       Description | Location | Length | Width | Frame Color
+*/
+
+function windowRowTableHtml(windows) {
+
+    const rows = windows.map((window, index) => `
+        <tr>
+            <td>${index + 1}</td>
+            <td>${escapeHtml(window.description)}</td>
+            <td>${escapeHtml(window.location)}</td>
+            <td>${escapeHtml(window.length)} mm</td>
+            <td>${escapeHtml(window.width)} mm</td>
+            <td>${escapeHtml(window.frameColour)}</td>
+        </tr>
+    `).join("");
+
+    return `
+        <div class="window-rows-wrapper">
+            <table class="window-rows-table">
+                <thead>
+                    <tr>
+                        <th>#</th>
+                        <th>Description</th>
+                        <th>Location</th>
+                        <th>Length</th>
+                        <th>Width</th>
+                        <th>Frame Color</th>
+                    </tr>
+                </thead>
+                <tbody>${rows}</tbody>
+            </table>
+        </div>
+    `;
+}
+
+function renderProjects(
+    projects = getProjects()
+) {
+
+    const container = $("projectsList");
+
+    if (!container) {
+        return;
+    }
+
+    container.innerHTML = "";
+
+    if (!projects.length) {
+
+        container.innerHTML = `
+            <div class="empty-state">
+                <h4>No projects yet</h4>
+                <p>Create a project to capture all of its windows.</p>
+            </div>
+        `;
+
+        return;
+    }
+
+    projects.forEach(project => {
+
+        const windows = Array.isArray(project.windows)
+            ? project.windows
+            : [];
+
+        const card = document.createElement("div");
+
+        card.className = "project-card";
+
+        card.innerHTML = `
+            <div class="project-card-header">
+                <div class="project-card-title">
+                    <strong>${escapeHtml(project.projectName)}</strong>
+                    <span class="project-number">${escapeHtml(project.projectNumber)}</span>
+                </div>
+
+                <span class="project-window-count">
+                    ${windows.length} window${windows.length === 1 ? "" : "s"}
+                </span>
+            </div>
+
+            <div class="project-card-meta">
+                <p><strong>Customer:</strong> ${escapeHtml(project.customerName)}</p>
+                <p><strong>Phone:</strong> ${escapeHtml(project.customerPhone || "-")}</p>
+                <p><strong>Email:</strong> ${escapeHtml(project.customerEmail || "-")}</p>
+                <p><strong>Site:</strong> ${escapeHtml(project.siteAddress || "-")}</p>
+            </div>
+
+            ${windows.length
+                ? windowRowTableHtml(windows)
+                : `<p class="details-small">No windows captured on this project.</p>`}
+
+            <div class="window-card-actions">
+                <button type="button" class="secondary-button card-action"
+                    onclick="printProject('${project.id}')">
+                    Print
+                </button>
+
+                <button type="button" class="secondary-button card-action"
+                    onclick="deleteProject('${project.id}')">
+                    Delete
+                </button>
+            </div>
+        `;
+
+        container.appendChild(card);
+    });
+}
+
+function filterProjects() {
+
+    try {
+
+        const search = safeText(
+            $("projectSearch")?.value
+        ).toLowerCase();
+
+        const projects = getProjects().filter(project => {
+
+            if (!search) {
+                return true;
+            }
+
+            const windowText = (project.windows || [])
+                .map(window =>
+                    `${window.description} ${window.location} ${window.frameColour}`
+                )
+                .join(" ")
+                .toLowerCase();
+
+            return (
+                safeText(project.projectNumber).toLowerCase().includes(search) ||
+                safeText(project.projectName).toLowerCase().includes(search) ||
+                safeText(project.customerName).toLowerCase().includes(search) ||
+                safeText(project.siteAddress).toLowerCase().includes(search) ||
+                windowText.includes(search)
+            );
+        });
+
+        renderProjects(projects);
+
+    } catch (error) {
+
+        console.error("Project filter error:", error);
+
+        showError("The project list could not be filtered.");
+    }
+}
+
+/* =========================================================
+   DELETE PROJECT
+   ========================================================= */
+
+function deleteProject(projectId) {
+
+    try {
+
+        const projects = getProjects();
+
+        const project = projects.find(item => item.id === projectId);
+
+        if (!project) {
+            showError("The project could not be found.");
+            return;
+        }
+
+        const confirmed = confirm(
+            `Delete project "${project.projectName}" and its ${(project.windows || []).length} window(s)?\n\nThis cannot be undone.`
+        );
+
+        if (!confirmed) {
+            return;
+        }
+
+        const remaining = projects.filter(item => item.id !== projectId);
+
+        if (!saveProjects(remaining)) {
+            return;
+        }
+
+        showSuccess(`${project.projectNumber} deleted.`);
+
+        renderAll();
+
+    } catch (error) {
+
+        console.error("Delete project error:", error);
+
+        showError("The project could not be deleted.");
+    }
+}
+
+/* =========================================================
+   PRINT PROJECT SCHEDULE
+   =========================================================
+
+   Prints the whole project on one page: the project details
+   followed by every window as a single row.
+*/
+
+function printProject(projectId) {
+
+    try {
+
+        const project = getProjects().find(
+            item => item.id === projectId
+        );
+
+        if (!project) {
+            showError("The project could not be found.");
+            return;
+        }
+
+        const windows = Array.isArray(project.windows)
+            ? project.windows
+            : [];
+
+        setPrintText("printWindowId", project.projectNumber);
+        setPrintText("printProjectName", project.projectName);
+        setPrintText("printCustomerName", project.customerName);
+        setPrintText("printLocation", project.siteAddress);
+        setPrintText("printWindowType", `${windows.length} window(s)`);
+        setPrintText("printFrameColour", "See window schedule below");
+        setPrintText("printFrameSeries", project.customerPhone);
+        setPrintText("printWidth", "-");
+        setPrintText("printHeight", "-");
+        setPrintText("printGlassType", "-");
+        setPrintText("printGlassThickness", "-");
+
+        const photo = $("printPhoto");
+        if (photo) {
+            photo.src = "";
+        }
+
+        /*
+           Reuse the worksheet measurement table for the window
+           schedule: one row per window with description, location,
+           length, width and frame colour.
+        */
+        const schedule = $("printSchedule");
+
+        if (schedule) {
+            schedule.innerHTML = windows.map((window, index) => `
+                <tr>
+                    <td>${index + 1}</td>
+                    <td>${escapeHtml(window.description)}</td>
+                    <td>${escapeHtml(window.location)}</td>
+                    <td>${escapeHtml(window.length)} mm</td>
+                    <td>${escapeHtml(window.width)} mm</td>
+                    <td>${escapeHtml(window.frameColour)}</td>
+                </tr>
+            `).join("") || `<tr><td colspan="6">No windows captured.</td></tr>`;
+        }
+
+        setPrintText("printNotes", "-");
+        setPrintText("printStatus", windows.length ? "Measured" : "-");
+        setPrintText("printDate", new Date().toLocaleDateString("en-ZA"));
+        setPrintText("printManufacturer", "");
+        setPrintText("printEmployee", "");
+
+        generateQRCode("printQRCode", buildProjectQRContent(project.id));
+
+        setTimeout(() => {
+            window.print();
+        }, 250);
+
+    } catch (error) {
+
+        console.error("Print project error:", error);
+
+        showError("The project could not be printed.");
+    }
+}
+
+/*
+   Project QR codes open this app with ?project=PROJECT-ID.
+*/
+function buildProjectQRContent(projectId) {
+    const base = window.location.href.split("#")[0].split("?")[0];
+    return `${base}?project=${encodeURIComponent(projectId)}`;
+}
+
+window.printProject = printProject;
+window.deleteProject = deleteProject;
+
+/* =========================================================
    DASHBOARD
    ========================================================= */
 
 function renderDashboard() {
 
     const windows =
-        getWindows();
+        getAllWindowsWithProject();
 
     const counts = {};
 
@@ -1699,6 +2430,15 @@ function renderDashboard() {
     setTextIfExists(
         "totalWindows",
         windows.length
+    );
+
+    /*
+       Project total. A project holds one or more windows, so this
+       is reported next to the window count.
+    */
+    setTextIfExists(
+        "totalProjects",
+        getProjects().length
     );
 
     setTextIfExists(
@@ -1778,7 +2518,7 @@ function renderRecentWindows() {
     }
 
     const windows =
-        getWindows()
+        getAllWindowsWithProject()
             .sort(
                 (a, b) =>
                     new Date(b.createdAt) -
@@ -1808,20 +2548,17 @@ function renderRecentWindows() {
         row.className =
             "recent-window";
 
-        const w = item.finalWidth || item.width;
-        const h = item.finalHeight || item.height;
-
         row.innerHTML = `
             <div class="recent-window-main">
-                <strong>${escapeHtml(item.windowNumber)}</strong>
-                <span>${escapeHtml(item.customerName)}</span>
-                <small>${escapeHtml(item.windowLocation || "No location")} · ${escapeHtml(w)}×${escapeHtml(h)} mm</small>
+                <strong>${escapeHtml(item.description)}</strong>
+                <span>${escapeHtml(item.projectName)}</span>
+                <small>${escapeHtml(item.location || "No location")} · ${escapeHtml(item.length)}×${escapeHtml(item.width)} mm · ${escapeHtml(item.frameColour)}</small>
             </div>
-            <span class="status-badge">${escapeHtml(item.status)}</span>
+            <span class="project-window-count">${escapeHtml(item.projectNumber)}</span>
         `;
 
         row.addEventListener("click", () => {
-            viewWindow(item.id);
+            switchView("projects");
         });
 
         container.appendChild(row);
@@ -1838,6 +2575,7 @@ function renderAll() {
 
         renderDashboard();
         renderRecentWindows();
+        renderProjects();
         renderWindowsList();
         renderEmployees();
 
@@ -2277,13 +3015,27 @@ function handleFrameColourChange() {
    VIEW SWITCHING
    ========================================================= */
 
+/*
+   The single-window capture form was merged into the Projects flow:
+   a project holds one or many windows, so "new" now opens the project
+   form on the Projects view.
+*/
 const VIEW_NAMES = [
     "dashboard",
-    "new-window",
+    "projects",
     "windows",
     "scanner",
     "employees"
 ];
+
+/*
+   Any request for the retired "new-window" view is redirected here.
+*/
+function openNewProject() {
+    switchView("projects");
+    resetProjectForm();
+    openProjectForm();
+}
 
 function switchView(viewName) {
 
@@ -2340,16 +3092,6 @@ function initialiseEventListeners() {
 
     try {
 
-        const windowForm =
-            $("windowForm");
-
-        if (windowForm) {
-            windowForm.addEventListener(
-                "submit",
-                createWindow
-            );
-        }
-
         const employeeForm =
             $("employeeForm");
 
@@ -2357,6 +3099,62 @@ function initialiseEventListeners() {
             employeeForm.addEventListener(
                 "submit",
                 addEmployee
+            );
+        }
+
+        /*
+           Project form and its window rows
+        */
+        const projectForm =
+            $("projectForm");
+
+        if (projectForm) {
+            projectForm.addEventListener(
+                "submit",
+                createProject
+            );
+        }
+
+        const addRowButton =
+            $("addWindowRowButton");
+
+        if (addRowButton) {
+            addRowButton.addEventListener(
+                "click",
+                () => addProjectWindowRow()
+            );
+        }
+
+        const cancelProjectButton =
+            $("cancelProjectButton");
+
+        if (cancelProjectButton) {
+            cancelProjectButton.addEventListener(
+                "click",
+                resetProjectForm
+            );
+        }
+
+        const projectsNewButton =
+            $("projectsNewButton");
+
+        if (projectsNewButton) {
+            projectsNewButton.addEventListener(
+                "click",
+                () => {
+                    resetProjectForm();
+                    openProjectForm();
+                }
+            );
+        }
+
+        const projectSearch =
+            $("projectSearch");
+
+        if (projectSearch) {
+            projectSearch.addEventListener(
+                "input",
+                filterProjects
             );
         }
 
@@ -2437,17 +3235,6 @@ function initialiseEventListeners() {
             );
         }
 
-        const cancelButton =
-            $("cancelWindowButton");
-
-        if (cancelButton) {
-
-            cancelButton.addEventListener(
-                "click",
-                resetWindowForm
-            );
-        }
-
         /*
            Navigation buttons
         */
@@ -2465,7 +3252,7 @@ function initialiseEventListeners() {
 
         if (dashboardNewButton) {
             dashboardNewButton.addEventListener("click", () => {
-                switchView("new-window");
+                openNewProject();
             });
         }
 
@@ -2474,7 +3261,7 @@ function initialiseEventListeners() {
 
         if (windowsNewButton) {
             windowsNewButton.addEventListener("click", () => {
-                switchView("new-window");
+                openNewProject();
             });
         }
 
@@ -2516,6 +3303,29 @@ function handleDeepLink() {
     try {
         const params = new URLSearchParams(window.location.search);
         const windowId = params.get("window");
+        const projectId = params.get("project");
+
+        if (projectId) {
+            const project = getProjects().find(
+                item => item.id === projectId
+            );
+
+            switchView("projects");
+
+            if (project) {
+                showSuccess(`${project.projectNumber} opened.`);
+            } else {
+                showError("This project could not be found.");
+            }
+
+            const cleanProjectUrl =
+                window.location.origin +
+                window.location.pathname;
+
+            history.replaceState(null, "", cleanProjectUrl);
+
+            return;
+        }
 
         if (!windowId) {
             return;
@@ -2588,6 +3398,24 @@ window.getEmployees =
 window.getEmployeeName =
     getEmployeeName;
 
+window.getProjects =
+    getProjects;
+
+window.createProject =
+    createProject;
+
+window.addProjectWindowRow =
+    addProjectWindowRow;
+
+window.filterProjects =
+    filterProjects;
+
+window.openNewProject =
+    openNewProject;
+
+window.getAllWindowsWithProject =
+    getAllWindowsWithProject;
+
 /* =========================================================
    APPLICATION STARTUP
    ========================================================= */
@@ -2610,6 +3438,10 @@ document.addEventListener(
             }
 
             initialiseEventListeners();
+
+            /* Start the first project with a single empty window row. */
+            addProjectWindowRow();
+
             renderAll();
             handleDeepLink();
 

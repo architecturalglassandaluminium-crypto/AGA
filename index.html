@@ -37,9 +37,9 @@
             <span class="nav-icon" aria-hidden="true">🏠</span>
             <span class="nav-label">Dashboard</span>
         </button>
-        <button type="button" class="nav-button" data-view="new-window" aria-label="New Window">
-            <span class="nav-icon" aria-hidden="true">➕</span>
-            <span class="nav-label">New</span>
+        <button type="button" class="nav-button" data-view="projects" aria-label="Projects">
+            <span class="nav-icon" aria-hidden="true">🏗️</span>
+            <span class="nav-label">Projects</span>
         </button>
         <button type="button" class="nav-button" data-view="windows" aria-label="Windows">
             <span class="nav-icon" aria-hidden="true">📋</span>
@@ -63,11 +63,16 @@
                     <h2>Production Dashboard</h2>
                     <p>Track your windows and aluminium products through the manufacturing process.</p>
                 </div>
-                <button type="button" class="primary-button" id="dashboardNewWindowButton">+ New Window</button>
+                <button type="button" class="primary-button" id="dashboardNewWindowButton">+ New Project</button>
             </div>
 
             <!-- STATUS CARDS -->
             <div class="dashboard-cards">
+                <div class="dashboard-card card-total">
+                    <span class="dashboard-card-icon" aria-hidden="true">🏗️</span>
+                    <strong id="totalProjects" class="dashboard-card-value">0</strong>
+                    <span class="dashboard-card-label">Projects</span>
+                </div>
                 <div class="dashboard-card card-total">
                     <span class="dashboard-card-icon" aria-hidden="true">🪟</span>
                     <strong id="totalWindows" class="dashboard-card-value">0</strong>
@@ -135,236 +140,98 @@
             </div>
         </section>
 
-        <!-- NEW WINDOW VIEW -->
-        <section id="new-window-view" class="app-view">
+
+        <!-- PROJECTS VIEW -->
+        <section id="projects-view" class="app-view">
             <div class="page-header">
                 <div>
-                    <h2>New Window / Door</h2>
-                    <p>Capture the measurements and information required by the workshop.</p>
+                    <h2>Projects</h2>
+                    <p>One project can contain many windows. Capture each window as a row: description, location,
+                        length, width and frame colour.</p>
                 </div>
+                <button type="button" class="primary-button" id="projectsNewButton">+ New Project</button>
             </div>
 
-            <form id="windowForm" class="window-form" novalidate>
-
-                <!-- PROJECT INFORMATION -->
+            <!-- PROJECT FORM -->
+            <form id="projectForm" class="window-form" novalidate hidden>
                 <div class="section-card">
                     <div class="section-card-header">
                         <h3>Project Information</h3>
                     </div>
                     <div class="form-grid">
                         <div class="form-group">
-                            <label for="projectName">Project Name *</label>
-                            <input type="text" id="projectName" name="projectName" placeholder="Project / Site Name"
+                            <label for="prjName">Project Name *</label>
+                            <input type="text" id="prjName" name="prjName" placeholder="Project / Site Name"
                                 required>
                         </div>
                         <div class="form-group">
-                            <label for="customerName">Customer Name *</label>
-                            <input type="text" id="customerName" name="customerName" placeholder="Customer name"
-                                required>
+                            <label for="prjCustomerName">Customer Name *</label>
+                            <input type="text" id="prjCustomerName" name="prjCustomerName"
+                                placeholder="Customer name" required>
                         </div>
                         <div class="form-group">
-                            <label for="customerEmail">Customer Email</label>
-                            <input type="email" id="customerEmail" name="customerEmail"
+                            <label for="prjCustomerEmail">Customer Email</label>
+                            <input type="email" id="prjCustomerEmail" name="prjCustomerEmail"
                                 placeholder="customer@example.com">
                             <small>Used for automatic production updates.</small>
                         </div>
                         <div class="form-group">
-                            <label for="customerPhone">Customer Phone</label>
-                            <input type="tel" id="customerPhone" name="customerPhone"
+                            <label for="prjCustomerPhone">Customer Phone</label>
+                            <input type="tel" id="prjCustomerPhone" name="prjCustomerPhone"
                                 placeholder="Customer phone number">
                         </div>
                         <div class="form-group form-group-full">
-                            <label for="siteAddress">Site Address</label>
-                            <textarea id="siteAddress" name="siteAddress" rows="2"
+                            <label for="prjSiteAddress">Site Address</label>
+                            <textarea id="prjSiteAddress" name="prjSiteAddress" rows="2"
                                 placeholder="Installation address"></textarea>
                         </div>
                     </div>
                 </div>
 
-                <!-- WINDOW INFORMATION -->
+                <!-- WINDOWS IN PROJECT -->
                 <div class="section-card">
                     <div class="section-card-header">
-                        <h3>Window Information</h3>
+                        <h3>Windows in this Project</h3>
+                        <span class="measurement-note">Length and width in millimetres (mm)</span>
                     </div>
-                    <div class="form-grid">
-                        <div class="form-group">
-                            <label for="windowLocation">Window Location *</label>
-                            <input type="text" id="windowLocation" name="windowLocation" placeholder="e.g. Bedroom 1"
-                                required>
-                        </div>
-                        <div class="form-group">
-                            <label for="windowType">Window / Door Type *</label>
-                            <select id="windowType" name="windowType" required>
-                                <option value="">Select type</option>
-                                <option value="Window">Window</option>
-                                <option value="Door">Door</option>
-                                <option value="Sliding Door">Sliding Door</option>
-                                <option value="Stacking Door">Stacking Door</option>
-                                <option value="Folding Door">Folding Door</option>
-                                <option value="Shopfront">Shopfront</option>
-                                <option value="Fixed Panel">Fixed Panel</option>
-                                <option value="Other">Other</option>
-                            </select>
-                        </div>
-                        <div class="form-group">
-                            <label for="quantity">Quantity</label>
-                            <input type="number" id="quantity" name="quantity" min="1" value="1">
-                        </div>
-                    </div>
-                </div>
 
-                <!-- MEASUREMENTS -->
-                <div class="section-card">
-                    <div class="section-card-header">
-                        <h3>Measurements</h3>
-                        <span class="measurement-note">All measurements in millimetres (mm)</span>
-                    </div>
-                    <div class="measurement-table-wrapper">
-                        <table class="measurement-table">
+                    <div class="window-rows-wrapper">
+                        <table class="window-rows-table">
                             <thead>
                                 <tr>
-                                    <th>Measurement</th>
-                                    <th>Top/Left</th>
-                                    <th>Middle</th>
-                                    <th>Bottom/Right</th>
-                                    <th>Final</th>
+                                    <th>Description</th>
+                                    <th>Location</th>
+                                    <th>Length (mm)</th>
+                                    <th>Width (mm)</th>
+                                    <th>Frame Color</th>
+                                    <th aria-label="Actions"></th>
                                 </tr>
                             </thead>
-                            <tbody>
-                                <tr>
-                                    <td>Width</td>
-                                    <td><input type="number" id="widthTop" name="widthTop" min="0" step="1"></td>
-                                    <td><input type="number" id="widthMiddle" name="widthMiddle" min="0" step="1"></td>
-                                    <td><input type="number" id="widthBottom" name="widthBottom" min="0" step="1"></td>
-                                    <td><input type="number" id="finalWidth" name="finalWidth" min="0" step="1"
-                                            required></td>
-                                </tr>
-                                <tr>
-                                    <td>Height</td>
-                                    <td><input type="number" id="heightLeft" name="heightLeft" min="0" step="1"></td>
-                                    <td><input type="number" id="heightMiddle" name="heightMiddle" min="0" step="1">
-                                    </td>
-                                    <td><input type="number" id="heightRight" name="heightRight" min="0" step="1"></td>
-                                    <td><input type="number" id="finalHeight" name="finalHeight" min="0" step="1"
-                                            required></td>
-                                </tr>
-                            </tbody>
+                            <tbody id="projectWindowRows"></tbody>
                         </table>
                     </div>
-                    <div class="form-grid measurement-extra">
-                        <div class="form-group">
-                            <label for="measurementDepth">Frame Depth</label>
-                            <input type="number" id="measurementDepth" name="measurementDepth" min="0" step="1"
-                                placeholder="mm">
-                        </div>
-                        <div class="form-group">
-                            <label for="openingType">Opening</label>
-                            <select id="openingType" name="openingType">
-                                <option value="">Select</option>
-                                <option value="Left">Left</option>
-                                <option value="Right">Right</option>
-                                <option value="Centre">Centre</option>
-                                <option value="Fixed">Fixed</option>
-                                <option value="N/A">N/A</option>
-                            </select>
-                        </div>
+
+                    <div class="form-actions window-rows-actions">
+                        <button type="button" class="secondary-button" id="addWindowRowButton">+ Add Window
+                            Row</button>
                     </div>
                 </div>
 
-                <!-- ALUMINIUM FRAME -->
-                <div class="section-card">
-                    <div class="section-card-header">
-                        <h3>Aluminium Frame</h3>
-                    </div>
-                    <div class="form-grid">
-                        <div class="form-group">
-                            <label for="frameColour">Frame Colour *</label>
-                            <select id="frameColour" name="frameColour" required>
-                                <option value="">Select frame colour</option>
-                                <option value="Natural">Natural Aluminium</option>
-                                <option value="Clear Anodised">Clear Anodised</option>
-                                <option value="Bronze">Bronze</option>
-                                <option value="Charcoal">Charcoal</option>
-                                <option value="Black">Black</option>
-                                <option value="White">White</option>
-                                <option value="Dark Bronze">Dark Bronze</option>
-                                <option value="Custom">Custom</option>
-                            </select>
-                        </div>
-                        <div class="form-group" id="customColourGroup" hidden>
-                            <label for="customFrameColour">Custom Frame Colour</label>
-                            <input type="text" id="customFrameColour" name="customFrameColour"
-                                placeholder="Colour name / code">
-                        </div>
-                        <div class="form-group">
-                            <label for="frameSeries">Frame Series / Profile</label>
-                            <input type="text" id="frameSeries" name="frameSeries" placeholder="e.g. Series 38">
-                        </div>
-                    </div>
-                </div>
-
-                <!-- GLASS -->
-                <div class="section-card">
-                    <div class="section-card-header">
-                        <h3>Glass</h3>
-                    </div>
-                    <div class="form-grid">
-                        <div class="form-group">
-                            <label for="glassType">Glass Type</label>
-                            <select id="glassType" name="glassType">
-                                <option value="">Select glass type</option>
-                                <option value="Clear">Clear</option>
-                                <option value="Tinted">Tinted</option>
-                                <option value="Obscure">Obscure</option>
-                                <option value="Laminated">Laminated</option>
-                                <option value="Toughened">Toughened</option>
-                                <option value="Double Glazed">Double Glazed</option>
-                                <option value="Low-E">Low-E</option>
-                                <option value="Other">Other</option>
-                            </select>
-                        </div>
-                        <div class="form-group">
-                            <label for="glassThickness">Glass Thickness</label>
-                            <input type="text" id="glassThickness" name="glassThickness" placeholder="e.g. 6mm">
-                        </div>
-                    </div>
-                </div>
-
-                <!-- PHOTO -->
-                <div class="section-card">
-                    <div class="section-card-header">
-                        <h3>Window Photo</h3>
-                    </div>
-                    <div class="photo-upload-area">
-                        <label for="windowPhoto" class="photo-upload-button">
-                            <span>📷</span>
-                            <strong>Take / Upload Photo</strong>
-                            <small>Photograph the opening before production.</small>
-                        </label>
-                        <input type="file" id="windowPhoto" name="windowPhoto" accept="image/*" capture="environment"
-                            hidden>
-                        <div id="photoPreview" class="photo-preview"></div>
-                    </div>
-                </div>
-
-                <!-- NOTES -->
-                <div class="section-card">
-                    <div class="section-card-header">
-                        <h3>Workshop Notes</h3>
-                    </div>
-                    <div class="form-group">
-                        <label for="notes">Notes / Special Instructions</label>
-                        <textarea id="notes" name="notes" rows="5"
-                            placeholder="Enter any information the workshop needs..."></textarea>
-                    </div>
-                </div>
-
-                <!-- FORM ACTIONS -->
                 <div class="form-actions">
-                    <button type="button" class="secondary-button" id="cancelWindowButton">Cancel</button>
-                    <button type="submit" class="primary-button">Save Window & Create QR</button>
+                    <button type="button" class="secondary-button" id="cancelProjectButton">Cancel</button>
+                    <button type="submit" class="primary-button">Save Project</button>
                 </div>
             </form>
+
+            <!-- PROJECTS LIST -->
+            <div class="section-card">
+                <div class="section-card-header">
+                    <h3>All Projects</h3>
+                    <input type="search" id="projectSearch" class="project-search"
+                        placeholder="Search project or customer...">
+                </div>
+                <div id="projectsList" class="project-list"></div>
+            </div>
         </section>
 
         <!-- WINDOWS LIST VIEW -->
@@ -372,14 +239,14 @@
             <div class="page-header">
                 <div>
                     <h2>Windows</h2>
-                    <p>View and manage all measured windows and doors.</p>
+                    <p>Every window captured across all projects.</p>
                 </div>
-                <button type="button" class="primary-button" id="windowsNewButton">+ New Window</button>
+                <button type="button" class="primary-button" id="windowsNewButton">+ New Project</button>
             </div>
 
             <div class="section-card">
                 <div class="window-filter-bar">
-                    <input type="search" id="windowSearch" placeholder="Search project, customer or window...">
+                    <input type="search" id="windowSearch" placeholder="Search project, customer, location or window...">
                     <select id="statusFilter">
                         <option value="all">All Statuses</option>
                         <option value="Measured">Measured</option>
@@ -556,6 +423,23 @@
                         <td id="printFinalHeight"></td>
                     </tr>
                 </tbody>
+            </table>
+        </div>
+
+        <div class="print-measurements">
+            <h3>Window Schedule</h3>
+            <table>
+                <thead>
+                    <tr>
+                        <th>#</th>
+                        <th>Description</th>
+                        <th>Location</th>
+                        <th>Length</th>
+                        <th>Width</th>
+                        <th>Frame Color</th>
+                    </tr>
+                </thead>
+                <tbody id="printSchedule"></tbody>
             </table>
         </div>
 
