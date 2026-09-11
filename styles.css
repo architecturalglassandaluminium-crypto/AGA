@@ -843,6 +843,92 @@ img {
     width: 96px;
 }
 
+/* Per-window QR code cell in a project row */
+
+.window-row-qr-cell {
+    width: 80px;
+}
+
+.row-qr-button {
+    border: 1px solid var(--border);
+    background: white;
+    border-radius: var(--radius-sm);
+    padding: 4px;
+    cursor: pointer;
+    line-height: 0;
+    display: inline-block;
+}
+
+.row-qr-button:hover {
+    border-color: var(--accent);
+}
+
+.row-qr,
+.row-qr img,
+.row-qr canvas {
+    width: 60px !important;
+    height: 60px !important;
+    display: block;
+}
+
+.qr-missing {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 60px;
+    height: 60px;
+    font-size: 10px;
+    color: var(--text-muted);
+    background: var(--surface-light);
+}
+
+/* Enlarged QR code in the modal */
+
+.qr-viewer {
+    text-align: center;
+}
+
+.qr-viewer-canvas {
+    display: inline-block;
+    padding: 12px;
+    background: white;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+}
+
+.qr-viewer-id {
+    margin-top: 10px;
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-weight: 600;
+    color: var(--primary);
+}
+
+/* Flash a row after its QR code is scanned */
+
+.window-row-highlight {
+    animation: rowFlash 2.5s ease-out;
+}
+
+@keyframes rowFlash {
+    0% {
+        background: #fde68a;
+    }
+
+    100% {
+        background: transparent;
+    }
+}
+
+/* QR code on the printed schedule */
+
+.print-row-qr,
+.print-row-qr img,
+.print-row-qr canvas {
+    width: 52px !important;
+    height: 52px !important;
+    display: block;
+}
+
 .row-photo {
     display: flex;
     align-items: center;

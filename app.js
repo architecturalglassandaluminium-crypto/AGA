@@ -1513,6 +1513,69 @@ function openPhotoViewer(button) {
 
 window.openPhotoViewer = openPhotoViewer;
 
+/*
+   Show a window's QR code large, so it can be printed, scanned
+   from a screen, or checked against a worksheet.
+*/
+function openQRViewer(button) {
+
+    try {
+
+        const qrSpan = button?.querySelector("[data-qr-window]");
+
+        const windowNumber = qrSpan?.dataset.qrWindow;
+
+        if (!windowNumber) {
+            showError("This window does not have an ID yet.");
+            return;
+        }
+
+        const title = $("modalWindowTitle");
+        const content = $("modalWindowContent");
+
+        if (title) {
+            title.textContent = `QR Code - ${windowNumber}`;
+        }
+
+        if (content) {
+            content.innerHTML = `
+                <div class="qr-viewer">
+                    <div class="qr-viewer-canvas" data-qr-large="${escapeHtml(windowNumber)}"></div>
+                    <p class="qr-viewer-id">${escapeHtml(windowNumber)}</p>
+                    <p class="details-small">Scan this code to open the window record.</p>
+                </div>
+            `;
+        }
+
+        const modal = $("windowModal");
+
+        if (modal) {
+            modal.classList.add("open");
+            modal.setAttribute("aria-hidden", "false");
+        }
+
+        generateQRCodeInElement(
+            content?.querySelector("[data-qr-large]"),
+            buildWindowIdQRContent(windowNumber),
+            260
+        );
+
+    } catch (error) {
+
+        console.error("QR viewer error:", error);
+
+        showError("The QR code could not be opened.");
+    }
+}
+
+window.openQRViewer = openQRViewer;
+
+window.generateQRCodeInElement = generateQRCodeInElement;
+
+window.buildWindowIdQRContent = buildWindowIdQRContent;
+
+window.renderWindowRowQRCodes = renderWindowRowQRCodes;
+
 function removeProjectWindowRow(rowId) {
 
     const row = $(rowId);
@@ -2466,7 +2529,7 @@ function renderEmployees() {
 function windowRowTableHtml(windows) {
 
     const rows = windows.map(window => `
-        <tr>
+        <tr data-window-id="${escapeHtml(window.id)}">
             <td><span class="window-id-badge">${escapeHtml(window.windowNumber || formatWindowId(window.windowId) || "—")}</span></td>
             <td>${escapeHtml(window.description)}</td>
             <td>${escapeHtml(window.location)}</td>
@@ -2475,6 +2538,15 @@ function windowRowTableHtml(windows) {
             <td>${escapeHtml(window.frameColour)}</td>
             <td>${escapeHtml(window.glassType || "-")}</td>
             <td class="saved-photo-cell">${savedPhotoHtml(window.photo)}</td>
+            <td class="window-row-qr-cell">
+                <button type="button" class="row-qr-button"
+                    title="QR code for ${escapeHtml(window.windowNumber || "")} - click to enlarge"
+                    onclick="openQRViewer(this)">
+                    <span class="row-qr" data-qr-window="${escapeHtml(window.windowNumber || "")}" aria-hidden="true">
+                        ${window.windowNumber ? "" : `<span class="qr-missing">No ID</span>`}
+                    </span>
+                </button>
+            </td>
         </tr>
     `).join("");
 
@@ -2491,6 +2563,7 @@ function windowRowTableHtml(windows) {
                         <th>Frame Color</th>
                         <th>Glass Type</th>
                         <th>Photo</th>
+                        <th>QR Code</th>
                     </tr>
                 </thead>
                 <tbody>${rows}</tbody>
@@ -2588,7 +2661,44 @@ function renderProjects(
 
         container.appendChild(card);
     });
+
+    /*
+       Draw the per-window QR codes now that the rows exist in the DOM.
+    */
+    renderWindowRowQRCodes(container);
 }
+
+/*
+   After a scan, bring the matched window into view and flash the
+   row so it is obvious which one was scanned.
+*/
+function highlightProjectWindow(projectId, windowId) {
+
+    /*
+       Let the project list finish drawing before looking for the row.
+    */
+    setTimeout(() => {
+
+        const row = document.querySelector(
+            `[data-window-id="${CSS.escape(String(windowId))}"]`
+        );
+
+        if (!row) {
+            return;
+        }
+
+        row.scrollIntoView({ block: "center", behavior: "smooth" });
+
+        row.classList.add("window-row-highlight");
+
+        setTimeout(() => {
+            row.classList.remove("window-row-highlight");
+        }, 2500);
+
+    }, 350);
+}
+
+window.highlightProjectWindow = highlightProjectWindow;
 
 function filterProjects() {
 
@@ -2733,8 +2843,11 @@ function printProject(projectId) {
                     <td>${escapeHtml(window.frameColour)}</td>
                     <td>${escapeHtml(window.glassType || "-")}</td>
                     <td>${window.photo ? `<img class="print-row-photo" src="${escapeHtml(window.photo)}" alt="">` : "-"}</td>
+                    <td><span class="print-row-qr" data-qr-print="${escapeHtml(window.windowNumber || "")}"></span></td>
                 </tr>
-            `).join("") || `<tr><td colspan="8">No windows captured.</td></tr>`;
+            `).join("") || `<tr><td colspan="9">No windows captured.</td></tr>`;
+
+            renderPrintQRCodes(schedule);
         }
 
         setPrintText("printNotes", "-");
@@ -3027,6 +3140,112 @@ function buildQRContent(windowId) {
     return `${base}${separator}window=${encodeURIComponent(windowId)}`;
 }
 
+/*
+   QR content for a window, keyed on its human-readable window
+   number so a scan can be matched straight back to the ID printed
+   on the worksheet.
+*/
+function buildWindowIdQRContent(windowNumber) {
+    const base = window.location.href.split("#")[0].split("?")[0];
+    return `${base}?w=${encodeURIComponent(windowNumber)}`;
+}
+
+/*
+   Same as generateQRCode, but takes an element (or a selector)
+   instead of an id, so it can draw a QR into every table row.
+*/
+function generateQRCodeInElement(element, text, size = 120) {
+
+    try {
+
+        if (!text) {
+            return false;
+        }
+
+        const node = typeof element === "string"
+            ? document.querySelector(element)
+            : element;
+
+        if (!node) {
+            return false;
+        }
+
+        if (typeof QRCode === "undefined") {
+            return false;
+        }
+
+        node.innerHTML = "";
+
+        new QRCode(node, {
+            text,
+            width: size,
+            height: size,
+            correctLevel: QRCode.CorrectLevel.M
+        });
+
+        return true;
+
+    } catch (error) {
+
+        console.error("Row QR generation error:", error);
+
+        return false;
+    }
+}
+
+/*
+   Draw the QR codes for every window row of a freshly rendered
+   project list. Called after the markup is in the DOM because a
+   QR code needs a real element to render into.
+*/
+/*
+   QR codes for the printed window schedule. Printed slightly
+   smaller so the schedule still fits on one page.
+*/
+function renderPrintQRCodes(scope) {
+
+    const root = scope || document;
+
+    root.querySelectorAll('[data-qr-print]').forEach(node => {
+
+        const value = node.dataset.qrPrint;
+
+        if (!value) {
+            return;
+        }
+
+        generateQRCodeInElement(
+            node,
+            buildWindowIdQRContent(value),
+            64
+        );
+    });
+}
+
+function renderWindowRowQRCodes(scope) {
+
+    const root = scope || document;
+
+    root.querySelectorAll('[data-qr-window]').forEach(node => {
+
+        const value = node.dataset.qrWindow;
+
+        if (!value || node.dataset.qrDone === "1") {
+            return;
+        }
+
+        const drawn = generateQRCodeInElement(
+            node,
+            buildWindowIdQRContent(value),
+            100
+        );
+
+        if (drawn) {
+            node.dataset.qrDone = "1";
+        }
+    });
+}
+
 /* =========================================================
    QR SCANNER
    ========================================================= */
@@ -3181,8 +3400,16 @@ function handleScannedQRCode(decodedText) {
 
         try {
             const url = new URL(code, window.location.href);
+
+            /*
+               The window QR codes carry ?w=AGA-WIN-0001.
+            */
+            const fromWindowId = url.searchParams.get("w");
             const fromQuery = url.searchParams.get("window");
-            if (fromQuery) {
+
+            if (fromWindowId) {
+                windowKey = fromWindowId;
+            } else if (fromQuery) {
                 windowKey = fromQuery;
             }
         } catch (parseError) {
@@ -3191,24 +3418,17 @@ function handleScannedQRCode(decodedText) {
             */
         }
 
-        const windows =
-            getWindows();
+        /*
+           A window now lives inside a project, so look through the
+           flattened list. Match the printed window number first, then
+           fall back to the internal id.
+        */
+        const all = getAllWindowsWithProject();
 
-        let item =
-            windows.find(
-                windowItem =>
-                    windowItem.id === windowKey
-            );
-
-        if (!item) {
-
-            item =
-                windows.find(
-                    windowItem =>
-                        windowItem.windowNumber ===
-                        windowKey
-                );
-        }
+        const item =
+            all.find(w => safeText(w.windowNumber) === windowKey) ||
+            all.find(w => w.id === windowKey) ||
+            getWindows().find(w => w.id === windowKey);
 
         if (!item) {
 
@@ -3219,11 +3439,10 @@ function handleScannedQRCode(decodedText) {
             return;
         }
 
-        window.scannedWindow =
-            item;
+        window.scannedWindow = item;
 
         showSuccess(
-            `${item.windowNumber} found.`
+            `${item.windowNumber || item.description || "Window"} found.`
         );
 
         /*
@@ -3231,7 +3450,15 @@ function handleScannedQRCode(decodedText) {
         */
         stopScanner();
 
-        viewWindow(item.id);
+        /*
+           Jump to the project that owns this window and highlight
+           the row, so the workshop sees the full job context.
+        */
+        switchView("projects");
+
+        if (item.projectId) {
+            highlightProjectWindow(item.projectId, item.id);
+        }
 
     } catch (error) {
 
@@ -3671,6 +3898,39 @@ function handleDeepLink() {
         const params = new URLSearchParams(window.location.search);
         const windowId = params.get("window");
         const projectId = params.get("project");
+        const windowNumber = params.get("w");
+
+        /*
+           A window QR code scanned by the phone camera lands here.
+        */
+        if (windowNumber) {
+            const all = getAllWindowsWithProject();
+
+            const match =
+                all.find(w => safeText(w.windowNumber) === windowNumber) ||
+                all.find(w => w.id === windowNumber);
+
+            history.replaceState(
+                null,
+                "",
+                window.location.origin + window.location.pathname
+            );
+
+            if (!match) {
+                showError("This QR code does not match a saved window.");
+                return;
+            }
+
+            switchView("projects");
+
+            if (match.projectId) {
+                highlightProjectWindow(match.projectId, match.id);
+            }
+
+            showSuccess(`${match.windowNumber} found.`);
+
+            return;
+        }
 
         if (projectId) {
             const project = getProjects().find(

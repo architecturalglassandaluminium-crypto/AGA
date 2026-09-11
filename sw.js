@@ -7,7 +7,11 @@
    offline on site, where signal is often poor.
    ========================================================= */
 
-const CACHE_NAME = "aga-shell-v1";
+/*
+   Bump this whenever the app shell changes. It is the signal to
+   every installed browser that its cached copy is obsolete.
+*/
+const CACHE_NAME = "aga-shell-v3";
 
 /* The app shell: everything needed to boot the UI offline. */
 const APP_SHELL = [
@@ -44,9 +48,15 @@ self.addEventListener("activate", (event) => {
     );
 });
 
-/* Fetch: serve the app shell from cache, falling back to the
-   network for anything not cached. Only same-origin GETs are
-   handled; third-party CDN requests go straight to network. */
+/*
+   Fetch strategy: NETWORK-FIRST, cache as a fallback.
+
+   This used to be cache-first, which meant an installed browser
+   kept serving the first version of app.js it ever downloaded -
+   new features never appeared until the cache was manually
+   cleared. Network-first means a deploy is picked up on the next
+   load, while the cache still covers the offline case on site.
+*/
 self.addEventListener("fetch", (event) => {
     const request = event.request;
 
@@ -56,29 +66,31 @@ self.addEventListener("fetch", (event) => {
     if (url.origin !== self.location.origin) return;
 
     event.respondWith(
-        caches.match(request).then((cached) => {
-            if (cached) return cached;
+        fetch(request)
+            .then((response) => {
+                /* Keep a copy of every good same-origin response so
+                   the shell is available when offline. */
+                if (response && response.status === 200) {
+                    const copy = response.clone();
+                    caches
+                        .open(CACHE_NAME)
+                        .then((cache) => cache.put(request, copy))
+                        .catch(() => { });
+                }
+                return response;
+            })
+            .catch(() => {
+                /* Offline: fall back to the cached copy, and for a
+                   navigation fall back to the cached shell. */
+                return caches.match(request).then((cached) => {
+                    if (cached) return cached;
 
-            return fetch(request)
-                .then((response) => {
-                    /* Cache successful same-origin responses so the
-                       shell stays fresh without a version bump. */
-                    if (response && response.status === 200) {
-                        const copy = response.clone();
-                        caches
-                            .open(CACHE_NAME)
-                            .then((cache) => cache.put(request, copy));
-                    }
-                    return response;
-                })
-                .catch(() => {
-                    /* Offline and not cached: fall back to the
-                       shell for navigations so the UI still boots. */
                     if (request.mode === "navigate") {
                         return caches.match("./index.html");
                     }
+
                     return undefined;
                 });
-        })
+            })
     );
 });
