@@ -653,6 +653,14 @@ img {
     gap: 16px;
 }
 
+/*
+   The form is scrolled into view when opened; without this the
+   sticky header + nav clip its first heading.
+*/
+#projectForm {
+    scroll-margin-top: 150px;
+}
+
 .project-search {
     border: 1px solid var(--border);
     border-radius: var(--radius-sm);
@@ -665,8 +673,10 @@ img {
 .project-card {
     background: var(--surface-light);
     border: 1px solid var(--border);
+    border-left: 4px solid var(--primary);
     border-radius: var(--radius);
     padding: 16px 18px;
+    box-shadow: var(--shadow);
 }
 
 .project-card-header {
@@ -707,9 +717,13 @@ img {
 
 .project-card-meta {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-    gap: 4px 16px;
-    margin-bottom: 14px;
+    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    gap: 6px 24px;
+    margin-bottom: 12px;
+    padding: 10px 12px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    background: var(--surface);
 }
 
 .project-card-meta p {
@@ -724,7 +738,8 @@ img {
 /* Window rows: Description, Location, Length, Width, Frame Color */
 
 .window-rows-wrapper {
-    overflow-x: auto;
+    overflow: auto;
+    max-height: 460px;
     border: 1px solid var(--border);
     border-radius: var(--radius-sm);
     background: var(--surface);
@@ -733,45 +748,108 @@ img {
 .window-rows-table {
     width: 100%;
     border-collapse: collapse;
-    min-width: 1060px;
+    min-width: 980px;
+    table-layout: auto;
 }
 
 .window-rows-table th,
 .window-rows-table td {
-    padding: 9px 12px;
+    padding: 8px 10px;
     text-align: left;
     font-size: 13px;
+    line-height: 1.35;
     border-bottom: 1px solid var(--border);
+    vertical-align: middle;
     white-space: nowrap;
 }
 
 .window-rows-table thead th {
     background: var(--surface-light);
-    color: var(--text);
-    font-size: 12px;
+    color: var(--text-light);
+    font-size: 11px;
+    font-weight: 700;
     text-transform: uppercase;
-    letter-spacing: 0.03em;
-    border-bottom: 2px solid var(--border);
+    letter-spacing: 0.04em;
+    border-bottom: 2px solid var(--border-dark);
+    position: sticky;
+    top: 0;
+    z-index: 1;
 }
 
 .window-rows-table tbody tr:last-child td {
     border-bottom: none;
 }
 
+.window-rows-table tbody tr:nth-child(even) {
+    background: #fbfcfd;
+}
+
 .window-rows-table tbody tr:hover {
-    background: var(--surface-light);
+    background: #eef4ff;
+}
+
+/* Column sizing: keep the eye moving left-to-right predictably */
+
+.window-rows-table .col-id {
+    width: 108px;
+}
+
+.window-rows-table .col-desc {
+    min-width: 190px;
+}
+
+.window-rows-table .col-loc {
+    min-width: 160px;
+}
+
+.window-rows-table .col-num {
+    width: 84px;
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+}
+
+.window-rows-table .col-frame {
+    width: 108px;
+}
+
+.window-rows-table .col-glass {
+    width: 80px;
+}
+
+.window-rows-table .col-qc {
+    width: 84px;
+}
+
+.window-rows-table .col-photo {
+    width: 66px;
+}
+
+.window-rows-table .col-qr {
+    width: 78px;
 }
 
 .window-row-input {
     width: 100%;
-    min-width: 110px;
+    min-width: 96px;
     border: 1px solid var(--border);
     border-radius: var(--radius-sm);
-    padding: 7px 9px;
+    padding: 6px 8px;
     font-size: 13px;
     font-family: inherit;
     color: var(--text);
     background: white;
+}
+
+/*
+   Text inputs need room to show what was typed; the numeric and
+   select cells stay compact so the table scans cleanly.
+*/
+.window-rows-table td:nth-child(2) .window-row-input {
+    min-width: 190px;
+}
+
+.window-rows-table td:nth-child(3) .window-row-input {
+    min-width: 160px;
 }
 
 .window-row-input:focus {
@@ -785,22 +863,27 @@ img {
     text-align: right;
 }
 
+/*
+   Row delete button. Muted at rest so a column of them does not
+   dominate the sheet; turns red only on hover.
+*/
 .icon-button {
     border: 1px solid var(--border);
     background: white;
-    color: var(--danger);
-    font-size: 18px;
+    color: var(--text-muted);
+    font-size: 16px;
     line-height: 1;
-    width: 30px;
-    height: 30px;
+    width: 28px;
+    height: 28px;
     border-radius: var(--radius-sm);
     cursor: pointer;
-    transition: background 0.15s ease, border-color 0.15s ease;
+    transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
 }
 
 .icon-button:hover {
     background: #fdecec;
     border-color: var(--danger);
+    color: var(--danger);
 }
 
 .window-rows-actions {
@@ -866,8 +949,8 @@ img {
 .row-qr,
 .row-qr img,
 .row-qr canvas {
-    width: 60px !important;
-    height: 60px !important;
+    width: 52px !important;
+    height: 52px !important;
     display: block;
 }
 
@@ -875,8 +958,8 @@ img {
     display: flex;
     align-items: center;
     justify-content: center;
-    width: 60px;
-    height: 60px;
+    width: 52px;
+    height: 52px;
     font-size: 10px;
     color: var(--text-muted);
     background: var(--surface-light);
@@ -940,12 +1023,50 @@ img {
     border: 1px dashed var(--border-dark);
     background: var(--surface-light);
     border-radius: var(--radius-sm);
-    width: 40px;
-    height: 40px;
-    font-size: 18px;
-    line-height: 1;
+    width: 44px;
+    height: 44px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
     cursor: pointer;
     transition: border-color 0.15s ease, background 0.15s ease;
+}
+
+/*
+   Camera mark drawn in CSS rather than an emoji, so it renders
+   identically on every machine instead of depending on a font.
+*/
+.row-photo-add-icon {
+    position: relative;
+    display: block;
+    width: 20px;
+    height: 14px;
+    border: 2px solid var(--text-light);
+    border-radius: 3px;
+}
+
+.row-photo-add-icon::before {
+    content: "";
+    position: absolute;
+    top: -6px;
+    left: 3px;
+    width: 8px;
+    height: 4px;
+    border: 2px solid var(--text-light);
+    border-bottom: none;
+    border-radius: 2px 2px 0 0;
+}
+
+.row-photo-add-icon::after {
+    content: "";
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 5px;
+    height: 5px;
+    margin: -3.5px 0 0 -3.5px;
+    border: 2px solid var(--text-light);
+    border-radius: 50%;
 }
 
 .row-photo-add:hover {
@@ -953,10 +1074,25 @@ img {
     background: #eef4ff;
 }
 
+.row-photo-add:hover .row-photo-add-icon,
+.row-photo-add:hover .row-photo-add-icon::before,
+.row-photo-add:hover .row-photo-add-icon::after {
+    border-color: var(--accent);
+}
+
 .row-photo-preview {
     position: relative;
     display: inline-block;
     line-height: 0;
+}
+
+/*
+   `hidden` must win over `display: inline-block`, otherwise an
+   empty preview shows as a broken-image placeholder.
+*/
+.row-photo-preview[hidden],
+.row-photo-add[hidden] {
+    display: none;
 }
 
 .row-photo-preview img {
@@ -966,6 +1102,15 @@ img {
     border-radius: var(--radius-sm);
     border: 1px solid var(--border);
     display: block;
+    background: var(--surface-light);
+}
+
+/*
+   An <img> with no src still paints a broken-image glyph, so keep it
+   out of the layout until a photo is actually attached.
+*/
+.row-photo-preview img:not([src]) {
+    display: none;
 }
 
 .row-photo-remove {
@@ -992,7 +1137,7 @@ img {
 /* Saved photo thumbnail in a project row / window card */
 
 .saved-photo-cell {
-    width: 76px;
+    width: 66px;
 }
 
 .saved-photo {
@@ -1006,8 +1151,8 @@ img {
 }
 
 .saved-photo img {
-    width: 52px;
-    height: 52px;
+    width: 44px;
+    height: 44px;
     object-fit: cover;
     display: block;
 }

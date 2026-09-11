@@ -1337,8 +1337,8 @@ function addProjectWindowRow(rowData = {}) {
                     hidden onchange="handleRowPhotoPick(this)">
 
                 <button type="button" class="row-photo-add" title="Add photo"
-                    onclick="this.previousElementSibling.click()">
-                    <span aria-hidden="true">📷</span>
+                    aria-label="Add photo" onclick="this.previousElementSibling.click()">
+                    <span class="row-photo-add-icon" aria-hidden="true"></span>
                 </button>
 
                 <div class="row-photo-preview" hidden>
@@ -2531,16 +2531,16 @@ function windowRowTableHtml(windows) {
 
     const rows = windows.map(window => `
         <tr data-window-id="${escapeHtml(window.id)}">
-            <td><span class="window-id-badge">${escapeHtml(window.windowNumber || formatWindowId(window.windowId) || "—")}</span></td>
-            <td>${escapeHtml(window.description)}</td>
-            <td>${escapeHtml(window.location)}</td>
-            <td>${escapeHtml(window.length)} mm</td>
-            <td>${escapeHtml(window.width)} mm</td>
-            <td>${escapeHtml(window.frameColour)}</td>
-            <td>${escapeHtml(window.glassType || "-")}</td>
-            <td>${qcCheckBadgeHtml(window.qcCheck)}</td>
-            <td class="saved-photo-cell">${savedPhotoHtml(window.photo)}</td>
-            <td class="window-row-qr-cell">
+            <td class="col-id"><span class="window-id-badge">${escapeHtml(window.windowNumber || formatWindowId(window.windowId) || "—")}</span></td>
+            <td class="col-desc">${escapeHtml(window.description)}</td>
+            <td class="col-loc">${escapeHtml(window.location)}</td>
+            <td class="col-num">${escapeHtml(window.length)} mm</td>
+            <td class="col-num">${escapeHtml(window.width)} mm</td>
+            <td class="col-frame">${escapeHtml(window.frameColour)}</td>
+            <td class="col-glass">${escapeHtml(window.glassType || "-")}</td>
+            <td class="col-qc">${qcCheckBadgeHtml(window.qcCheck)}</td>
+            <td class="saved-photo-cell col-photo">${savedPhotoHtml(window.photo)}</td>
+            <td class="window-row-qr-cell col-qr">
                 <button type="button" class="row-qr-button"
                     title="QR code for ${escapeHtml(window.windowNumber || "")} - click to enlarge"
                     onclick="openQRViewer(this)">
@@ -2557,16 +2557,16 @@ function windowRowTableHtml(windows) {
             <table class="window-rows-table">
                 <thead>
                     <tr>
-                        <th>#</th>
-                        <th>Description</th>
-                        <th>Location</th>
-                        <th>Length</th>
-                        <th>Width</th>
-                        <th>Frame Color</th>
-                        <th>Glass Type</th>
-                        <th>QC Check</th>
-                        <th>Photo</th>
-                        <th>QR Code</th>
+                        <th class="col-id">Window ID</th>
+                        <th class="col-desc">Description</th>
+                        <th class="col-loc">Location</th>
+                        <th class="col-num">Length</th>
+                        <th class="col-num">Width</th>
+                        <th class="col-frame">Frame Color</th>
+                        <th class="col-glass">Glass</th>
+                        <th class="col-qc">QC</th>
+                        <th class="col-photo">Photo</th>
+                        <th class="col-qr">QR Code</th>
                     </tr>
                 </thead>
                 <tbody>${rows}</tbody>
