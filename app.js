@@ -36,6 +36,14 @@ const GLASS_TYPES = [
     "Obscure"
 ];
 
+/*
+   Quality control result recorded per window.
+*/
+const QC_CHECKS = [
+    "Pass",
+    "Fail"
+];
+
 const STATUSES = [
     "Measured",
     "In Production",
@@ -1244,6 +1252,18 @@ function refreshRowIdPreviews() {
     });
 }
 
+function qcCheckOptions(selectedValue) {
+    return QC_CHECKS.map(check => {
+        const selected =
+            safeText(check).toLowerCase() ===
+            safeText(selectedValue).toLowerCase()
+                ? " selected"
+                : "";
+
+        return `<option value="${escapeHtml(check)}"${selected}>${escapeHtml(check)}</option>`;
+    }).join("");
+}
+
 function glassTypeOptions(selectedValue) {
     return GLASS_TYPES.map(type => {
         const selected =
@@ -1303,6 +1323,12 @@ function addProjectWindowRow(rowData = {}) {
             <select class="window-row-input" data-field="glassType">
                 <option value="">Select glass</option>
                 ${glassTypeOptions(rowData.glassType)}
+            </select>
+        </td>
+        <td>
+            <select class="window-row-input" data-field="qcCheck">
+                <option value="">Not checked</option>
+                ${qcCheckOptions(rowData.qcCheck)}
             </select>
         </td>
         <td class="window-row-photo-cell">
@@ -1630,6 +1656,9 @@ function collectProjectWindowRows() {
         glassType: safeText(
             tr.querySelector('[data-field="glassType"]')?.value
         ),
+        qcCheck: safeText(
+            tr.querySelector('[data-field="qcCheck"]')?.value
+        ),
         photo: safeText(
             tr.querySelector('.row-photo-input')?.dataset.photo
         )
@@ -1647,6 +1676,7 @@ function isBlankWindowRow(row) {
         !row.width &&
         !row.frameColour &&
         !row.glassType &&
+        !row.qcCheck &&
         !row.photo;
 }
 
@@ -1863,6 +1893,7 @@ function createProject(event) {
                 width: Number(row.width),
                 frameColour: row.frameColour,
                 glassType: row.glassType,
+                qcCheck: row.qcCheck || "",
                 photo: row.photo || "",
                 status: "Measured",
                 createdAt: now
@@ -2137,6 +2168,11 @@ function renderWindowsList(
                     ${escapeHtml(item.glassType || "-")}
                 </p>
 
+                <p>
+                    <strong>QC Check:</strong>
+                    ${qcCheckBadgeHtml(item.qcCheck)}
+                </p>
+
                 <p class="window-card-photo-line">
                     <strong>Photo:</strong>
                     ${savedPhotoHtml(item.photo)}
@@ -2277,9 +2313,6 @@ function viewWindow(windowId) {
 
 function buildWindowDetailsHtml(item) {
 
-    const w = item.finalWidth || item.width || "-";
-    const h = item.finalHeight || item.height || "-";
-
     const qrHtml = `<div class="modal-qr">
         <div id="modalQrCode" class="qr-box"></div>
         <span>Scan to update production status</span>
@@ -2325,38 +2358,6 @@ function buildWindowDetailsHtml(item) {
             ? `<p class="details-small">Quality checked by: <strong>${escapeHtml(item.checkedBy)}</strong></p>`
             : ""}
             </div>
-        </div>
-
-        <div class="details-measurements">
-            <h4>Measurements (mm)</h4>
-            <table class="measurement-table">
-                <thead>
-                    <tr>
-                        <th>Measurement</th>
-                        <th>Top / Left</th>
-                        <th>Middle</th>
-                        <th>Bottom / Right</th>
-                        <th>Final</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <tr>
-                        <td>Width</td>
-                        <td>${escapeHtml(item.widthTop || "-")}</td>
-                        <td>${escapeHtml(item.widthMiddle || "-")}</td>
-                        <td>${escapeHtml(item.widthBottom || "-")}</td>
-                        <td><strong>${escapeHtml(w)}</strong></td>
-                    </tr>
-                    <tr>
-                        <td>Height</td>
-                        <td>${escapeHtml(item.heightLeft || "-")}</td>
-                        <td>${escapeHtml(item.heightMiddle || "-")}</td>
-                        <td>${escapeHtml(item.heightRight || "-")}</td>
-                        <td><strong>${escapeHtml(h)}</strong></td>
-                    </tr>
-                </tbody>
-            </table>
-            <p class="details-small">Frame depth: ${escapeHtml(item.measurementDepth || "-")} mm • Opening: ${escapeHtml(item.openingType || "-")}</p>
         </div>
 
         <div class="details-specs">
@@ -2537,6 +2538,7 @@ function windowRowTableHtml(windows) {
             <td>${escapeHtml(window.width)} mm</td>
             <td>${escapeHtml(window.frameColour)}</td>
             <td>${escapeHtml(window.glassType || "-")}</td>
+            <td>${qcCheckBadgeHtml(window.qcCheck)}</td>
             <td class="saved-photo-cell">${savedPhotoHtml(window.photo)}</td>
             <td class="window-row-qr-cell">
                 <button type="button" class="row-qr-button"
@@ -2562,6 +2564,7 @@ function windowRowTableHtml(windows) {
                         <th>Width</th>
                         <th>Frame Color</th>
                         <th>Glass Type</th>
+                        <th>QC Check</th>
                         <th>Photo</th>
                         <th>QR Code</th>
                     </tr>
@@ -2577,6 +2580,24 @@ function windowRowTableHtml(windows) {
    The data URL is passed through escapeHtml so a crafted image
    URL cannot break out of the attribute.
 */
+/*
+   A saved window's QC result as a coloured badge.
+*/
+function qcCheckBadgeHtml(qcCheck) {
+
+    const value = safeText(qcCheck);
+
+    if (!value) {
+        return `<span class="photo-none">Not checked</span>`;
+    }
+
+    const cssClass = value.toLowerCase() === "pass"
+        ? "qc-badge qc-pass"
+        : (value.toLowerCase() === "fail" ? "qc-badge qc-fail" : "qc-badge");
+
+    return `<span class="${cssClass}">${escapeHtml(value)}</span>`;
+}
+
 function savedPhotoHtml(photo) {
 
     if (!photo) {
@@ -2716,7 +2737,7 @@ function filterProjects() {
 
             const windowText = (project.windows || [])
                 .map(window =>
-                    `${window.description} ${window.location} ${window.frameColour} ${window.glassType}`
+                    `${window.description} ${window.location} ${window.frameColour} ${window.glassType} ${window.qcCheck}`
                 )
                 .join(" ")
                 .toLowerCase();
@@ -2842,6 +2863,7 @@ function printProject(projectId) {
                     <td>${escapeHtml(window.width)} mm</td>
                     <td>${escapeHtml(window.frameColour)}</td>
                     <td>${escapeHtml(window.glassType || "-")}</td>
+                    <td>${escapeHtml(window.qcCheck || "-")}</td>
                     <td>${window.photo ? `<img class="print-row-photo" src="${escapeHtml(window.photo)}" alt="">` : "-"}</td>
                     <td><span class="print-row-qr" data-qr-print="${escapeHtml(window.windowNumber || "")}"></span></td>
                 </tr>
@@ -3523,16 +3545,6 @@ function printWindow(windowId) {
         setPrintText("printHeight", `${h} mm`);
         setPrintText("printGlassType", item.glassType);
         setPrintText("printGlassThickness", item.glassThickness);
-
-        setPrintText("printWidthTop", item.widthTop);
-        setPrintText("printWidthMiddle", item.widthMiddle);
-        setPrintText("printWidthBottom", item.widthBottom);
-        setPrintText("printFinalWidth", `${w} mm`);
-
-        setPrintText("printHeightLeft", item.heightLeft);
-        setPrintText("printHeightMiddle", item.heightMiddle);
-        setPrintText("printHeightRight", item.heightRight);
-        setPrintText("printFinalHeight", `${h} mm`);
 
         setPrintText("printNotes", item.notes);
         setPrintText("printStatus", item.status);
