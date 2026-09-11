@@ -28,6 +28,14 @@ const FRAME_COLOURS = [
     "Custom"
 ];
 
+/*
+   Glass types offered on every window row.
+*/
+const GLASS_TYPES = [
+    "Clear",
+    "Obscure"
+];
+
 const STATUSES = [
     "Measured",
     "In Production",
@@ -1200,6 +1208,18 @@ function frameColourOptions(selectedValue) {
     }).join("");
 }
 
+function glassTypeOptions(selectedValue) {
+    return GLASS_TYPES.map(type => {
+        const selected =
+            safeText(type).toLowerCase() ===
+            safeText(selectedValue).toLowerCase()
+                ? " selected"
+                : "";
+
+        return `<option value="${escapeHtml(type)}"${selected}>${escapeHtml(type)}</option>`;
+    }).join("");
+}
+
 function addProjectWindowRow(rowData = {}) {
 
     const tbody = $("projectWindowRows");
@@ -1238,6 +1258,12 @@ function addProjectWindowRow(rowData = {}) {
             <select class="window-row-input" data-field="frameColour">
                 <option value="">Select colour</option>
                 ${frameColourOptions(rowData.frameColour)}
+            </select>
+        </td>
+        <td>
+            <select class="window-row-input" data-field="glassType">
+                <option value="">Select glass</option>
+                ${glassTypeOptions(rowData.glassType)}
             </select>
         </td>
         <td class="window-row-photo-cell">
@@ -1483,6 +1509,9 @@ function collectProjectWindowRows() {
         frameColour: safeText(
             tr.querySelector('[data-field="frameColour"]')?.value
         ),
+        glassType: safeText(
+            tr.querySelector('[data-field="glassType"]')?.value
+        ),
         photo: safeText(
             tr.querySelector('.row-photo-input')?.dataset.photo
         )
@@ -1499,6 +1528,7 @@ function isBlankWindowRow(row) {
         !row.length &&
         !row.width &&
         !row.frameColour &&
+        !row.glassType &&
         !row.photo;
 }
 
@@ -1609,6 +1639,10 @@ function validateProjectForm() {
         if (!row.frameColour) {
             errors.push(`${position}: frame color is required.`);
         }
+
+        if (!row.glassType) {
+            errors.push(`${position}: glass type is required.`);
+        }
     });
 
     return errors;
@@ -1663,6 +1697,7 @@ function createProject(event) {
                 length: Number(row.length),
                 width: Number(row.width),
                 frameColour: row.frameColour,
+                glassType: row.glassType,
                 photo: row.photo || "",
                 status: "Measured",
                 createdAt: now
@@ -1817,6 +1852,9 @@ function filterWindows() {
                         .includes(search) ||
                     safeText(item.frameColour)
                         .toLowerCase()
+                        .includes(search) ||
+                    safeText(item.glassType)
+                        .toLowerCase()
                         .includes(search);
 
                 const matchesStatus =
@@ -1923,6 +1961,11 @@ function renderWindowsList(
                 <p>
                     <strong>Frame Color:</strong>
                     ${escapeHtml(item.frameColour)}
+                </p>
+
+                <p>
+                    <strong>Glass Type:</strong>
+                    ${escapeHtml(item.glassType || "-")}
                 </p>
 
                 <p class="window-card-photo-line">
@@ -2324,6 +2367,7 @@ function windowRowTableHtml(windows) {
             <td>${escapeHtml(window.length)} mm</td>
             <td>${escapeHtml(window.width)} mm</td>
             <td>${escapeHtml(window.frameColour)}</td>
+            <td>${escapeHtml(window.glassType || "-")}</td>
             <td class="saved-photo-cell">${savedPhotoHtml(window.photo)}</td>
         </tr>
     `).join("");
@@ -2339,6 +2383,7 @@ function windowRowTableHtml(windows) {
                         <th>Length</th>
                         <th>Width</th>
                         <th>Frame Color</th>
+                        <th>Glass Type</th>
                         <th>Photo</th>
                     </tr>
                 </thead>
@@ -2455,7 +2500,7 @@ function filterProjects() {
 
             const windowText = (project.windows || [])
                 .map(window =>
-                    `${window.description} ${window.location} ${window.frameColour}`
+                    `${window.description} ${window.location} ${window.frameColour} ${window.glassType}`
                 )
                 .join(" ")
                 .toLowerCase();
@@ -2580,9 +2625,10 @@ function printProject(projectId) {
                     <td>${escapeHtml(window.length)} mm</td>
                     <td>${escapeHtml(window.width)} mm</td>
                     <td>${escapeHtml(window.frameColour)}</td>
+                    <td>${escapeHtml(window.glassType || "-")}</td>
                     <td>${window.photo ? `<img class="print-row-photo" src="${escapeHtml(window.photo)}" alt="">` : "-"}</td>
                 </tr>
-            `).join("") || `<tr><td colspan="7">No windows captured.</td></tr>`;
+            `).join("") || `<tr><td colspan="8">No windows captured.</td></tr>`;
         }
 
         setPrintText("printNotes", "-");

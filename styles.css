@@ -733,7 +733,7 @@ img {
 .window-rows-table {
     width: 100%;
     border-collapse: collapse;
-    min-width: 840px;
+    min-width: 960px;
 }
 
 .window-rows-table th,
