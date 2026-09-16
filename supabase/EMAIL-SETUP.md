@@ -168,3 +168,96 @@ CORS and no `SUPABASE_PROJECT_REF`. On GitHub Pages it is inert.
 The two files do the same job. **If you change the email logic, change
 both** — otherwise the Netlify copy will drift out of step and surprise
 whoever deploys it next.
+---
+
+# Method 2 — Supabase website only (no CLI)
+
+Use this if you would rather not install anything. Everything happens
+in the Supabase dashboard.
+
+## Step 1 — Set the secrets first
+
+**Secrets → Add new secret** (or *Project Settings → Edge Functions →
+Secrets*). Add all three:
+
+| Name | Value |
+|---|---|
+| `RESEND_API_KEY` | `re_your_key_here` — from resend.com/api-keys |
+| `AGA_MAIL_FROM` | `AGA Workshop <no-reply@agasouthafrica.co.za>` |
+| `AGA_ALLOWED_ORIGIN` | `https://architecturalglassandaluminium-crypto.github.io` |
+
+`AGA_MAIL_FROM` must use a domain **verified in Resend**, or Resend
+refuses to send.
+
+## Step 2 — Create the function
+
+1. **Edge Functions → Deploy a new function**
+2. Name it exactly: `send-production-email`
+3. Choose any template — it will be replaced
+4. Delete the template code and paste **everything** from
+   `supabase/DASHBOARD-PASTE.ts`
+5. Press **Deploy**
+
+Wait for the success message. Your function now lives at:
+
+```
+https://YOUR-PROJECT-REF.supabase.co/functions/v1/send-production-email
+```
+
+## Step 3 — Test it in the dashboard
+
+On the function's page press **Test** and send:
+
+- **Method:** POST
+- **Header:** `Content-Type: application/json`
+- **Body:**
+
+```json
+{
+  "to": "your.own@email.com",
+  "subject": "AGA test",
+  "html": "<p>Testing the AGA mailer.</p>"
+}
+```
+
+You should get `200` with `{"success":true,...}` and receive the email.
+
+If you get `501`, the secrets are not set — go back to step 1.
+If you get `502` with a message about the sender, the `AGA_MAIL_FROM`
+domain is not verified in Resend.
+
+## Step 4 — Point the app at it
+
+In `email.js`, replace `<PROJECT-REF>`:
+
+```js
+const SUPABASE_PROJECT_REF = "YOUR-PROJECT-REF";
+```
+
+Your project ref is the subdomain of your Supabase project URL —
+`https://abcdefghijklm.supabase.co` means the ref is `abcdefghijklm`.
+You can also see it in the dashboard URL.
+
+Commit and push. GitHub Pages redeploys automatically.
+
+## Step 5 — Confirm
+
+Open your site, open a project, press **Email**. It should say the
+project and its worksheet were sent.
+
+---
+
+## A warning about the dashboard editor
+
+Supabase's dashboard editor has **no version control, no history and no
+rollback** — editing there overwrites what is deployed with no way back.
+
+So keep `supabase/DASHBOARD-PASTE.ts` in the repo as the real copy. If
+you need to change the email logic:
+
+1. Edit the file in the repo
+2. Paste the whole thing into the dashboard again
+3. Deploy
+
+That way the repo stays the source of truth and a mistake in the
+browser is always recoverable.
