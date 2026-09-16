@@ -3079,9 +3079,16 @@ img {
        light (#fafafa) - the old #f6f6f6 was heavy enough that a
        long schedule printed as alternating grey bands.
     */
-    .print-schedule tbody tr:nth-child(even) td {
-        background: #fafafa;
-    }
+    /*
+       NO ZEBRA STRIPING.
+
+       With one row per item, alternate-row shading helped the eye
+       track a long schedule. Each item is now TWO rows, so striping
+       would shade the second half of every item and leave the first
+       half white - the banding would cut through the middle of a
+       record instead of separating records. The pair rule between
+       rows does the job instead.
+    */
 
     /*
        Column widths across an A4 page.
@@ -3098,8 +3105,16 @@ img {
 
        The percentages total 100.
     */
+    /*
+       WIDTHS
+       Six data columns plus a QR column, because a printed item is a
+       pair of rows (see the two heading rows in index.html) rather
+       than one thirteen-column line. Six columns across a 186mm
+       printable width means roughly 20-30mm each, which is what lets
+       the values be set at 8.5pt and still not wrap.
+    */
     .print-schedule .c-id {
-        width: 8.5%;
+        width: 17%;
         font-family: ui-monospace, Consolas, "Courier New", monospace;
         font-size: 6.5pt;
         font-weight: 700;
@@ -3107,16 +3122,17 @@ img {
     }
 
     .print-schedule .c-type {
-        width: 8%;
+        width: 17%;
     }
 
     /* Free text, so it gets the largest share of the table. */
+    /* Free text, so it gets the largest share of the table. */
     .print-schedule .c-desc {
-        width: 15%;
+        width: 29%;
     }
 
     .print-schedule .c-loc {
-        width: 8%;
+        width: 18%;
     }
 
     /*
@@ -3125,14 +3141,14 @@ img {
        makes a size column scannable.
     */
     .print-schedule .c-size {
-        width: 7%;
+        width: 9%;
         text-align: right;
         font-variant-numeric: tabular-nums;
         white-space: nowrap;
     }
 
     .print-schedule .c-frame {
-        width: 6.5%;
+        width: 11%;
     }
 
     /*
@@ -3142,14 +3158,14 @@ img {
        splits mid-word ("Obscu / re" on an earlier version).
     */
     .print-schedule .c-glass {
-        width: 8.5%;
+        width: 13%;
         font-size: 6.5pt;
         word-break: keep-all;
         overflow-wrap: normal;
     }
 
     .print-schedule .c-who {
-        width: 6.5%;
+        width: 13%;
         font-size: 6.5pt;
     }
 
@@ -3158,7 +3174,7 @@ img {
        gets the short form on paper - see PRINT_STATUS_SHORT.
     */
     .print-schedule .c-status {
-        width: 7%;
+        width: 11%;
         font-size: 6.5pt;
     }
 
@@ -3195,9 +3211,9 @@ img {
        is usually mono.
     */
     .print-schedule .c-qc {
-        width: 5%;
+        width: 10%;
         text-align: center;
-        font-size: 7pt;
+        font-size: 8pt;
         font-weight: 700;
         letter-spacing: 0.03em;
     }
@@ -3219,7 +3235,7 @@ img {
        force every row taller.
     */
     .print-schedule .c-photo {
-        width: 6.5%;
+        width: 10%;
         text-align: center;
         padding: 1mm;
     }
@@ -3229,8 +3245,12 @@ img {
            Fixed height with auto width keeps the thumbnail's aspect
            ratio, so a tall photo and a wide one both sit inside the
            row without distorting.
+
+           Larger than it was (9mm -> 12mm) because the item is a pair
+           of rows now: there is vertical room above it that the
+           old single-row layout did not have.
         */
-        height: 9mm;
+        height: 12mm;
         max-width: 100%;
         object-fit: contain;
         border: 0.5pt solid #666;
@@ -3252,17 +3272,78 @@ img {
        from the border to keep the quiet zone a scanner needs.
     */
     .print-schedule .c-qr {
-        width: 6.5%;
+        width: 21%;
         text-align: center;
-        padding: 1mm;
+        vertical-align: middle;
+        padding: 1.5mm;
     }
 
-    /* Cell text wraps; headings do not. */
+    /*
+       HEADER: the QR heading is the only <th> with rowspan, so it
+       must centre against the two heading rows beside it rather than
+       sitting at the top of the band.
+    */
+    .print-schedule .print-schedule-head-1,
+    .print-schedule .print-schedule-head-2 {
+        break-inside: avoid;
+        page-break-inside: avoid;
+    }
+
+    /*
+       ITEM PAIRS
+       Each item is its own <tbody> so the pair of rows can be held
+       together across a page break. Without this an item could have
+       its ID printed at the foot of one page and its specification at
+       the top of the next, which is worse than useless on the floor.
+    */
+    .print-schedule .print-item-pair {
+        break-inside: avoid;
+        page-break-inside: avoid;
+    }
+
+    /*
+       The second row of a pair is a continuation of the first, not a
+       new record, so it does not repeat the heavier top rule. A light
+       dashed rule reads as "same item" rather than "next item".
+    */
+    .print-schedule tbody tr.print-row-1 td {
+        border-bottom: 0.4pt dashed #c8c8c8;
+    }
+
+    .print-schedule tbody tr.print-row-2 td {
+        border-bottom: 0.75pt solid #b0b0b0;
+    }
+
+    /*
+       An item's second row agrees with the first on colour, so the
+       pair reads as one block rather than the halves drifting apart.
+       Zebra striping is deliberately NOT applied here: with pairs, a
+       stripe would cut through the middle of each item.
+    */
+    .print-schedule tbody .print-row-2 td {
+        padding-top: 0.8mm;
+    }
+
+    /*
+       Cell text wraps; headings do not.
+
+       8.5pt, up from 7.5pt. The old size was a symptom of fitting
+       thirteen columns into one row - each column was so narrow that
+       larger text wrapped and made the rows tall. With six columns
+       per row the values fit at a size that is comfortable to read
+       on a bench, which is the whole point of the sheet.
+    */
     .print-schedule tbody td {
         word-wrap: break-word;
         overflow-wrap: break-word;
         hyphens: auto;
-        font-size: 7.5pt;
+        font-size: 8.5pt;
+    }
+
+    /* The ID is what gets read out loud, so it leads the row. */
+    .print-schedule tbody td.c-id {
+        font-size: 9pt;
+        font-weight: 700;
     }
 
     .print-empty {
@@ -3286,11 +3367,24 @@ img {
         padding: 1mm 1.5mm;
     }
 
+    /*
+       The QR code is the largest mark on the schedule.
+
+       It was 10mm, which is small enough that a phone camera has to
+       hunt for it and a slightly worn print will not scan at all.
+       24mm is roughly the size a phone camera locks onto instantly
+       from a normal reading distance, and it fits because the cell
+       spans both rows of the item.
+
+       Scaled up from a 26mm column: 24mm of code plus the quiet zone
+       on each side still leaves the cell's border clear, which is
+       what keeps it scannable.
+    */
     .print-row-qr,
     .print-row-qr img,
     .print-row-qr canvas {
-        width: 10mm !important;
-        height: 10mm !important;
+        width: 24mm !important;
+        height: 24mm !important;
         display: block;
         margin: 0 auto;
     }

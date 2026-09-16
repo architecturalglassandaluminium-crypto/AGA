@@ -4662,14 +4662,17 @@ function printProject(projectId) {
         );
 
         /*
-           The photo column adds a 13th cell only when it is used,
-           so the empty-state colspan below has to match.
+           Columns across the table, for the empty-state colspan.
+
+           Seven now, not thirteen: the schema is split over two rows
+           per item (six + six) with the QR column spanning both, so
+           the widest row is seven cells.
         */
-        const columnCount = anyPhotos ? 13 : 12;
+        const columnCount = 7;
 
         /*
-           Schedule: one row per item, with the columns the job
-           actually needs - including allocation, QC and status.
+           Schedule: one item per pair of rows, with the columns the
+           job actually needs - including allocation, QC and status.
         */
         const schedule = $("printSchedule");
 
@@ -4679,24 +4682,35 @@ function printProject(projectId) {
             photoHeader.hidden = !anyPhotos;
         }
 
+        /*
+           Two rows per item, matching the two heading rows in
+           index.html. Every item contributes a pair of <tr>s and each
+           pair is kept together by .print-item-pair, so a page break
+           cannot land between an item's identity and its
+           specification.
+        */
         if (schedule) {
             schedule.innerHTML = windows.map(window => `
-                <tr>
-                    <td class="c-id">${escapeHtml(window.windowNumber || formatWindowId(window.windowId) || "\u2014")}</td>
-                    <td class="c-type">${escapeHtml(window.productType || "\u2014")}</td>
-                    <td class="c-desc">${escapeHtml(window.description || "\u2014")}</td>
-                    <td class="c-loc">${escapeHtml(window.location || "\u2014")}</td>
-                    <td class="c-size">${escapeHtml(window.length)}</td>
-                    <td class="c-size">${escapeHtml(window.width)}</td>
-                    <td class="c-frame">${escapeHtml(formatPrintFrame(window.frameColour) || "\u2014")}</td>
-                    <td class="c-glass">${escapeHtml(window.glassType || "\u2014")}</td>
-                    <td class="c-who">${escapeHtml(window.allocatedTo || "Unallocated")}</td>
-                    <td class="c-status">${escapeHtml(formatPrintStatus(window.status))}</td>
-                    <td class="c-qc">${escapeHtml(formatPrintQc(window.qcCheck))}</td>
-                    <td class="c-photo"${anyPhotos ? "" : " hidden"}>${printRowPhotoHtml(window.photo)}</td>
-                    <td class="c-qr"><span class="print-row-qr" data-qr-print="${escapeHtml(window.windowNumber || "")}"></span></td>
-                </tr>
-            `).join("") || `<tr><td colspan="${columnCount}" class="print-empty">No items captured on this project.</td></tr>`;
+                <tbody class="print-item-pair">
+                    <tr class="print-row-1">
+                        <td class="c-id">${escapeHtml(window.windowNumber || formatWindowId(window.windowId) || "\u2014")}</td>
+                        <td class="c-desc">${escapeHtml(window.description || "\u2014")}</td>
+                        <td class="c-loc">${escapeHtml(window.location || "\u2014")}</td>
+                        <td class="c-size">${escapeHtml(window.length)}</td>
+                        <td class="c-size">${escapeHtml(window.width)}</td>
+                        <td class="c-frame">${escapeHtml(formatPrintFrame(window.frameColour) || "\u2014")}</td>
+                        <td class="c-qr" rowspan="2"><span class="print-row-qr" data-qr-print="${escapeHtml(window.windowNumber || "")}"></span></td>
+                    </tr>
+                    <tr class="print-row-2">
+                        <td class="c-type">${escapeHtml(window.productType || "\u2014")}</td>
+                        <td class="c-glass">${escapeHtml(window.glassType || "\u2014")}</td>
+                        <td class="c-who">${escapeHtml(window.allocatedTo || "Unallocated")}</td>
+                        <td class="c-status">${escapeHtml(formatPrintStatus(window.status))}</td>
+                        <td class="c-qc">${escapeHtml(formatPrintQc(window.qcCheck))}</td>
+                        <td class="c-photo"${anyPhotos ? "" : " hidden"}>${printRowPhotoHtml(window.photo)}</td>
+                    </tr>
+                </tbody>
+            `).join("") || `<tbody><tr><td colspan="${columnCount}" class="print-empty">No items captured on this project.</td></tr></tbody>`;
 
             renderPrintQRCodes(schedule);
         }
@@ -5399,10 +5413,24 @@ function renderPrintQRCodes(scope) {
             return;
         }
 
+        /*
+           Rendered at 200px, not 64px.
+
+           The QR is printed at 24mm (see .print-row-qr in the print
+           stylesheet). The old 64px canvas was being scaled up about
+           14x to fill a 24mm square, so the printed modules were soft
+           and a phone camera struggled to resolve them - and a QR code
+           only has to be a little blurry to stop scanning.
+
+           200px over 24mm is about 210dpi: sharp enough that the print
+           is limited by the printer, not by this canvas, while staying
+           small enough to keep the worksheet HTML light. The canvas is
+           sized by CSS for display, so this only affects fidelity.
+        */
         generateQRCodeInElement(
             node,
             buildWindowIdQRContent(value),
-            64
+            200
         );
     });
 }
@@ -6190,22 +6218,34 @@ function printWindow(windowId) {
         */
         const schedule = $("printSchedule");
 
+        /*
+           Two rows per item, matching the two heading rows: the
+           identity and measurements on top, the specification and
+           the QR code below. The QR cell spans both rows.
+
+           This is what buys the columns their width. Thirteen values
+           on one line forces every column narrow; split across two
+           lines each value gets roughly double the room, which is
+           why the schedule can be set larger and still fit A4.
+        */
         if (schedule) {
             schedule.innerHTML = `
-                <tr>
+                <tr class="print-row-1">
                     <td class="c-id">${escapeHtml(item.windowNumber || "\u2014")}</td>
-                    <td class="c-type">${escapeHtml(item.productType || item.windowType || "\u2014")}</td>
                     <td class="c-desc">${escapeHtml(item.description || "\u2014")}</td>
                     <td class="c-loc">${escapeHtml(item.location || item.windowLocation || "\u2014")}</td>
                     <td class="c-size">${escapeHtml(length || "\u2014")}</td>
                     <td class="c-size">${escapeHtml(width || "\u2014")}</td>
                     <td class="c-frame">${escapeHtml(formatPrintFrame(item.frameColour) || "\u2014")}</td>
+                    <td class="c-qr" rowspan="2"><span class="print-row-qr" data-qr-print="${escapeHtml(item.windowNumber || "")}"></span></td>
+                </tr>
+                <tr class="print-row-2">
+                    <td class="c-type">${escapeHtml(item.productType || item.windowType || "\u2014")}</td>
                     <td class="c-glass">${escapeHtml(item.glassType || "\u2014")}</td>
                     <td class="c-who">${escapeHtml(item.allocatedTo || "Unallocated")}</td>
                     <td class="c-status">${escapeHtml(formatPrintStatus(item.status))}</td>
                     <td class="c-qc">${escapeHtml(formatPrintQc(item.qcCheck))}</td>
                     <td class="c-photo" hidden></td>
-                    <td class="c-qr"><span class="print-row-qr" data-qr-print="${escapeHtml(item.windowNumber || "")}"></span></td>
                 </tr>
             `;
 

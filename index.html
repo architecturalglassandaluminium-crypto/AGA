@@ -298,6 +298,7 @@
                             <thead>
                                 <tr>
                                     <th>Window ID</th>
+                                    <th>Type</th>
                                     <th>Description</th>
                                     <th>Location</th>
                                     <th>Length (mm)</th>
@@ -1058,16 +1059,40 @@
                 <span class="print-section-note" id="printScheduleCount"></span>
             </h2>
 
+            <!--
+               TWO HEADER ROWS, over two data rows.
+
+               Thirteen columns cannot each hold a legible heading and
+               a legible value at A4 width in ONE row - the headings
+               force every column narrow and the values then wrap to
+               two or three lines, which is what made the old sheet
+               cramped and busy.
+
+               So the printed schedule is a two-row record per item:
+
+                 row 1  identity + the measurements
+                 row 2  specification + who/when + the QR code, which
+                        spans both rows and is given real size because
+                        it is the one thing on the sheet nobody can
+                        read by eye.
+
+               The heading row labels the pair, and the second heading
+               row labels the second data row. `.print-row-2` marks the
+               cells the JavaScript fills into the lower row.
+            -->
             <table class="print-schedule">
                 <thead>
-                    <tr>
+                    <tr class="print-schedule-head-1">
                         <th class="c-id">ID</th>
-                        <th class="c-type">Type</th>
                         <th class="c-desc">Description</th>
                         <th class="c-loc">Location</th>
                         <th class="c-size">Length</th>
                         <th class="c-size">Width</th>
                         <th class="c-frame">Frame</th>
+                        <th class="c-qr" rowspan="2">QR</th>
+                    </tr>
+                    <tr class="print-schedule-head-2">
+                        <th class="c-type">Type</th>
                         <th class="c-glass">Glass</th>
                         <th class="c-who">Allocated</th>
                         <th class="c-status">Status</th>
@@ -1080,7 +1105,6 @@
                            sheet shows its photo in the block above.
                         -->
                         <th class="c-photo">Photo</th>
-                        <th class="c-qr">QR</th>
                     </tr>
                 </thead>
                 <tbody id="printSchedule"></tbody>
