@@ -1,0 +1,14 @@
+# AGA Architectural Glass & Aluminium
+# Static PWA: the site is served straight from the repository root,
+# so there is no build step and no separate output directory.
+
+[build]
+  base = "."
+  publish = "."
+
+# The service worker must never be served from a stale CDN copy,
+# otherwise installed browsers keep running an obsolete app shell.
+[[headers]]
+  for = "/sw.js"
+  [headers.values]
+    Cache-Control = "public, max-age=0, must-revalidate"
