@@ -11,7 +11,37 @@ const EMAIL_COMPANY = {
     phone: "010 597 6616"
 };
 
-const EMAIL_ENDPOINT = "/api/send-production-email";
+/*
+   WHERE THE MAILER LIVES
+   ----------------------
+   The app is hosted on GitHub Pages, which serves static files
+   only - it cannot run a serverless function. So the mailer runs
+   as a Supabase Edge Function and is called cross-origin.
+
+   Deploy it with:
+
+     supabase functions deploy send-production-email
+   Replace <PROJECT-REF> below with your Supabase project ref (the
+   subdomain of your project URL, also shown by
+   `supabase projects list`).
+
+   Leave the placeholder in place and the app simply has no
+   mailer: every send returns false and falls back to a mailto:
+   draft, exactly as it did before the function existed. That is
+   why this is a constant rather than something that throws.
+*/
+const SUPABASE_PROJECT_REF = "<PROJECT-REF>";
+
+/*
+   The live endpoint, or "" when not configured yet.
+
+   Built from the ref above so there is exactly one place to edit.
+   A ref starting with "<" is still the placeholder, which means
+   the function has not been deployed yet.
+*/
+const EMAIL_ENDPOINT = SUPABASE_PROJECT_REF.startsWith("<")
+    ? ""
+    : `https://${SUPABASE_PROJECT_REF}.supabase.co/functions/v1/send-production-email`;
 
 /*
    The office addresses that are copied on internal notifications:
@@ -25,14 +55,37 @@ const OFFICE_RECIPIENTS = [
 /*
    IMPORTANT:
    A browser cannot hold an SMTP password or secret API key.
-   The function below POSTs to your backend endpoint
-   (/api/send-production-email) when one is deployed, e.g. a
-   small serverless function that sends via your mail provider.
+   postEmail POSTs to the Supabase Edge Function above, which
+   holds the Resend key server-side and talks to the provider.
 
-   When the app runs as a static site (GitHub Pages / local)
-   there is no backend, so the email is gracefully skipped and
-   the update still succeeds.
+   When no function is deployed the email is gracefully skipped
+   and the work still saves - email is best effort and must never
+   block the workshop.
 */
+
+/*
+   The Supabase anon key is public by design and protects nothing
+   on its own; it is sent because Supabase requires it to route a
+   function call. The secret that actually matters, the Resend
+   API key, lives only in the Edge Function's environment.
+*/
+function emailAuthHeaders() {
+
+    const anon = typeof SUPABASE_ANON_KEY === "string"
+        ? SUPABASE_ANON_KEY
+        : "";
+
+    const headers = {
+        "Content-Type": "application/json"
+    };
+
+    if (anon) {
+        headers.apikey = anon;
+        headers.Authorization = `Bearer ${anon}`;
+    }
+
+    return headers;
+}
 
 /*
    Send one message through the backend endpoint.
@@ -42,6 +95,18 @@ const OFFICE_RECIPIENTS = [
    must never block workshop work on it - email is best effort.
 */
 async function postEmail({ to, subject, html, replyTo, attachments }) {
+
+    /*
+       No endpoint means the mailer has not been deployed yet.
+       Skip quietly rather than firing a request that can only
+       404 and fill the console on every status change.
+    */
+    if (!EMAIL_ENDPOINT) {
+        console.warn(
+            "Email skipped: no mailer configured. See SUPABASE_PROJECT_REF in email.js."
+        );
+        return false;
+    }
 
     try {
 
@@ -57,9 +122,7 @@ async function postEmail({ to, subject, html, replyTo, attachments }) {
 
         const response = await fetch(EMAIL_ENDPOINT, {
             method: "POST",
-            headers: {
-                "Content-Type": "application/json"
-            },
+            headers: emailAuthHeaders(),
             body: JSON.stringify(payload)
         });
 

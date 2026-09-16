@@ -20,6 +20,20 @@ aga-drive-key.json
 # Output written by the background export job
 drive-export.log
 AGA-*.csv
+# ---------------------------------------------------------------------------
+# Supabase Edge Function
+#
+# `supabase functions serve` writes local secrets to this file so the
+# emulator can read them. It holds the RESEND_API_KEY, so it is exactly
+# as sensitive as the key itself and must never be committed.
+#
+# The deployed function does NOT use this file: it reads secrets from
+# the Supabase dashboard, set with `supabase secrets set`.
+# ---------------------------------------------------------------------------
+supabase/functions/.env
+supabase/.temp/
+supabase/.branches/
+supabase/.env
 # Logs and temp files
 *.log
 *.tmp
