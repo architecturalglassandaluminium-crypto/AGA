@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AGA Email Diagnostics</title>
+<style>
+    /*
+       Deliberately plain. This page is a diagnostic, not a screen
+       the workshop uses, so it favours clarity over polish - and a
+       simple stylesheet means one less thing that can break while
+       you are trying to find out what is broken.
+    */
+    body {
+        margin: 0;
+        padding: 24px;
+        font-family: "Segoe UI", Arial, Helvetica, sans-serif;
+        background: #f3f4f6;
+        color: #111827;
+        line-height: 1.5;
+    }
+
+    .card {
+        max-width: 760px;
+        margin: 0 auto;
+        background: #fff;
+        border: 1px solid #d1d5db;
+        border-radius: 6px;
+        padding: 24px;
+    }
+
+    h1 {
+        margin: 0 0 4px;
+        font-size: 20px;
+    }
+
+    .sub {
+        margin: 0 0 20px;
+        color: #6b7280;
+        font-size: 14px;
+    }
+
+    label {
+        display: block;
+        font-weight: 600;
+        font-size: 13px;
+        margin-bottom: 6px;
+    }
+
+    input[type="email"] {
+        width: 100%;
+        box-sizing: border-box;
+        padding: 10px;
+        font-size: 15px;
+        border: 1px solid #9ca3af;
+        border-radius: 4px;
+    }
+
+    button {
+        margin-top: 14px;
+        padding: 11px 20px;
+        font-size: 15px;
+        font-weight: 600;
+        color: #fff;
+        background: #111827;
+        border: 0;
+        border-radius: 4px;
+        cursor: pointer;
+    }
+
+    button:disabled {
+        background: #9ca3af;
+        cursor: default;
+    }
+
+    /*
+       The raw output is shown in a monospace block, using pre-wrap
+       so long lines wrap rather than forcing the page sideways on
+       a phone.
+    */
+    pre {
+        margin: 20px 0 0;
+        padding: 14px;
+        background: #f9fafb;
+        border: 1px solid #e5e7eb;
+        border-radius: 4px;
+        font-family: ui-monospace, Consolas, "Courier New", monospace;
+        font-size: 13px;
+        white-space: pre-wrap;
+        word-break: break-word;
+        min-height: 60px;
+    }
+
+    .endpoint {
+        margin-top: 20px;
+        padding: 10px 12px;
+        background: #f9fafb;
+        border: 1px solid #e5e7eb;
+        border-radius: 4px;
+        font-size: 12px;
+    }
+
+    .endpoint code {
+        font-family: ui-monospace, Consolas, "Courier New", monospace;
+        word-break: break-all;
+    }
+
+    .note {
+        margin-top: 20px;
+        padding-top: 16px;
+        border-top: 1px solid #e5e7eb;
+        font-size: 13px;
+        color: #6b7280;
+    }
+</style>
+</head>
+<body>
+
+<div class="card">
+
+    <h1>AGA Email Diagnostics</h1>
+    <p class="sub">
+        Tests the mailer and shows the real answer. Nothing is sent to anyone
+        except the address you type below.
+    </p>
+
+    <label for="toAddress">Send a test message to</label>
+    <input type="email" id="toAddress" placeholder="your.own@email.com"
+        autocomplete="email" autocapitalize="off" spellcheck="false">
+
+    <button type="button" id="runButton">Run test</button>
+
+    <pre id="result">Press "Run test" to check the mailer.</pre>
+
+    <div class="endpoint">
+        Endpoint in use:<br>
+        <code id="endpointPreview">loading...</code>
+    </div>
+
+    <div class="note">
+        <strong>Reading the result.</strong>
+        200 means it sent. 422 means the function reached Resend but Resend
+        rejected the message - almost always the sender address. 500 means the
+        function threw before finishing, which usually means a missing secret.
+        Each case is explained in full above.
+    </div>
+
+</div>
+
+<!--
+   The page's own behaviour. supabase-config.js and email.js are
+   loaded by the script itself, in that order, so this file only has
+   to pull in one thing.
+-->
+<script src="email-test.js"></script>
+
+</body>
+</html>
