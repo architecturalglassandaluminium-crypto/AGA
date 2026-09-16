@@ -1,0 +1,22 @@
+[build]
+  publish = "."
+  functions = "netlify/functions"
+
+# Both functions live at the top level of netlify/functions/, so each
+# deploys under its own filename and is reachable at
+# /.netlify/functions/<filename>. The clean /api/... URLs the page uses
+# are rewritten to those here.
+
+# Quote builder price list. The shop does not allow cross-origin reads,
+# so the request is handed to the catalogue function instead, which asks
+# the shop from the server side and passes the JSON back.
+[[redirects]]
+  from = "/api/catalogue"
+  to = "/.netlify/functions/catalogue"
+  status = 200
+# Production / new-project notification emails. The mail-provider key
+# lives in the function's environment, never in the page.
+[[redirects]]
+  from = "/api/send-production-email"
+  to = "/.netlify/functions/send-production-email"
+  status = 200

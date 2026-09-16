@@ -1,6 +1,25 @@
 # Deep Copilot / AI session artifacts
 .deep-copilot/
 
+# ---------------------------------------------------------------------------
+# SECRETS - never commit these
+#
+# A Google service account key is a master key to the company's Drive:
+# anyone holding it can read and delete every file the account can reach.
+# Once a key reaches git history it is compromised forever, even if the
+# file is deleted afterwards - the only real fix is to revoke the key.
+# ---------------------------------------------------------------------------
+drive-key*.json
+*-key.json
+*service-account*.json
+aga-drive-key.json
+# Local environment files
+.env
+.env.*
+*.env
+# Output written by the background export job
+drive-export.log
+AGA-*.csv
 # Logs and temp files
 *.log
 *.tmp
