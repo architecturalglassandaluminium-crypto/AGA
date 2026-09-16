@@ -2231,6 +2231,18 @@ function editProject(projectId) {
         $("prjCustomerPhone").value = project.customerPhone || "";
         $("prjSiteAddress").value = project.siteAddress || "";
 
+        /*
+           A date input only accepts yyyy-mm-dd. An older project
+           saved before this field existed has no dueDate at all, and
+           a value in any other shape would render as an empty box -
+           so it is normalised here rather than trusted.
+        */
+        const dueDateInput = $("prjDueDate");
+
+        if (dueDateInput) {
+            dueDateInput.value = normaliseDueDate(project.dueDate);
+        }
+
         const tbody = $("projectWindowRows");
 
         if (tbody) {
@@ -2590,6 +2602,7 @@ function createProject(event) {
             existingProject.customerEmail = safeText($("prjCustomerEmail")?.value);
             existingProject.customerPhone = safeText($("prjCustomerPhone")?.value);
             existingProject.siteAddress = safeText($("prjSiteAddress")?.value);
+            existingProject.dueDate = safeText($("prjDueDate")?.value);
 
             existingProject.windows = windows;
             existingProject.updatedAt = now;
@@ -2619,6 +2632,15 @@ function createProject(event) {
             customerEmail: safeText($("prjCustomerEmail")?.value),
             customerPhone: safeText($("prjCustomerPhone")?.value),
             siteAddress: safeText($("prjSiteAddress")?.value),
+
+            /*
+               The promised date, stored as a plain yyyy-mm-dd
+               string. A date-only value with no time and no
+               timezone is deliberate: a due date is a calendar day,
+               and storing it as a timestamp makes it drift a day for
+               anyone east or west of the person who typed it.
+            */
+            dueDate: safeText($("prjDueDate")?.value),
 
             windows,
 
@@ -3046,6 +3068,16 @@ function getAllWindowsWithProject() {
                 projectName: project.projectName,
                 customerName: project.customerName,
                 siteAddress: project.siteAddress,
+
+                /*
+                   The promised date belongs to the project but is
+                   shown on every window, because a window row is
+                   where the workshop looks. Carried through the
+                   flatten so callers do not each have to look the
+                   project back up.
+                */
+                dueDate: project.dueDate || "",
+
                 ...window
             });
         });
@@ -3206,6 +3238,16 @@ function buildWindowDetailsHtml(item) {
                 <p><strong>Allocated To:</strong> ${allocatedBadgeHtml(item.allocatedTo)}</p>
                 ${item.allocatedAt
             ? `<p class="details-small">Allocated ${escapeHtml(formatCreatedDate(item.allocatedAt).replace(/^Created\s+/, ""))}</p>`
+            : ""}
+
+                ${/*
+                     Days outstanding against the promised date.
+                     A job with no due date shows nothing here rather
+                     than a misleading green.
+                  */ ""}
+                ${item.dueDate
+            ? `<p><strong>Due:</strong> ${escapeHtml(formatDueDate(item.dueDate))}
+                            ${outstandingBadgeHtml(item.dueDate)}</p>`
             : ""}
             </div>
             <div class="details-block details-status">
@@ -3619,11 +3661,182 @@ function renderEmployees() {
 const AGE_GREEN_DAYS = 10;
 const AGE_YELLOW_DAYS = 20;
 
+/* =========================================================
+   DAYS OUTSTANDING
+   =========================================================
+   How a job stands against the date the customer was promised.
+
+   This is deliberately NOT the same figure as the age badge
+   above. Age says how long a window has existed; this says
+   whether the job is going to be late, which is the number a
+   workshop actually manages against.
+
+   The bands are the same 10/20 day shape as age so the two read
+   consistently, but the meaning is different - they measure the
+   approach to the due date, not time since creation.
+
+        more than 10 days left   green   - comfortable
+        up to 10 days left       yellow  - getting tight
+        past the due date        red     - overdue
+   ========================================================= */
+
+const DUE_SOON_DAYS = 10;
+
+/*
+   Coerce anything to a yyyy-mm-dd string, or "".
+
+   A date input only accepts that exact shape. A stored timestamp,
+   or a date typed with slashes, would silently render as an empty
+   box and look like the due date had been lost.
+*/
+function normaliseDueDate(value) {
+
+    const text = safeText(value);
+
+    if (!text) {
+        return "";
+    }
+
+    /* Already the right shape. */
+    if (/^\d{4}-\d{2}-\d{2}$/.test(text)) {
+        return text;
+    }
+
+    const parsed = new Date(text);
+
+    if (isNaN(parsed.getTime())) {
+        return "";
+    }
+
+    /*
+       Built from local parts, not toISOString(), which converts to
+       UTC and can shift the day backwards for anyone ahead of it.
+    */
+    const year = parsed.getFullYear();
+    const month = String(parsed.getMonth() + 1).padStart(2, "0");
+    const day = String(parsed.getDate()).padStart(2, "0");
+
+    return `${year}-${month}-${day}`;
+}
+
+/*
+   Signed whole days between a due date and today.
+
+      null      no due date, or an unreadable one
+      positive  days OVERDUE  (the date has passed)
+      zero      due today
+      negative  days REMAINING (the date is still ahead)
+
+   Signed rather than absolute because "5 days" is useless on its
+   own - the caller cannot tell late from early.
+
+   Calendar days, not 24-hour blocks, so a job due yesterday reads
+   as 1 day overdue this morning rather than 0.
+*/
+function daysOutstanding(dueDate) {
+
+    const normalised = normaliseDueDate(dueDate);
+
+    if (!normalised) {
+        return null;
+    }
+
+    /*
+       Parsed as local midnight by passing the parts explicitly.
+       new Date("2026-09-30") would be UTC midnight, which lands on
+       the 29th for anyone west of Greenwich.
+    */
+    const parts = normalised.split("-").map(Number);
+
+    const due = new Date(parts[0], parts[1] - 1, parts[2]);
+
+    const now = new Date();
+
+    const today = new Date(
+        now.getFullYear(),
+        now.getMonth(),
+        now.getDate()
+    );
+
+    return Math.round((today - due) / 86400000);
+}
+
+/*
+   The due-date badge, for a window row, a project line or the
+   window record.
+
+   A job with no due date gets NO badge rather than a grey "-1 days"
+   or a misleading green, because "no promised date" is a real
+   state and should not look like good news.
+*/
+function outstandingBadgeHtml(dueDate) {
+
+    const days = daysOutstanding(dueDate);
+
+    if (days === null) {
+        return "";
+    }
+
+    let band;
+    let label;
+
+    if (days > 0) {
+        band = "red";
+        label = days === 1
+            ? "1 day overdue"
+            : `${days} days overdue`;
+
+    } else if (days === 0) {
+        band = "red";
+        label = "Due today";
+
+    } else {
+        const left = Math.abs(days);
+
+        band = left <= DUE_SOON_DAYS ? "yellow" : "green";
+        label = left === 1 ? "1 day left" : `${left} days left`;
+    }
+
+    const dueText = new Date(
+        Number(normaliseDueDate(dueDate).split("-")[0]),
+        Number(normaliseDueDate(dueDate).split("-")[1]) - 1,
+        Number(normaliseDueDate(dueDate).split("-")[2])
+    ).toLocaleDateString("en-ZA", {
+        day: "numeric", month: "short", year: "numeric"
+    });
+
+    return `<span class="age-badge age-${band}" ` +
+        `title="Due ${escapeHtml(dueText)}">${escapeHtml(label)}</span>`;
+}
+
 /*
    Whole days between a stored timestamp and today. Returns null
    when there is no usable date, so callers can skip the badge
    rather than render a misleading "0 days".
 */
+/*
+   A due date as readable text, e.g. "30 Sep 2026".
+
+   Parsed from its parts rather than passed straight to new Date(),
+   which would read a yyyy-mm-dd string as UTC midnight and show the
+   previous day for anyone west of Greenwich.
+*/
+function formatDueDate(dueDate) {
+
+    const normalised = normaliseDueDate(dueDate);
+
+    if (!normalised) {
+        return "-";
+    }
+
+    const parts = normalised.split("-").map(Number);
+
+    return new Date(parts[0], parts[1] - 1, parts[2])
+        .toLocaleDateString("en-ZA", {
+            day: "numeric", month: "short", year: "numeric"
+        });
+}
+
 function daysSince(dateValue) {
 
     if (!dateValue) {
@@ -3771,6 +3984,30 @@ function qcStatusPillHtml(qcCheck) {
     return `<span class="qc-pill qc-pill-none">${escapeHtml(value)}</span>`;
 }
 
+/*
+   A small line under the outstanding badge giving the actual date.
+
+   The badge says "3 days left", which answers the urgent question
+   but not "left until when?" - and someone on the phone to a
+   customer needs the date, not an offset.
+*/
+function dueDateCaption(dueDate) {
+
+    const normalised = normaliseDueDate(dueDate);
+
+    if (!normalised) {
+        return `<small class="age-date">No due date</small>`;
+    }
+
+    const parts = normalised.split("-").map(Number);
+
+    const date = new Date(parts[0], parts[1] - 1, parts[2]);
+
+    return `<small class="age-date">Due ${escapeHtml(date.toLocaleDateString("en-ZA", {
+        day: "numeric", month: "short", year: "numeric"
+    }))}</small>`;
+}
+
 function windowRowTableHtml(windows) {
 
     /*
@@ -3800,6 +4037,12 @@ function windowRowTableHtml(windows) {
                 <span class="age-stack">
                     ${ageBadgeHtml(window.createdAt)}
                     <small class="age-date">${escapeHtml(formatCreatedDate(window.createdAt))}</small>
+                </span>
+            </td>
+            <td class="col-due">
+                <span class="age-stack">
+                    ${outstandingBadgeHtml(window.dueDate)}
+                    ${dueDateCaption(window.dueDate)}
                 </span>
             </td>
             <td class="saved-photo-cell col-photo">${savedPhotoHtml(window.photo)}</td>
@@ -3832,6 +4075,7 @@ function windowRowTableHtml(windows) {
                         <th class="col-status">Status</th>
                         <th class="col-allocated">Allocated To</th>
                         <th class="col-age">Age</th>
+                        <th class="col-due">Outstanding</th>
                         <th class="col-photo">Photo</th>
                         <th class="col-qr">QR Code</th>
                     </tr>

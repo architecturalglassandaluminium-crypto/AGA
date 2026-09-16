@@ -1474,6 +1474,17 @@ img {
 }
 
 /*
+   Outstanding: days against the promised date.
+
+   Sized like the Age column beside it, because the two read as a
+   pair - "how old is this" and "am I going to make the date".
+   Wider, because "28 days overdue" is a longer string than "5 days".
+*/
+.window-rows-table .col-due {
+    width: 130px;
+}
+
+/*
    Project-level tags: overall age badge + window count.
 */
 

@@ -260,6 +260,26 @@
                             <textarea id="prjSiteAddress" name="prjSiteAddress" rows="2"
                                 placeholder="Installation address"></textarea>
                         </div>
+
+                        <!--
+                           The date the customer expects the job.
+
+                           Everything else on this form describes the
+                           job; this is the only field that says when
+                           it is DUE, which is what lets the app tell
+                           the workshop a job is running late instead
+                           of only how old it is.
+
+                           Optional: a job with no promised date is
+                           normal, and the app simply shows no
+                           outstanding figure rather than inventing
+                           one.
+                        -->
+                        <div class="form-group">
+                            <label for="prjDueDate">Due Date</label>
+                            <input type="date" id="prjDueDate" name="prjDueDate">
+                            <small class="field-hint">Leave blank if there is no promised date.</small>
+                        </div>
                     </div>
                 </div>
 

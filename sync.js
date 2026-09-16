@@ -278,6 +278,17 @@ function projectToRows(project, workshopId) {
         customer_email: project.customerEmail || "",
         customer_phone: project.customerPhone || "",
         site_address: project.siteAddress || "",
+
+        /*
+           Null rather than "" when there is no due date.
+
+           The column is a DATE, and Postgres rejects an empty
+           string for it - which would fail the whole project sync,
+           not just this field. Null is the honest value for
+           "no promised date".
+        */
+        due_date: project.dueDate || null,
+
         created_at: project.createdAt || now,
         updated_at: now,
         revision: Number(project.revision || 1)
@@ -354,6 +365,15 @@ function rowsToProject(projectRow, windowRows, historyRows) {
         customerEmail: projectRow.customer_email || "",
         customerPhone: projectRow.customer_phone || "",
         siteAddress: projectRow.site_address || "",
+
+        /*
+           Postgres returns a DATE as "yyyy-mm-dd", which is already
+           the shape the date input and the badge want. Kept as a
+           plain string rather than parsed into a Date, so no
+           timezone can shift the day on the way in.
+        */
+        dueDate: projectRow.due_date || "",
+
         createdAt: projectRow.created_at,
         updatedAt: projectRow.updated_at,
         revision: Number(projectRow.revision || 1),

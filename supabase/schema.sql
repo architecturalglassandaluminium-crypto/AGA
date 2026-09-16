@@ -75,6 +75,17 @@ create table if not exists projects (
     customer_phone  text,
     site_address    text,
 
+    -- The date the customer was promised, as a calendar day.
+    --
+    -- `date`, not `timestamptz`: a due date is a day on a calendar,
+    -- not an instant. Storing it as a timestamp makes it shift a day
+    -- for anyone in a different timezone, so a job due "the 30th"
+    -- could read as overdue on the 29th.
+    --
+    -- Nullable on purpose. Plenty of jobs have no promised date, and
+    -- the app shows no outstanding figure rather than inventing one.
+    due_date        date,
+
     created_at      timestamptz not null default now(),
     updated_at      timestamptz not null default now(),
 
@@ -84,6 +95,16 @@ create table if not exists projects (
 
 create unique index if not exists projects_workshop_number_idx
     on projects(workshop_id, project_number);
+
+-- An existing database needs the column added; `create table if not
+-- exists` above does nothing to a table that is already there.
+--
+-- Run this once against a live project that predates due dates.
+-- The tracker surfaces jobs by due date, so the index earns its keep.
+alter table projects add column if not exists due_date date;
+
+create index if not exists projects_due_date_idx
+    on projects(workshop_id, due_date);
 
 create index if not exists projects_workshop_idx
     on projects(workshop_id);
