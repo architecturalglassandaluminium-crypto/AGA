@@ -43,6 +43,15 @@ const SUPABASE_PROJECT_REF = "mvymxqajdiupucrkeqpg";
    swallowed by design (email must never block the workshop), it
    shows up only in the browser console - not as anything the user
    sees.
+
+   VERIFIED against the live project:
+
+     send-email          OPTIONS 204, POST 422   <- this one
+     send-email-resend   OPTIONS 500             <- broken, ignore
+     send-production-email  404                  <- never deployed
+   There are two other functions deployed that this app does not
+   use. Leave them alone, or delete them to avoid confusion - but do
+   not point this constant at either.
 */
 const EMAIL_FUNCTION_NAME = "send-email";
 

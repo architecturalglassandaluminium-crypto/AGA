@@ -319,3 +319,64 @@ If you keep the deployed `send-email`, set these secrets:
 | `FROM_EMAIL` | `no-reply@agasouthafrica.co.za` (verified in Resend) |
 | `FROM_NAME` | `AGA Workshop` |
 | `ALLOWED_ORIGINS` | `https://architecturalglassandaluminium-crypto.github.io` |
+---
+
+# VERIFIED STATUS of the deployed functions
+
+Probed against the live project. This table is the authoritative
+answer to "which function does the app use".
+
+| Function | OPTIONS | POST | Verdict |
+|---|---|
+| `send-email` | **204** | **422** | **In use.** Works; Resend refused the message |
+| `send-email-resend` | 500 | 500 | Broken. Throws before handling CORS |
+| `send-production-email` | 404 | — | Never deployed |
+
+`email.js` uses `send-email`. Do not point it at either of the others.
+
+## What 422 means
+
+422 is **good news** - a real improvement on the 500 seen earlier.
+
+- A **500** means the function itself threw, so nothing downstream ran.
+- A **422** means the function ran to completion, called Resend, and
+  **Resend rejected the request**.
+
+So the wiring is correct and the remaining problem is the message, not
+the function. The usual cause is the **sender address**:
+
+- `FROM_EMAIL` must be on a domain **verified in Resend**
+  (resend.com/domains). A domain can be added and still be pending
+  DNS, in which case sends are refused.
+- For a first test, `onboarding@resend.dev` is Resend's own sandbox
+  sender and needs no verification. If a send from that address
+  succeeds, the function is fine and only the domain needs finishing.
+
+## What 204 on OPTIONS means
+
+The CORS preflight now succeeds, which means:
+
+- the function loads without throwing, so **its secrets are set**
+  (this is what fixed the earlier 500)
+- the browser will be allowed to make the real POST
+
+Before this change OPTIONS returned 500, which is how we knew the
+failure was at load time rather than in Resend.
+
+## To finish
+
+1. Confirm `FROM_EMAIL` uses a Resend-verified domain, or temporarily
+   set it to `onboarding@resend.dev` to prove the pipeline.
+2. Press **Email** on a project in the live app.
+3. If it fails, read **Supabase -> Edge Functions -> send-email -> Logs**
+   for Resend's exact error, and that message names the fix.
+
+Note that a failed send is intentionally silent in the UI - email must
+never block the workshop - so the console and the function logs are
+where the reason appears.
+
+## Cleanup worth doing
+
+Two unused functions are deployed: `send-email-resend` (broken) and
+nothing at `send-production-email`. The broken one is worth deleting so
+nobody deploys against it by mistake.
