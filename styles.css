@@ -14,38 +14,45 @@
 }
 
 :root {
-    --primary: #1e3a5f;
-    --primary-dark: #16294a;
-    --secondary: #374151;
+    --primary: #143b6b;
+    --primary-dark: #0d2747;
+    --primary-light: #1e5aa8;
+    --secondary: #334155;
     --accent: #2563eb;
     --accent-dark: #1d4ed8;
+    --accent-soft: #eaf1fe;
 
-    --success: #16a34a;
-    --warning: #d97706;
+    --success: #15803d;
+    --success-soft: #e7f6ec;
+    --warning: #b45309;
+    --warning-soft: #fef3c7;
     --danger: #dc2626;
-    --info: #0891b2;
+    --danger-soft: #fdecec;
+    --info: #0e7490;
 
-    --background: #f3f4f6;
+    --background: #eef1f6;
     --surface: #ffffff;
-    --surface-light: #f9fafb;
+    --surface-light: #f7f9fc;
 
-    --border: #d1d5db;
-    --border-dark: #9ca3af;
+    --border: #dbe1ea;
+    --border-dark: #b6c0cd;
 
-    --text: #111827;
-    --text-light: #6b7280;
-    --text-muted: #9ca3af;
+    --text: #0f172a;
+    --text-light: #5b6779;
+    --text-muted: #8a94a3;
 
-    --radius: 12px;
-    --radius-sm: 8px;
-    --shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
-    --shadow-lg: 0 20px 50px rgba(0, 0, 0, 0.25);
+    --radius: 14px;
+    --radius-sm: 9px;
+    --shadow-xs: 0 1px 2px rgba(15, 23, 42, 0.06);
+    --shadow: 0 1px 3px rgba(15, 23, 42, 0.07), 0 8px 22px rgba(15, 23, 42, 0.06);
+    --shadow-md: 0 4px 12px rgba(15, 23, 42, 0.09), 0 12px 32px rgba(15, 23, 42, 0.08);
+    --shadow-lg: 0 24px 60px rgba(15, 23, 42, 0.28);
 
     /* Dashboard card accents */
     --card-total: #2563eb;
-    --card-measured: #0891b2;
-    --card-production: #d97706;
-    --card-ready: #16a34a;
+    --card-measured: #0e7490;
+    --card-production: #b45309;
+    --card-ready: #15803d;
 }
 
 html {
@@ -53,11 +60,15 @@ html {
 }
 
 body {
-    font-family: Arial, Helvetica, sans-serif;
-    background: var(--background);
+    font-family: "Segoe UI", system-ui, -apple-system, "Helvetica Neue", Arial, sans-serif;
+    background:
+        radial-gradient(1200px 480px at 50% -220px, #dbe6f7 0%, rgba(219, 230, 247, 0) 70%),
+        var(--background);
     color: var(--text);
-    line-height: 1.5;
+    line-height: 1.55;
     min-height: 100vh;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
 }
 
 button,
@@ -69,10 +80,44 @@ textarea {
 
 button {
     cursor: pointer;
+    font-weight: 600;
 }
 
 img {
     max-width: 100%;
+}
+
+/* Consistent, visible keyboard focus for accessibility. */
+:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+    border-radius: 4px;
+}
+
+/* A small, crisp inline icon set. Icons inherit the text colour,
+   so they read correctly on light and dark backgrounds alike. */
+.icon {
+    width: 1.15em;
+    height: 1.15em;
+    flex: 0 0 auto;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 1.9;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    vertical-align: -0.18em;
+}
+
+.sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
 }
 
 /* -------------------------
@@ -80,12 +125,13 @@ img {
 ------------------------- */
 
 .app-header {
-    background: var(--primary-dark);
+    background: linear-gradient(120deg, var(--primary) 0%, var(--primary-dark) 100%);
     color: white;
     position: sticky;
     top: 0;
     z-index: 100;
-    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
+    box-shadow: 0 2px 14px rgba(13, 39, 71, 0.28);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
 }
 
 .header-content {
@@ -93,7 +139,7 @@ img {
     align-items: center;
     justify-content: space-between;
     gap: 20px;
-    padding: 18px 24px;
+    padding: 16px 24px;
     max-width: 1500px;
     margin: 0 auto;
     width: 100%;
@@ -103,22 +149,46 @@ img {
     display: flex;
     align-items: center;
     gap: 14px;
+    min-width: 0;
+}
+
+.company-mark {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 42px;
+    height: 42px;
+    border-radius: 11px;
+    background: rgba(255, 255, 255, 0.13);
+    border: 1px solid rgba(255, 255, 255, 0.22);
+    font-size: 15px;
+    font-weight: 800;
+    letter-spacing: 0.5px;
+    flex: 0 0 auto;
+}
+
+.company-text {
+    min-width: 0;
 }
 
 .company-info h1 {
-    font-size: 22px;
+    font-size: 17px;
     font-weight: 700;
+    letter-spacing: -0.01em;
+    line-height: 1.2;
 }
 
 .company-info strong {
     display: block;
-    font-size: 16px;
+    font-size: 13px;
+    font-weight: 600;
+    color: rgba(255, 255, 255, 0.92);
 }
 
 .company-info span {
     display: block;
-    font-size: 12px;
-    color: #d1d5db;
+    font-size: 11.5px;
+    color: rgba(255, 255, 255, 0.62);
 }
 
 .header-contact {
@@ -126,16 +196,21 @@ img {
     font-size: 13px;
     display: flex;
     flex-direction: column;
-    gap: 4px;
+    gap: 5px;
 }
 
 .header-contact a {
-    color: white;
+    color: rgba(255, 255, 255, 0.86);
     text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 7px;
+    transition: color 0.15s ease;
 }
 
 .header-contact a:hover {
-    text-decoration: underline;
+    color: #ffffff;
 }
 
 /* -------------------------
@@ -143,34 +218,41 @@ img {
 ------------------------- */
 
 .main-navigation {
-    background: #ffffff;
+    background: rgba(255, 255, 255, 0.96);
+    backdrop-filter: saturate(180%) blur(10px);
     border-bottom: 1px solid var(--border);
     display: flex;
-    gap: 4px;
+    gap: 6px;
     padding: 8px 16px;
     position: sticky;
-    top: 74px;
+    top: 70px;
     z-index: 90;
     overflow-x: auto;
+    scrollbar-width: thin;
 }
 
 .nav-button {
     border: none;
     background: transparent;
-    padding: 10px 16px;
-    border-radius: var(--radius-sm);
+    padding: 9px 15px;
+    border-radius: 999px;
     color: var(--secondary);
     font-weight: 600;
     white-space: nowrap;
     font-size: 14px;
     display: inline-flex;
     align-items: center;
-    gap: 6px;
+    gap: 8px;
+    transition: background 0.15s ease, color 0.15s ease;
 }
 
 .nav-icon {
-    font-size: 15px;
-    line-height: 1;
+    display: inline-flex;
+}
+
+.nav-icon .icon {
+    width: 17px;
+    height: 17px;
 }
 
 .nav-label {
@@ -179,12 +261,14 @@ img {
 }
 
 .nav-button:hover {
-    background: #f3f4f6;
+    background: #eef2f8;
+    color: var(--primary);
 }
 
 .nav-button.active {
     background: var(--primary);
     color: white;
+    box-shadow: 0 4px 12px rgba(20, 59, 107, 0.28);
 }
 
 /* -------------------------
@@ -195,7 +279,7 @@ img {
     width: 100%;
     max-width: 1500px;
     margin: 0 auto;
-    padding: 25px;
+    padding: 26px;
 }
 
 .app-view {
@@ -204,24 +288,42 @@ img {
 
 .app-view.active {
     display: block;
+    animation: viewFade 0.28s ease;
+}
+
+@keyframes viewFade {
+    from {
+        opacity: 0;
+        transform: translateY(6px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
 }
 
 .page-header {
     display: flex;
     justify-content: space-between;
-    align-items: center;
-    gap: 15px;
-    margin-bottom: 20px;
+    align-items: flex-end;
+    gap: 16px;
+    margin-bottom: 22px;
     flex-wrap: wrap;
 }
 
 .page-header h2 {
-    font-size: 26px;
-    margin-bottom: 4px;
+    font-size: 25px;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    margin-bottom: 3px;
+    color: var(--primary-dark);
 }
 
 .page-header p {
     color: var(--text-light);
+    font-size: 14.5px;
+    max-width: 68ch;
 }
 
 
@@ -231,75 +333,93 @@ img {
 
 .dashboard-cards {
     display: grid;
-    grid-template-columns: repeat(4, 1fr);
+    grid-template-columns: repeat(5, 1fr);
     gap: 14px;
     margin-bottom: 22px;
 }
 
 .dashboard-card {
+    position: relative;
+    overflow: hidden;
     background: var(--surface);
     border: 1px solid var(--border);
     border-radius: var(--radius);
-    padding: 16px 14px;
+    padding: 18px;
     box-shadow: var(--shadow);
     display: flex;
     flex-direction: column;
-    gap: 6px;
-    transition: transform 0.15s, box-shadow 0.15s;
+    gap: 4px;
+    transition: transform 0.18s ease, box-shadow 0.18s ease;
+}
+
+.dashboard-card::before {
+    content: "";
+    position: absolute;
+    inset: 0 auto 0 0;
+    width: 4px;
+    background: var(--card-accent, var(--accent));
 }
 
 .dashboard-card:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 6px 18px rgba(0, 0, 0, 0.12);
+    transform: translateY(-3px);
+    box-shadow: var(--shadow-md);
 }
 
 .dashboard-card-icon {
-    font-size: 22px;
-    line-height: 1;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 36px;
+    height: 36px;
+    border-radius: 10px;
+    background: var(--card-soft, var(--accent-soft));
+    color: var(--card-accent, var(--accent));
+    margin-bottom: 10px;
+}
+
+.dashboard-card-icon .icon {
+    width: 19px;
+    height: 19px;
 }
 
 .dashboard-card-label {
-    font-size: 11px;
+    font-size: 11.5px;
+    font-weight: 600;
     text-transform: uppercase;
-    letter-spacing: 0.4px;
+    letter-spacing: 0.5px;
     color: var(--text-light);
     order: 3;
 }
 
 .dashboard-card-value {
-    font-size: 28px;
+    font-size: 30px;
     font-weight: 800;
-    color: var(--primary);
+    line-height: 1.1;
+    letter-spacing: -0.03em;
+    color: var(--card-accent, var(--primary));
+    font-variant-numeric: tabular-nums;
     order: 2;
 }
 
 /* Colored accents per card */
 .card-total {
-    border-left: 4px solid var(--card-total);
-}
-.card-total .dashboard-card-value {
-    color: var(--card-total);
+    --card-accent: var(--card-total);
+    --card-soft: #e8effc;
 }
 
 .card-measured {
-    border-left: 4px solid var(--card-measured);
-}
-.card-measured .dashboard-card-value {
-    color: var(--card-measured);
+    --card-accent: var(--card-measured);
+    --card-soft: #e0f2f7;
 }
 
 .card-production {
-    border-left: 4px solid var(--card-production);
-}
-.card-production .dashboard-card-value {
-    color: var(--card-production);
+    --card-accent: var(--card-production);
+    --card-soft: #fdf0dc;
 }
 
 .card-ready {
-    border-left: 4px solid var(--card-ready);
-}
-.card-ready .dashboard-card-value {
-    color: var(--card-ready);
+    --card-accent: var(--card-ready);
+    --card-soft: var(--success-soft);
 }
 
 /* -------------------------
@@ -312,56 +432,67 @@ img {
 
 .pipeline-bar {
     display: flex;
-    align-items: center;
+    align-items: stretch;
     gap: 8px;
     flex-wrap: wrap;
     position: relative;
 }
 
 .pipeline-segment {
+    position: relative;
     flex: 1 1 0;
-    min-width: 90px;
+    min-width: 96px;
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 4px;
-    padding: 10px 0;
+    gap: 3px;
+    padding: 12px 6px 11px;
     border-radius: var(--radius-sm);
     background: var(--surface-light);
     border: 1px solid var(--border);
+    border-top: 3px solid var(--seg-colour, var(--border-dark));
+    transition: transform 0.16s ease, box-shadow 0.16s ease;
+}
+
+.pipeline-segment:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--shadow);
 }
 
 .pipeline-count {
-    font-size: 20px;
+    font-size: 22px;
     font-weight: 800;
-    color: var(--primary);
+    letter-spacing: -0.02em;
+    font-variant-numeric: tabular-nums;
+    color: var(--seg-colour, var(--primary));
 }
 
 .pipeline-segment small {
     font-size: 11px;
     color: var(--text-light);
     text-transform: uppercase;
-    letter-spacing: 0.3px;
+    font-weight: 600;
+    letter-spacing: 0.4px;
 }
 
-.pipeline-segment[data-status="Measured"] .pipeline-count {
-    color: var(--card-measured);
+.pipeline-segment[data-status="Measured"] {
+    --seg-colour: var(--card-measured);
 }
 
-.pipeline-segment[data-status="In Production"] .pipeline-count {
-    color: var(--card-production);
+.pipeline-segment[data-status="In Production"] {
+    --seg-colour: var(--card-production);
 }
 
-.pipeline-segment[data-status="Ready for Installation"] .pipeline-count {
-    color: #92400e;
+.pipeline-segment[data-status="Ready for Installation"] {
+    --seg-colour: #92400e;
 }
 
-.pipeline-segment[data-status="Installed"] .pipeline-count {
-    color: #155e75;
+.pipeline-segment[data-status="Installed"] {
+    --seg-colour: var(--primary-light);
 }
 
-.pipeline-segment[data-status="Completed"] .pipeline-count {
-    color: var(--card-ready);
+.pipeline-segment[data-status="Completed"] {
+    --seg-colour: var(--card-ready);
 }
 
 /* -------------------------
@@ -372,8 +503,8 @@ img {
     background: var(--surface);
     border: 1px solid var(--border);
     border-radius: var(--radius);
-    padding: 16px;
-    margin-bottom: 16px;
+    padding: 20px;
+    margin-bottom: 18px;
     box-shadow: var(--shadow);
 }
 
@@ -383,10 +514,23 @@ img {
     align-items: center;
     gap: 15px;
     margin-bottom: 18px;
+    flex-wrap: wrap;
 }
 
 .section-card-header h3 {
-    font-size: 18px;
+    font-size: 17px;
+    font-weight: 700;
+    letter-spacing: -0.01em;
+    color: var(--primary-dark);
+    display: inline-flex;
+    align-items: center;
+    gap: 9px;
+}
+
+.section-card-header h3 .icon {
+    width: 18px;
+    height: 18px;
+    color: var(--accent);
 }
 
 .section-card-header h3:last-child,
@@ -516,38 +660,51 @@ img {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    gap: 7px;
+    gap: 8px;
     border: none;
     border-radius: var(--radius-sm);
-    padding: 9px 16px;
+    padding: 10px 18px;
     font-weight: 700;
+    font-size: 14px;
     background: var(--accent);
     color: white;
-    transition: background 0.2s, transform 0.1s;
+    box-shadow: 0 4px 12px rgba(37, 99, 235, 0.24);
+    transition: background 0.18s ease, transform 0.1s ease, box-shadow 0.18s ease;
     text-decoration: none;
+    white-space: nowrap;
 }
 
 .primary-button:hover {
     background: var(--accent-dark);
+    box-shadow: 0 6px 16px rgba(37, 99, 235, 0.32);
 }
 
 .primary-button:active {
     transform: scale(0.97);
+    box-shadow: 0 2px 6px rgba(37, 99, 235, 0.24);
+}
+
+.primary-button .icon,
+.secondary-button .icon {
+    width: 16px;
+    height: 16px;
 }
 
 .secondary-button {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    gap: 7px;
+    gap: 8px;
     border: 1px solid var(--border);
     border-radius: var(--radius-sm);
-    padding: 8px 14px;
+    padding: 9px 15px;
     font-weight: 600;
+    font-size: 14px;
     background: white;
     color: var(--secondary);
-    transition: background 0.2s;
+    transition: background 0.18s ease, border-color 0.18s ease, color 0.18s ease;
     text-decoration: none;
+    white-space: nowrap;
 }
 
 .secondary-button:hover {
@@ -575,7 +732,7 @@ img {
 
 .window-filter-bar {
     display: grid;
-    grid-template-columns: 1fr 220px;
+    grid-template-columns: 1fr 190px 200px 165px 175px;
     gap: 10px;
     margin-bottom: 18px;
 }
@@ -596,20 +753,37 @@ img {
     border-radius: var(--radius);
     padding: 16px 18px;
     box-shadow: var(--shadow);
+    transition: box-shadow 0.18s ease, transform 0.18s ease;
+}
+
+.window-card:hover {
+    box-shadow: var(--shadow-md);
+    transform: translateY(-2px);
 }
 
 .window-card-header {
     display: flex;
-    justify-content: space-between;
     align-items: center;
     gap: 10px;
     flex-wrap: wrap;
-    margin-bottom: 10px;
+    margin-bottom: 12px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid var(--border);
 }
 
 .window-card-header strong {
-    font-size: 15px;
-    color: var(--primary);
+    font-size: 15.5px;
+    font-weight: 700;
+    color: var(--primary-dark);
+    /* Push the status and age badges to the right edge. */
+    margin-right: auto;
+}
+
+/* The QC, status and age badges sit at the end of the header row. */
+.window-card-header .status-badge,
+.window-card-header .age-badge,
+.window-card-header .qc-pill {
+    flex: 0 0 auto;
 }
 
 .window-card-body {
@@ -671,12 +845,18 @@ img {
 }
 
 .project-card {
-    background: var(--surface-light);
+    background: var(--surface);
     border: 1px solid var(--border);
     border-left: 4px solid var(--primary);
     border-radius: var(--radius);
-    padding: 16px 18px;
+    padding: 18px 20px;
     box-shadow: var(--shadow);
+    transition: box-shadow 0.18s ease, border-color 0.18s ease;
+}
+
+.project-card:hover {
+    box-shadow: var(--shadow-md);
+    border-left-color: var(--accent);
 }
 
 .project-card-header {
@@ -696,8 +876,10 @@ img {
 }
 
 .project-card-title strong {
-    font-size: 16px;
-    color: var(--primary);
+    font-size: 16.5px;
+    font-weight: 700;
+    letter-spacing: -0.01em;
+    color: var(--primary-dark);
 }
 
 .project-number {
@@ -748,7 +930,7 @@ img {
 .window-rows-table {
     width: 100%;
     border-collapse: collapse;
-    min-width: 980px;
+    min-width: 1400px;
     table-layout: auto;
 }
 
@@ -786,6 +968,19 @@ img {
 
 .window-rows-table tbody tr:hover {
     background: #eef4ff;
+}
+
+/*
+   Rows that open the window record. The pointer and hover make it
+   obvious they are interactive rather than plain data.
+*/
+.clickable-window-row {
+    cursor: pointer;
+}
+
+.clickable-window-row:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: -2px;
 }
 
 /* Column sizing: keep the eye moving left-to-right predictably */
@@ -1166,6 +1361,187 @@ img {
     color: var(--text-muted);
 }
 
+/*
+   Age / waiting-time badge.
+
+   Three bands, decided by how long ago the window was created:
+   green (up to 10 days), yellow (up to 20), red (over 20 - the
+   job has not been started and is now overdue). Red is the only
+   one that is deliberately loud: bold text, solid fill and a
+   heavier border, so an overdue row is impossible to miss when
+   scanning the table.
+*/
+
+.age-badge {
+    display: inline-block;
+    font-size: 12px;
+    font-weight: 700;
+    line-height: 1.3;
+    border-radius: 999px;
+    padding: 3px 10px;
+    white-space: nowrap;
+    border: 1px solid transparent;
+}
+
+.age-green {
+    background: var(--success-soft);
+    color: var(--success);
+    border-color: #b6e6c6;
+}
+
+.age-yellow {
+    background: var(--warning-soft);
+    color: var(--warning);
+    border-color: #f2d69a;
+}
+
+.age-red {
+    background: var(--danger);
+    color: #ffffff;
+    border-color: #991b1b;
+    font-weight: 800;
+    letter-spacing: 0.02em;
+    box-shadow: 0 1px 6px rgba(220, 38, 38, 0.35);
+}
+
+.age-done {
+    background: #eef2f7;
+    color: var(--text-light);
+    border-color: var(--border);
+    font-weight: 600;
+}
+
+/*
+   QC check pill. Same shape as the status pill so the pair reads
+   cleanly, but with its own palette: green for a pass, red for a
+   fail, and a neutral "pending" for anything not yet checked.
+*/
+
+.qc-pill {
+    display: inline-block;
+    font-size: 11.5px;
+    font-weight: 700;
+    line-height: 1.3;
+    border-radius: 999px;
+    padding: 3px 10px;
+    white-space: nowrap;
+    border: 1px solid transparent;
+}
+
+.qc-pill-pass {
+    background: var(--success-soft);
+    color: var(--success);
+    border-color: #b6e6c6;
+}
+
+.qc-pill-fail {
+    background: var(--danger-soft);
+    color: var(--danger);
+    border-color: #f3b9b9;
+    font-weight: 800;
+}
+
+.qc-pill-none {
+    background: #eef2f7;
+    color: var(--text-light);
+    border-color: var(--border);
+    font-weight: 600;
+}
+
+/* Age cell: badge on top, creation date underneath. */
+
+.age-stack {
+    display: inline-flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 3px;
+}
+
+.age-date {
+    font-size: 11px;
+    color: var(--text-muted);
+    white-space: nowrap;
+}
+
+/* Keep the age and status columns from collapsing. */
+
+.window-rows-table .col-status {
+    width: 132px;
+}
+
+.window-rows-table .col-age {
+    width: 122px;
+}
+
+/*
+   Project-level tags: overall age badge + window count.
+*/
+
+.project-card-tags {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+/*
+   Progress chips: "2 not started", "1 in progress", "1 done".
+*/
+
+.project-progress {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    flex-wrap: wrap;
+}
+
+.progress-chip {
+    display: inline-block;
+    font-size: 11.5px;
+    font-weight: 600;
+    border-radius: 999px;
+    padding: 2px 9px;
+    white-space: nowrap;
+    border: 1px solid transparent;
+}
+
+.chip-notstarted {
+    background: #eef2f7;
+    color: var(--text-light);
+    border-color: var(--border);
+}
+
+.chip-inprogress {
+    background: #fdf0dc;
+    color: var(--warning);
+    border-color: #f2d69a;
+}
+
+.chip-done {
+    background: var(--success-soft);
+    color: var(--success);
+    border-color: #b6e6c6;
+}
+
+.project-progress-empty {
+    font-size: 12px;
+    color: var(--text-muted);
+}
+
+/* Read-only QC cell in the capture/edit form. */
+
+.window-row-qc-readonly {
+    text-align: center;
+    cursor: default;
+}
+
+.window-row-qc-readonly::before {
+    content: "\1f512";
+    font-size: 10px;
+    margin-right: 3px;
+    opacity: 0.5;
+}
+
 /* QC check result badge */
 
 .qc-badge {
@@ -1323,14 +1699,34 @@ img {
    QR SCANNER
 ========================================================= */
 
+/*
+   Camera on the left; search and the selected window stack down
+   the right column.
+*/
 .scanner-layout {
     display: grid;
     grid-template-columns: 1fr 1fr;
+    grid-template-areas:
+        "camera search"
+        "camera selected";
     gap: 20px;
     align-items: start;
 }
 
 .scanner-card {
+    grid-area: camera;
+}
+
+.scanner-search-card {
+    grid-area: search;
+}
+
+.scanned-window-card {
+    grid-area: selected;
+}
+
+.scanner-card,
+.scanner-search-card {
     margin-bottom: 0;
 }
 
@@ -1338,16 +1734,35 @@ img {
     width: 100%;
     min-height: 200px;
     border: 2px dashed var(--border-dark);
-    border-radius: 8px;
+    border-radius: 10px;
     overflow: hidden;
-    background: #000;
+    background: #0f172a;
     margin-bottom: 16px;
+}
+
+.scanner-controls {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    align-items: center;
 }
 
 .scanner-message {
     margin-top: 12px;
     font-size: 14px;
     color: var(--text-light);
+}
+
+/* A friendly message on the camera area before it starts. */
+.qr-reader:empty::after {
+    content: "Camera preview appears here";
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+    min-height: 200px;
+    color: rgba(255, 255, 255, 0.5);
+    font-size: 13.5px;
 }
 
 .scanned-window-card {
@@ -1513,20 +1928,45 @@ img {
     align-items: center;
     justify-content: space-between;
     gap: 15px;
-    padding: 18px 22px;
+    padding: 16px 22px;
     border-bottom: 1px solid var(--border);
+    background: var(--surface-light);
+    border-radius: 10px 10px 0 0;
+    position: sticky;
+    top: 0;
+    z-index: 2;
 }
 
 .modal-header h2 {
     margin: 0;
-    font-size: 20px;
+    font-size: 19px;
+    font-weight: 700;
+    letter-spacing: -0.01em;
+    color: var(--primary-dark);
 }
 
 .modal-close {
-    background: transparent;
-    border: none;
-    font-size: 25px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 36px;
+    height: 36px;
+    background: white;
+    border: 1px solid var(--border);
+    border-radius: 9px;
     color: var(--text-light);
+    transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+}
+
+.modal-close .icon {
+    width: 18px;
+    height: 18px;
+}
+
+.modal-close:hover {
+    background: var(--danger-soft);
+    border-color: var(--danger);
+    color: var(--danger);
 }
 
 .modal-body {
@@ -1559,6 +1999,114 @@ img {
     flex-direction: column;
     gap: 6px;
     margin-bottom: 14px;
+}
+
+/*
+   Allocation block, kept visually separate from the status
+   buttons below it so "who owns this" and "who did this step"
+   are never confused for one another.
+*/
+.tracker-allocation {
+    padding-bottom: 14px;
+    border-bottom: 1px dashed var(--border-dark);
+}
+
+.tracker-allocate-controls {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.tracker-allocate-controls .tracker-employee-select {
+    flex: 1 1 240px;
+}
+
+.tracker-hint {
+    font-size: 12.5px;
+    color: var(--text-light);
+}
+
+.tracker-step-section {
+    padding-top: 14px;
+}
+
+.tracker-section-title {
+    font-size: 13px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+    color: var(--text-light);
+    margin-bottom: 10px;
+}
+
+/*
+   Read-only production progress. These replaced the clickable
+   status buttons: status now only moves by scanning.
+*/
+.tracker-steps-readonly {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-bottom: 14px;
+}
+
+.tracker-step {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    padding: 6px 13px;
+    font-size: 12px;
+    font-weight: 600;
+    background: var(--surface-light);
+    color: var(--text-muted);
+}
+
+.tracker-step-mark {
+    font-size: 11px;
+    line-height: 1;
+}
+
+.tracker-step-done {
+    color: var(--success);
+    background: var(--success-soft);
+    border-color: #bfe3cd;
+}
+
+.tracker-step-current {
+    color: white;
+    background: var(--success);
+    border-color: var(--success);
+    font-weight: 700;
+    box-shadow: 0 3px 10px rgba(21, 128, 61, 0.28);
+}
+
+/* The note explaining that a scan is required. */
+.scan-required-note {
+    display: flex;
+    align-items: flex-start;
+    gap: 9px;
+    padding: 11px 14px;
+    border-radius: var(--radius-sm);
+    background: var(--accent-soft);
+    border: 1px solid #c5d8f7;
+    color: var(--primary-dark);
+    font-size: 12.5px;
+    line-height: 1.45;
+}
+
+.scan-required-note .icon {
+    width: 17px;
+    height: 17px;
+    flex: 0 0 auto;
+    margin-top: 1px;
+    color: var(--accent);
+}
+
+.tracker-scan-button {
+    margin-top: 12px;
 }
 
 .tracker-employee-row label {
@@ -1750,23 +2298,34 @@ img {
     position: fixed;
     right: 20px;
     bottom: 20px;
-    z-index: 2000;
+    z-index: 3000;
     background: var(--primary-dark);
     color: white;
-    padding: 13px 18px;
-    border-radius: 7px;
-    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.2);
+    padding: 13px 20px 13px 16px;
+    border-radius: 10px;
+    border-left: 4px solid var(--accent);
+    box-shadow: 0 12px 32px rgba(15, 23, 42, 0.3);
     opacity: 0;
-    transform: translateY(20px);
+    transform: translateY(16px);
     pointer-events: none;
-    transition: all 0.25s ease;
-    max-width: 350px;
-    font-size: 13px;
+    transition: opacity 0.25s ease, transform 0.25s ease;
+    max-width: 380px;
+    font-size: 13.5px;
+    font-weight: 500;
+    white-space: pre-line;
 }
 
 #toast.show {
     opacity: 1;
     transform: translateY(0);
+}
+
+#toast.success {
+    border-left-color: #4ade80;
+}
+
+#toast.error {
+    border-left-color: #f87171;
 }
 
 
@@ -1776,22 +2335,59 @@ img {
 
 .empty-state {
     text-align: center;
-    padding: 50px 20px;
+    padding: 46px 22px;
     color: var(--text-light);
 }
 
-.empty-state h3 {
-    margin-bottom: 8px;
-    color: var(--secondary);
+.empty-state-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 62px;
+    height: 62px;
+    border-radius: 50%;
+    background: var(--accent-soft);
+    color: var(--accent);
+    margin-bottom: 14px;
+}
+
+.empty-state-icon .icon {
+    width: 28px;
+    height: 28px;
+}
+
+.empty-state h3,
+.empty-state h4 {
+    margin-bottom: 6px;
+    color: var(--primary-dark);
+    font-size: 16.5px;
+    font-weight: 700;
 }
 
 .empty-state p {
     font-size: 14px;
+    max-width: 44ch;
+    margin: 0 auto;
+}
+
+.empty-state .primary-button,
+.empty-state .secondary-button {
+    margin-top: 18px;
 }
 
 
 /* =========================================================
    PRINT WORKSHEET
+   ---------------------------------------------------------
+   The sheet that goes to the workshop floor and to the customer.
+
+   Design rules, in order of importance:
+     1. Readable on a mono laser printer. Structure comes from
+        rules, shading and weight - never from colour alone.
+     2. Fits A4 portrait with sensible margins, and repeats table
+        headings across pages.
+     3. Nothing important splits across a page break: a signature
+        block or a schedule row is kept whole.
 ========================================================= */
 
 .print-only {
@@ -1804,17 +2400,23 @@ img {
 
     @page {
         size: A4 portrait;
-        margin: 10mm;
+        /*
+           Bottom margin is generous: workshop printers often clip
+           the last few millimetres, and the footer sits there.
+        */
+        margin: 12mm 12mm 16mm;
     }
 
     html,
     body {
         background: white !important;
-        color: black !important;
+        color: #000 !important;
         margin: 0;
         padding: 0;
+        font-size: 10pt;
     }
 
+    /* Show only the worksheet. */
     body * {
         visibility: hidden;
     }
@@ -1824,192 +2426,1136 @@ img {
         visibility: visible;
     }
 
+    /*
+       Fill the page.
+
+       `min-height` sized to the A4 printable area means a short
+       schedule does not leave the bottom third blank, which looked
+       unfinished. The sign-off and footer are then pushed to the
+       bottom with margins on the notes block.
+    */
+    /*
+       Fill the page, with an explicit inset.
+
+       The container is absolutely positioned at left:0/right:0, so
+       without padding every heading sat flush against the paper
+       edge and the first letter was trimmed by the printer's
+       unprintable margin - "ITEM DETAIL" came out as "TEM DETAIL".
+
+       The padding below matches the @page margin, so the content
+       sits where a normal document would.
+    */
     #printWorksheet.print-only {
-        display: block !important;
+        display: flex !important;
+        flex-direction: column;
         position: absolute;
         left: 0;
         top: 0;
-        width: 100%;
+        right: 0;
+        min-height: 267mm; /* A4 height minus the @page margins */
+        padding: 0;
+        box-sizing: border-box;
         background: white;
-        color: black;
-        font-family: Arial, Helvetica, sans-serif;
-        font-size: 10px;
+        color: #000;
+        font-family: "Segoe UI", Arial, Helvetica, sans-serif;
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
     }
 
-    .no-print {
+    /*
+       Every direct child gets the same side inset, so headings,
+       tables and the footer all share one left edge.
+    */
+    #printWorksheet.print-only > * {
+        padding-left: 1.5mm;
+        padding-right: 1.5mm;
+        box-sizing: border-box;
+    }
+
+    /* The letterhead already carries its own inset. */
+    #printWorksheet.print-only > .print-letterhead {
+        padding-left: 0;
+        padding-right: 0;
+    }
+
+    /*
+       Any spare vertical space collects above the sign-off, so the
+       signature and footer always sit at the foot of the sheet the
+       way a formal document should.
+    */
+    .print-signoff {
+        margin-top: auto;
+    }
+
+    /* =====================================================
+       LETTERHEAD
+    ===================================================== */
+
+    /*
+       Letterhead.
+
+       The artwork is full-bleed: its content runs to pixel 0 and the
+       final pixel, so scaling it to exactly the page width puts the
+       wordmark hard against the paper edge, where a printer's
+       unprintable margin can trim it.
+
+       Scaling to 96% with a small inset keeps the whole mark inside
+       the printable area while still reading as a letterhead.
+    */
+    .print-letterhead {
+        width: 100%;
+        margin-bottom: 3mm;
+        padding: 0 2mm;
+        box-sizing: border-box;
+    }
+
+    .print-letterhead-image {
+        display: block;
+        width: 100%;
+        max-width: 100%;
+        height: auto;
+        object-fit: contain;
+    }
+
+    /*
+       Legacy rules. Kept as no-ops: the redesigned masthead draws
+       its own edges, and a stray rule left behind by older markup
+       would print as a short black line under the letterhead.
+    */
+    .print-rule-heavy,
+    .print-rule-light {
+        display: none;
+    }
+
+    /* =====================================================
+       MASTHEAD
+       -----------------------------------------------------
+       Replaces the old title block. A solid dark band gives the
+       sheet an anchor at the top and a single obvious place for
+       the item ID, instead of two boxed elements competing.
+
+       IMPORTANT: the dark fill is near-black (#1a1a1a), not a
+       colour. A mono laser renders it as a solid tone, so the
+       contrast survives the printer; an accent colour would not.
+    ===================================================== */
+
+    .print-masthead {
+        display: flex;
+        justify-content: space-between;
+        align-items: stretch;
+        gap: 6mm;
+        background: #1a1a1a;
+        color: #fff;
+        padding: 3.5mm 4mm;
+        margin-bottom: 4mm;
+        break-inside: avoid;
+        page-break-inside: avoid;
+    }
+
+    .print-masthead-left {
+        min-width: 0;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+    }
+
+    .print-masthead-title {
+        /*
+           Sentence case rather than all-caps. At this size, caps
+           shouted; mixed case reads as a document heading and the
+           words are easier to scan, which matters on a worksheet
+           somebody is checking against an item.
+        */
+        font-size: 14pt;
+        font-weight: 700;
+        letter-spacing: -0.015em;
+        line-height: 1.15;
+        margin: 0 0 1mm;
+        color: #fff;
+    }
+
+    .print-masthead-sub {
+        font-size: 9.5pt;
+        color: #d4d4d4;
+        margin: 0;
+        line-height: 1.3;
+    }
+
+    /*
+       The item ID is the number shouted across the workshop, so it
+       is set in a white box that punches out of the dark band - the
+       strongest thing on the page.
+    */
+    .print-masthead-id {
+        flex: 0 0 auto;
+        background: #fff;
+        color: #1a1a1a;
+        padding: 2.5mm 3.5mm;
+        min-width: 48mm;
+        text-align: right;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+    }
+
+    .print-id-label {
+        display: block;
+        font-size: 6.5pt;
+        font-weight: 700;
+        letter-spacing: 0.1em;
+        text-transform: uppercase;
+        color: #555;
+        margin-bottom: 0.8mm;
+    }
+
+    .print-masthead-id strong {
+        display: block;
+        font-family: ui-monospace, Consolas, "Courier New", monospace;
+        font-size: 13pt;
+        font-weight: 700;
+        letter-spacing: 0.01em;
+        /* Never let a long ID wrap mid-number. */
+        white-space: nowrap;
+    }
+
+    /*
+       Status chip sits inside the white ID box, so it is outlined
+       in black rather than a fill - a filled pill inside a non-black
+       box would read as two competing blocks.
+    */
+    .print-status-chip {
+        display: inline-block;
+        align-self: flex-end;
+        margin-top: 1.8mm;
+        font-size: 7pt;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        border: 0.75pt solid #1a1a1a;
+        padding: 0.6mm 2.4mm;
+        white-space: nowrap;
+    }
+
+    /* An empty chip must not print as a stray outline. */
+    .print-status-chip:empty {
+        display: none;
+    }
+
+    /* =====================================================
+       SECTIONS
+    ===================================================== */
+
+    .print-section {
+        margin-bottom: 4mm;
+        break-inside: avoid;
+        page-break-inside: avoid;
+    }
+
+    /*
+       The sign-off is the last thing on the sheet. It is allowed to
+       start a new page if the schedule ran long, rather than being
+       squashed or clipped.
+    */
+
+
+    /*
+       Section heading with an inline count.
+
+       The count sits directly after the title as normal run-on text
+       in brackets, rather than being pushed to the right margin
+       where it read as a stray floating word.
+    */
+    /*
+       Section heading.
+
+       Sentence case with a small muted letter-spacing, over a
+       hairline rule. The old heading was 8.5pt all-caps over a
+       heavy black rule, which made every section shout equally and
+       left nothing to distinguish a section from the masthead.
+    */
+    .print-section-title {
+        font-size: 9.5pt;
+        font-weight: 700;
+        color: #111;
+        letter-spacing: -0.005em;
+        border-bottom: 0.4pt solid #cccccc;
+        padding-bottom: 1.1mm;
+        margin: 0 0 2.5mm;
+        display: block;
+    }
+
+    /* The photo column's heading matches the one beside it. */
+    .print-photo-col .print-section-title {
+        margin-bottom: 2.5mm;
+    }
+
+    .print-section-note {
+        font-size: 7.5pt;
+        font-weight: 400;
+        text-transform: none;
+        letter-spacing: 0;
+        color: #444;
+        white-space: nowrap;
+    }
+
+    /* The count reads as "(5 items)" beside the heading. */
+    .print-section-note:not(:empty)::before {
+        content: "(";
+    }
+
+    .print-section-note:not(:empty)::after {
+        content: ")";
+    }
+
+    /* =====================================================
+       ITEM DETAIL + PHOTO (side by side)
+       -----------------------------------------------------
+       The specification sits in a narrow left column with the photo
+       beside it on the right. The old sheet stacked these, which
+       left the full page width empty beside a half-height grid and
+       pushed the schedule further down the page.
+    ===================================================== */
+
+    .print-detail-row {
+        display: flex;
+        align-items: flex-start;
+        gap: 5mm;
+        margin-bottom: 5mm;
+    }
+
+    .print-detail-col {
+        flex: 1 1 auto;
+        min-width: 0;
+    }
+
+    /*
+       The photo column is a fixed width so the specification always
+       gets the rest. When there is no photo the column is hidden and
+       the detail grid simply takes the full width.
+    */
+    .print-photo-col {
+        flex: 0 0 62mm;
+        min-width: 0;
+    }
+
+    /* An empty photo column is never printed. */
+    .print-photo-col[hidden] {
         display: none !important;
     }
 
-    .print-header {
+    /* =====================================================
+       DETAIL GRID
+       -----------------------------------------------------
+       A label/value list rather than a boxed 4-column table. One
+       column of quiet labels against one column of values is much
+       easier to scan down than a grid where every cell is boxed and
+       the labels compete with the data.
+    ===================================================== */
+
+    .print-detail-grid {
+        width: 100%;
+        border-collapse: collapse;
+        table-layout: fixed;
+    }
+
+    .print-detail-grid th,
+    .print-detail-grid td {
+        text-align: left;
+        vertical-align: top;
+        padding: 1.1mm 2mm;
+        /* Long addresses wrap rather than forcing the column wide. */
+        word-wrap: break-word;
+        overflow-wrap: anywhere;
+    }
+
+    /*
+       Labels: small, spaced, muted. They are signposts, not data, so
+       they carry less weight than the values they describe.
+
+       No fill and no borders: the old shaded label cells made the
+       sheet look like a spreadsheet. A hairline rule between rows
+       gives structure without the boxed-in feel.
+    */
+    .print-detail-grid th {
+        width: 27%;
+        font-size: 7pt;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        color: #666;
+        white-space: nowrap;
+        border-bottom: 0.4pt solid #e0e0e0;
+    }
+
+    .print-detail-grid td {
+        font-size: 9.5pt;
+        font-weight: 600;
+        color: #111;
+        border-bottom: 0.4pt solid #e0e0e0;
+    }
+
+    /* The first row sits directly under the section heading. */
+    .print-detail-grid tr:first-child th,
+    .print-detail-grid tr:first-child td {
+        padding-top: 0.6mm;
+    }
+
+    /*
+       The last row has no rule beneath it - a trailing line under
+       the final value reads as an unfinished table.
+    */
+    .print-detail-grid tr:last-child th,
+    .print-detail-grid tr:last-child td {
+        border-bottom: none;
+    }
+
+    /*
+       The dimensions decide whether the item is made correctly, so
+       they are set larger and heavier than anything else in the
+       grid - this is the number a workshop reads first.
+    */
+    .print-row-strong td {
+        font-size: 13pt;
+        font-weight: 700;
+        letter-spacing: 0.01em;
+        font-variant-numeric: tabular-nums;
+        color: #000;
+    }
+
+    /*
+       The separator between the two dimensions is a muted glyph, so
+       it groups the pair without competing with the numbers.
+    */
+    .print-dim-sep {
+        color: #999;
+        font-weight: 400;
+        margin: 0 1.2mm;
+        font-size: 11pt;
+    }
+
+    .print-dim-sep[hidden] {
+        display: none;
+    }
+
+    /*
+       A project shows two RANGES ("L 1800–2400 mm", "W 900–2100 mm")
+       rather than one pair. They are separated by a middot and set
+       slightly smaller, so the row still reads as one line of data
+       instead of two competing numbers.
+    */
+    .print-dim-ranging #printWidth,
+    .print-dim-ranging #printHeight {
+        font-size: 11pt;
+    }
+
+    .print-dim-ranging #printHeight:not(:empty)::before {
+        content: "\00b7";
+        color: #999;
+        font-weight: 400;
+        margin: 0 2mm;
+    }
+
+    /* =====================================================
+       PHOTO
+    ===================================================== */
+
+    /*
+       Photo frame.
+
+       The image sits on a plain white ground with a hairline border,
+       rather than the old light-grey filled box. A grey fill behind
+       a photo shifts how the photo reads on paper, and on a mono
+       laser it prints as a muddy slab around the image.
+
+       The frame is sized to fill the column so the photo's top and
+       bottom line up with the detail grid beside it.
+    */
+    .print-photo-frame {
+        border: 0.5pt solid #d4d4d4;
+        padding: 1.5mm;
+        text-align: center;
+        background: #fff;
+        /*
+           A fixed block height, not min-height.
+
+           With `min-height` plus a flex child, an <img> that has not
+           loaded contributes no intrinsic size, so the box collapsed
+           to a ~21px strip instead of the intended ~52mm. On paper
+           that prints as a thin empty sliver beside the detail grid.
+           An explicit height reserves the space unconditionally,
+           which also stops a slow-loading photo shifting the
+           schedule down at print time.
+        */
+        height: 52mm;
         display: flex;
-        justify-content: space-between;
-        align-items: flex-start;
-        border-bottom: 2px solid #000;
-        padding-bottom: 8px;
-        margin-bottom: 8px;
+        align-items: center;
+        justify-content: center;
+        box-sizing: border-box;
+        overflow: hidden;
     }
 
-    .print-header h1 {
-        font-size: 20px;
-        margin-bottom: 2px;
-    }
-
-    .print-header h2 {
-        font-size: 9px;
-        margin: 1px 0;
-        font-weight: normal;
-    }
-
-    .print-qr {
-        text-align: center;
-        width: 110px;
-    }
-
-    .print-qr canvas,
-    .print-qr img {
-        width: 90px !important;
-        height: 90px !important;
-    }
-
-    .print-qr span {
-        display: block;
-        font-size: 8px;
-        font-weight: bold;
-        margin-top: 2px;
-    }
-
-    .print-title {
-        background: #000;
-        color: #fff;
-        padding: 5px 8px;
-        font-size: 13px;
-        font-weight: bold;
-        margin: 8px 0;
-        text-align: center;
-    }
-
-    .print-title strong {
-        display: block;
-        margin-top: 3px;
-        font-size: 12px;
-    }
-
-    .print-details-table {
-        width: 100%;
-        border-collapse: collapse;
-        margin-bottom: 8px;
-    }
-
-    .print-details-table th,
-    .print-details-table td {
-        border: 1px solid #555;
-        padding: 5px 7px;
-        text-align: left;
-    }
-
-    .print-details-table th {
-        background: #ddd;
-        width: 20%;
-        font-size: 9px;
-        text-transform: uppercase;
-    }
-
-    .print-details-table td {
-        width: 30%;
-        font-weight: bold;
-    }
-
-    .print-photo-area h3,
-    .print-measurements h3,
-    .print-notes h3,
-    .print-production h3 {
-        font-size: 11px;
-        font-weight: bold;
-        text-transform: uppercase;
-        margin: 10px 0 4px;
-        border-bottom: 1px solid #999;
-    }
-
-    .print-photo-area {
-        margin-bottom: 4px;
-    }
-
-    .print-photo-area img {
+    .print-photo-frame img {
         max-width: 100%;
-        max-height: 70mm;
+        max-height: 48mm;
+        width: auto;
+        height: auto;
         object-fit: contain;
-        border: 1px solid #555;
+        display: block;
     }
 
-    .print-measurements {
+    /* An empty frame is never printed. */
+    .print-photo-col[hidden],
+    #printPhotoSection[hidden] {
+        display: none !important;
+    }
+
+    /* =====================================================
+       SCHEDULE TABLE
+    ===================================================== */
+
+    /*
+       The schedule is the same width as the detail grid above it,
+       so the two tables line up down the page. An earlier version
+       was wider, which made the whole sheet look misaligned.
+    */
+    /*
+       The schedule must line up with the Item Detail grid above it
+       and show a border all the way round.
+
+       `border-collapse: collapse` DROPS the table's own outer
+       border when the cells have their own, which is why the left
+       and right edges were missing. `separate` with zero spacing
+       keeps every edge, so the table reads as a closed grid.
+    */
+    /*
+       Schedule table.
+
+       The old sheet drew a boxed grid with #666 rules on every
+       edge, which read as a fax form. This keeps a single hairline
+       around the outside and #e2e2e2 between rows - enough for the
+       eye to track across, without the heavy cage.
+
+       `border-collapse: separate` is retained deliberately: with
+       `collapse`, the table's own outer border is dropped when the
+       cells carry their own, which is why the left and right edges
+       went missing on an earlier version.
+    */
+    .print-schedule {
         width: 100%;
-        border-collapse: collapse;
-        margin-bottom: 8px;
+        max-width: 100%;
+        border-collapse: separate;
+        border-spacing: 0;
+        table-layout: fixed;
+        font-size: 8pt;
+        margin: 0;
+        border: 0.5pt solid #b0b0b0;
     }
 
-    .print-measurements th,
-    .print-measurements td {
-        border: 1px solid #555;
-        padding: 4px;
+    .print-schedule thead {
+        display: table-header-group;
+    }
+
+    /* Repeats the header row on every page of a long schedule. */
+    .print-schedule tr {
+        break-inside: avoid;
+        page-break-inside: avoid;
+    }
+
+    /*
+       Cell rules.
+
+       With `border-collapse: separate` (needed so the table keeps
+       its outer border), giving EVERY cell a full border would draw
+       doubled lines between neighbours. Instead each cell draws only
+       its right and bottom edge; the table supplies the top and
+       left, which produces single-weight rules throughout.
+    */
+    /*
+       Cells draw only a bottom rule. With no vertical rules between
+       columns the row reads as a line of data rather than a set of
+       boxes, and the schedule stops looking like a spreadsheet.
+    */
+    .print-schedule th,
+    .print-schedule td {
+        border-bottom: 0.4pt solid #e2e2e2;
+        padding: 1.4mm 1.6mm;
+        line-height: 1.3;
+        text-align: left;
+        /* Top-aligned so a two-line value still lines up with the
+           single-line cells beside it. */
+        vertical-align: top;
+        word-wrap: break-word;
+        hyphens: none;
+    }
+
+    /*
+       A vertical hairline ONLY between the ID and the rest, which
+       separates the key from its description without ruling every
+       column.
+    */
+    .print-schedule th.c-id,
+    .print-schedule td.c-id {
+        border-right: 0.4pt solid #e2e2e2;
+    }
+
+    /*
+       Headings.
+
+       These must never break mid-word. "LENGTH" broke as
+       "LENGT / H" because word-wrap: break-word still forces a
+       break when the content is wider than its column - so the
+       headings get nowrap AND word-wrap: normal, and the column
+       widths below are sized to fit them.
+    */
+    /*
+       Headings: 7pt (up from 6.5pt) so the words stop crowding the
+       column edges, with tighter spacing than the old uppercase
+       treatment. Uppercase is kept - it is the one place where caps
+       read as a table header rather than shouting.
+    */
+    .print-schedule th {
+        background: #f2f2f2;
+        font-size: 7pt;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.03em;
+        white-space: nowrap;
+        word-wrap: normal;
+        overflow-wrap: normal;
+        text-align: left;
+        color: #333;
+        /* The header must not be split from the table it belongs to. */
+        border-bottom: 0.75pt solid #b0b0b0;
+    }
+
+    /* Numeric headings read better right-aligned over their values. */
+    .print-schedule th.c-size {
+        text-align: right;
+    }
+
+    .print-schedule th.c-qc,
+    .print-schedule th.c-qr {
         text-align: center;
     }
 
-    .print-measurements th {
-        background: #ddd;
-        font-weight: bold;
+    /*
+       Body cells.
+
+       A wrapped value needs the row to grow, and that is fine. The
+       problem was text overflowing its BORDER, which happens when
+       the cell cannot grow - so rows are explicitly allowed to
+       size to their content.
+
+       IMPORTANT: `break-word` is deliberately NOT used here. It
+       split words mid-word with a visible hyphen ("Entrance
+       alu-minium door"), which reads as a typo on a document that
+       goes to a customer. Values wrap between words only.
+    */
+    .print-schedule td {
+        height: auto;
+        white-space: normal;
+        word-wrap: normal;
+        overflow-wrap: normal;
+        word-break: normal;
+        hyphens: none;
+        /* Long values shrink to fit rather than forcing a break. */
+        overflow: hidden;
+        text-overflow: ellipsis;
     }
 
-    .print-notes {
-        border: 1px solid #555;
-        min-height: 24mm;
-        padding: 6px;
+    /*
+       Zebra striping assists the eye across a wide row. Kept very
+       light (#fafafa) - the old #f6f6f6 was heavy enough that a
+       long schedule printed as alternating grey bands.
+    */
+    .print-schedule tbody tr:nth-child(even) td {
+        background: #fafafa;
+    }
+
+    /*
+       Column widths across an A4 page.
+
+       Rebalanced as part of the redesign. Because the vertical
+       column rules are gone, the same content needs less width per
+       column to read cleanly, so the space is redistributed towards
+       the two columns that were losing information:
+
+         * Description was 13% and truncated free text.
+         * Glass was 7% at 6.5pt and cut "6.38mm Laminated" to
+           "6.38mm Lami...", which is the specification the workshop
+           actually builds to.
+
+       The percentages total 100.
+    */
+    .print-schedule .c-id {
+        width: 8.5%;
+        font-family: ui-monospace, Consolas, "Courier New", monospace;
+        font-size: 6.5pt;
+        font-weight: 700;
+        white-space: nowrap;
+    }
+
+    .print-schedule .c-type {
+        width: 8%;
+    }
+
+    /* Free text, so it gets the largest share of the table. */
+    .print-schedule .c-desc {
+        width: 15%;
+    }
+
+    .print-schedule .c-loc {
+        width: 8%;
+    }
+
+    /*
+       Numeric columns: right-aligned with tabular figures so the
+       digits line up vertically down the column, which is what
+       makes a size column scannable.
+    */
+    .print-schedule .c-size {
+        width: 7%;
+        text-align: right;
+        font-variant-numeric: tabular-nums;
+        white-space: nowrap;
+    }
+
+    .print-schedule .c-frame {
+        width: 6.5%;
+    }
+
+    /*
+       Glass now fits its full value: "6.38mm Laminated" is the
+       specification the item is built to, so truncating it is a
+       correctness problem, not a cosmetic one. The value never
+       splits mid-word ("Obscu / re" on an earlier version).
+    */
+    .print-schedule .c-glass {
+        width: 8.5%;
+        font-size: 6.5pt;
+        word-break: keep-all;
+        overflow-wrap: normal;
+    }
+
+    .print-schedule .c-who {
+        width: 6.5%;
+        font-size: 6.5pt;
+    }
+
+    /*
+       Status is the longest value ("Frame Manufactured"), so it
+       gets the short form on paper - see PRINT_STATUS_SHORT.
+    */
+    .print-schedule .c-status {
+        width: 7%;
+        font-size: 6.5pt;
+    }
+
+    .print-schedule tbody td.c-status,
+    .print-schedule tbody td.c-frame {
+        word-break: normal;
+        overflow-wrap: break-word;
+        hyphens: none;
+        line-height: 1.2;
+    }
+
+    /*
+       The summary line in the detail grid can run long (a list of
+       frame colours). Let it shrink rather than force the row taller,
+       so the grid keeps an even rhythm.
+    */
+    .print-detail-grid td {
+        font-size: 9pt;
+        line-height: 1.25;
+        /*
+           Keep a long summary ("Charcoal, Bronze, Natural Aluminium
+           +1 more") on as few lines as possible so the grid rows
+           stay an even height.
+        */
+        padding: 2mm 2.5mm;
+    }
+
+    /*
+       QC: PASS / FAIL / dash.
+
+       A failed inspection must be unmissable on the printed sheet,
+       because this is the copy that goes to the customer. It is set
+       in heavy type rather than colour, because a workshop printer
+       is usually mono.
+    */
+    .print-schedule .c-qc {
+        width: 5%;
+        text-align: center;
+        font-size: 7pt;
+        font-weight: 700;
+        letter-spacing: 0.03em;
+    }
+
+    .print-schedule tbody td.c-qc {
+        word-break: keep-all;
+        overflow-wrap: normal;
+        white-space: nowrap;
+    }
+
+    /*
+       Photo: a window thumbnail printed beside its row.
+
+       The column is only shown when at least one window on the job
+       has a photo (printProject hides it otherwise), so these widths
+       are only paid for on sheets that use the column. The
+       thumbnails are small on purpose - a printed A4 row is about
+       8mm tall, and anything larger would either be cropped or
+       force every row taller.
+    */
+    .print-schedule .c-photo {
+        width: 6.5%;
+        text-align: center;
+        padding: 1mm;
+    }
+
+    .print-schedule .print-row-photo {
+        /*
+           Fixed height with auto width keeps the thumbnail's aspect
+           ratio, so a tall photo and a wide one both sit inside the
+           row without distorting.
+        */
+        height: 9mm;
+        max-width: 100%;
+        object-fit: contain;
+        border: 0.5pt solid #666;
+        background: #ffffff;
+    }
+
+    /*
+       A window with no photo says so with a dash. A blank cell on a
+       printed sheet is ambiguous - it could mean "none", "not
+       required" or "forgot" - so the column always says something.
+    */
+    .print-schedule .print-row-photo-none {
+        color: #9ca3af;
+    }
+
+    /*
+       The QR heading is short ("QR") but the codes need room to
+       scan, so the column is wider than its label. Codes are inset
+       from the border to keep the quiet zone a scanner needs.
+    */
+    .print-schedule .c-qr {
+        width: 6.5%;
+        text-align: center;
+        padding: 1mm;
+    }
+
+    /* Cell text wraps; headings do not. */
+    .print-schedule tbody td {
+        word-wrap: break-word;
+        overflow-wrap: break-word;
+        hyphens: auto;
+        font-size: 7.5pt;
+    }
+
+    .print-empty {
+        text-align: center;
+        font-style: italic;
+        color: #555;
+    }
+
+    /* QR codes must never overflow their cell. */
+    /*
+       QR codes are sized to the row: big enough to scan from a
+       printed sheet, small enough that a long schedule still fits
+       and rows keep an even height.
+    */
+    /*
+       A QR code needs a quiet zone of white around it to scan
+       reliably, so it is inset from the cell border rather than
+       filling it.
+    */
+    .print-schedule td.c-qr {
+        padding: 1mm 1.5mm;
+    }
+
+    .print-row-qr,
+    .print-row-qr img,
+    .print-row-qr canvas {
+        width: 10mm !important;
+        height: 10mm !important;
+        display: block;
+        margin: 0 auto;
+    }
+
+    /*
+       NOTE: the old bare `.print-row-photo` rule (fixed 12mm square,
+       object-fit: cover) used to live here. It was undoing the
+       `.print-schedule .print-row-photo` rules above, which forced
+       every schedule thumbnail into a distorted square. The scoped
+       rule is the only one now, so remove this block rather than
+       leave a duplicate that silently wins on specificity.
+    */
+
+    /* =====================================================
+       NOTES
+    ===================================================== */
+
+    /*
+       Notes box.
+
+       Rendered as a solid black bar previously, because the striped
+       background collapsed when the box had no content. A fixed
+       block height and explicit interior colour prevent that, and
+       give the workshop real room to write.
+    */
+    /*
+       Notes box.
+
+       Ruled as a handwriting guide, because the workshop writes in
+       this by hand. A light grey rule (#c8c8c8) rather than the old
+       #999: the writing must stay the darkest thing in the box, and
+       #999 competed with a ballpoint.
+
+       The box is explicit height rather than min-height so it always
+       fills this part of the sheet - a collapsed box printed as a
+       solid black bar on an earlier version.
+    */
+    .print-notes-box {
+        border: 0.5pt solid #b0b0b0;
+        min-height: 22mm;
+        height: 22mm;
+        padding: 0;
+        font-size: 9.5pt;
         white-space: pre-wrap;
+        background-color: #fff;
+        background-image: repeating-linear-gradient(
+            to bottom,
+            #fff 0,
+            #fff 6.6mm,
+            #c8c8c8 6.6mm,
+            #c8c8c8 6.9mm
+        );
+        background-position: 0 1mm;
+        background-size: 100% 7mm;
+        box-sizing: border-box;
     }
 
-    .print-production {
-        width: 100%;
-        border-collapse: collapse;
-        margin-top: 5px;
+    /* =====================================================
+       SIGN OFF
+    ===================================================== */
+
+    .print-signoff {
+        /* Keep the whole block on one page - a signature split across
+           a page break is worthless. */
+        break-inside: avoid;
+        page-break-inside: avoid;
     }
 
-    .print-production th,
-    .print-production td {
-        border: 1px solid #555;
-        padding: 5px;
-        text-align: left;
-    }
-
-    .print-production th {
-        background: #ddd;
-        width: 20%;
-    }
-
+    /*
+       Wider gutters. "QUALITY CHECKED BY" is a long label and was
+       sitting almost against its neighbour at 10mm.
+    */
     .print-signatures {
         display: grid;
         grid-template-columns: repeat(3, 1fr);
-        gap: 15px;
-        margin-top: 20px;
+        gap: 12mm;
+        /*
+           Tightened from 6mm. The old block floated well below the
+           notes box, which left a visible empty band above the
+           signatures on a short schedule.
+        */
+        margin-top: 3mm;
+        /*
+           Fixed-height boxes: the label must always sit close under
+           its rule. A flexible height pushed the whole block past
+           the bottom of the page on a full schedule.
+        */
+        align-items: start;
     }
 
-    .print-signatures > div {
-        border-top: 1px solid #000;
-        padding-top: 4px;
-        text-align: center;
-        min-height: 20mm;
-        font-size: 9px;
+    /*
+       Signature blocks.
+
+       Each column is a fixed two-row grid: a fixed-height rule, then
+       the label. Because the rule height is identical in all three
+       columns, the rules line up exactly across the page - which
+       they did not when the height came from the label above.
+    */
+    /*
+       Signature blocks.
+
+       Each column is a simple stack: a fixed-height writing space
+       with a rule along its bottom, then the label underneath.
+       Every column uses the SAME rule height, so the three rules
+       sit at one baseline across the page.
+    */
+    .print-signature {
+        display: block;
+        break-inside: avoid;
+        page-break-inside: avoid;
     }
 
-    .signature-line {
-        height: 16mm;
+    /*
+       The rule is the bottom border of a fixed-height block, which
+       guarantees all three land on the same line regardless of how
+       long each label is.
+    */
+    .print-signature-line {
+        display: block;
+        height: 13mm;
+        width: 100%;
+        border-bottom: 0.75pt solid #555;
+        margin-bottom: 1.5mm;
     }
+
+    /*
+       Labels are muted small caps so the signature rule, not the
+       label, is what the eye follows across the block.
+    */
+    .print-signature strong {
+        font-size: 7pt;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        line-height: 1.2;
+        color: #666;
+        /* Long labels wrap to a second line rather than colliding. */
+        white-space: normal;
+        word-wrap: normal;
+        overflow-wrap: normal;
+        hyphens: none;
+    }
+
+    .print-signature span {
+        font-size: 8.5pt;
+        color: #333;
+        min-height: 3mm;
+        line-height: 1.2;
+    }
+
+    /* =====================================================
+       FOOTER
+    ===================================================== */
 
     .print-footer {
-        border-top: 1px solid #000;
-        margin-top: 10px;
-        padding-top: 5px;
         display: flex;
         justify-content: space-between;
-        font-size: 8px;
+        align-items: flex-end;
+        gap: 8mm;
+        border-top: 0.4pt solid #cccccc;
+        padding-top: 3mm;
+        margin-top: 5mm;
+        margin-bottom: 2mm;
+        break-inside: avoid;
+        page-break-inside: avoid;
+    }
+
+    .print-footer-qr {
+        /*
+           Fixed width so the text column gets the rest and cannot
+           be pushed off the page. 40mm gives the "Scan to open this
+           item" label room to sit on one line - at 34mm it wrapped
+           and the last word was clipped.
+        */
+        flex: 0 0 40mm;
+        text-align: center;
+        /*
+           The QR library injects an <img> plus a <canvas>. Pinning
+           both keeps the code inside its box instead of bleeding
+           past the left margin.
+        */
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 1mm;
+    }
+
+    .print-footer-qr > div {
+        line-height: 0;
+    }
+
+    .print-footer-qr canvas,
+    .print-footer-qr img {
+        width: 18mm !important;
+        height: 18mm !important;
+        display: block;
+    }
+
+    .print-footer-qr span {
+        display: block;
+        font-size: 6.5pt;
+        margin-top: 1mm;
+        color: #333;
+        line-height: 1.3;
+        /* Never break the label across lines. */
+        white-space: nowrap;
+    }
+
+    .print-footer-details {
+        display: flex;
+        flex-direction: column;
+        gap: 0.8mm;
+        text-align: right;
+        font-size: 7.5pt;
+        color: #333;
+        /*
+           The footer text must stay inside the page.
+
+           Two things were clipping the address: the flex item would
+           not shrink below its content width, and there was nothing
+           reserving space at the right edge. `min-width: 0` lets it
+           shrink, and the padding keeps the text off the margin.
+        */
+        min-width: 0;
+        flex: 1 1 auto;
+        overflow-wrap: break-word;
+        word-wrap: break-word;
+        padding-right: 3mm;
+        box-sizing: border-box;
+    }
+
+    .print-footer-details span,
+    .print-footer-details strong {
+        /* Wrap rather than overflow the paper edge. */
+        max-width: 100%;
+        display: block;
+        line-height: 1.35;
+    }
+
+    /*
+       The "Printed ..." line is the last thing on the sheet, so it
+       must never be clipped by the page edge.
+    */
+    /*
+       The "Printed ..." line is the last thing on the sheet and was
+       being trimmed at the page edge. A little bottom padding plus
+       the generous @page bottom margin keeps it whole.
+    */
+    .print-footer-generated {
+        padding-bottom: 2mm;
+        font-size: 6.5pt;
+        white-space: nowrap;
+    }
+
+    .print-footer-details strong {
+        font-size: 8.5pt;
+        color: #000;
+    }
+
+    .print-footer-generated {
+        font-size: 7pt;
+        color: #666;
+        margin-top: 1mm;
+    }
+
+    /* =====================================================
+       PAGE BREAK CONTROL
+    ===================================================== */
+
+    table {
+        page-break-inside: auto;
+    }
+
+    tr,
+    img {
+        page-break-inside: avoid;
     }
 
     .page-break {
@@ -2017,6 +3563,10 @@ img {
     }
 }
 
+/* On screen, the worksheet is hidden until it is being printed. */
+.print-only[hidden] {
+    display: none !important;
+}
 
 /* =========================================================
    RESPONSIVE TABLET
@@ -2025,7 +3575,7 @@ img {
 @media (max-width: 1100px) {
 
     .dashboard-cards {
-        grid-template-columns: repeat(2, 1fr);
+        grid-template-columns: repeat(3, 1fr);
     }
 
     .pipeline-segment {
@@ -2041,8 +3591,43 @@ img {
         grid-template-columns: repeat(2, 1fr);
     }
 
+    /*
+       Single column on smaller screens: camera, then search, then
+       the selected window.
+    */
     .scanner-layout {
         grid-template-columns: 1fr;
+        grid-template-areas:
+            "camera"
+            "search"
+            "selected";
+    }
+
+    .productivity-cards {
+        grid-template-columns: repeat(2, 1fr);
+    }
+
+    .period-bar {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .period-custom {
+        justify-content: flex-start;
+    }
+
+    .window-filter-bar {
+        grid-template-columns: 1fr 1fr;
+    }
+
+    .window-filter-bar input {
+        grid-column: 1 / -1;
+    }
+
+    /* Five filters no longer fit across; keep the search full width
+       and let the selects pair up underneath. */
+    .window-filter-bar select:last-child {
+        grid-column: 1 / -1;
     }
 
     .header-content {
@@ -2063,20 +3648,28 @@ img {
 
     .header-content {
         padding: 12px 14px;
-        flex-direction: column;
-        align-items: flex-start;
+        flex-direction: row;
+        align-items: center;
+    }
+
+    .company-mark {
+        width: 36px;
+        height: 36px;
+        font-size: 13px;
+        border-radius: 9px;
     }
 
     .company-info h1 {
-        font-size: 17px;
+        font-size: 15px;
     }
 
     .company-info strong {
-        font-size: 13px;
+        font-size: 12px;
     }
 
     .company-info span {
-        font-size: 10px;
+        font-size: 10.5px;
+        display: none;
     }
 
     .header-contact {
@@ -2122,13 +3715,24 @@ img {
         line-height: 1;
     }
 
+    .nav-icon .icon {
+        width: 21px;
+        height: 21px;
+        stroke-width: 1.8;
+    }
+
     .nav-icon {
-        font-size: 20px;
+        display: inline-flex;
         line-height: 1;
     }
 
     .nav-label {
         font-size: 10px;
+    }
+
+    .nav-button {
+        min-height: 48px;
+        justify-content: center;
     }
 
     .nav-button.active {
@@ -2140,11 +3744,46 @@ img {
 
     /* Make room for the fixed bottom bar. */
     body {
-        padding-bottom: 62px;
+        padding-bottom: 72px;
     }
 
     .app-container {
-        padding: 14px 14px 20px;
+        padding: 16px 14px 24px;
+    }
+
+    /* Comfortable touch targets on phones. */
+    .form-group input,
+    .form-group select,
+    .form-group textarea {
+        font-size: 16px;
+        padding: 11px 12px;
+        min-height: 46px;
+    }
+
+    .window-filter-bar input,
+    .window-filter-bar select,
+    .project-search {
+        font-size: 16px;
+        min-height: 46px;
+    }
+
+    .dashboard-card-icon {
+        width: 32px;
+        height: 32px;
+        margin-bottom: 8px;
+    }
+
+    .dashboard-card-value {
+        font-size: 26px;
+    }
+
+    /* Keep the toast clear of the fixed bottom nav. */
+    #toast {
+        left: 14px;
+        right: 14px;
+        bottom: 78px;
+        max-width: none;
+        box-shadow: 0 16px 40px rgba(15, 23, 42, 0.45);
     }
 
     .page-header h2 {
@@ -2159,6 +3798,12 @@ img {
         grid-template-columns: 1fr 1fr;
         gap: 10px;
         margin-bottom: 16px;
+    }
+
+    /* Five cards in a two-column grid leave an odd one out;
+       let it span the full width so the row looks deliberate. */
+    .dashboard-cards > :last-child:nth-child(odd) {
+        grid-column: 1 / -1;
     }
 
     .dashboard-card {
@@ -2219,6 +3864,38 @@ img {
         gap: 8px;
     }
 
+    /* Stack the activity row: badge, details, then time. */
+    .activity-log li {
+        grid-template-columns: 1fr;
+        gap: 6px;
+    }
+
+    .activity-when {
+        text-align: left;
+    }
+
+    .period-presets {
+        border-radius: var(--radius-sm);
+        justify-content: center;
+    }
+
+    .period-button {
+        flex: 1 1 auto;
+        min-height: 40px;
+    }
+
+    .period-custom input[type="date"] {
+        flex: 1 1 130px;
+        min-height: 44px;
+        font-size: 15px;
+    }
+
+    .scan-employee-select {
+        max-width: 100%;
+        font-size: 16px;
+        min-height: 48px;
+    }
+
     .employee-list {
         grid-template-columns: 1fr;
     }
@@ -2233,12 +3910,37 @@ img {
         min-height: 46px;
     }
 
+    /* Scan and New Project sit full width and easy to hit. */
+    .page-header-actions {
+        width: 100%;
+    }
+
+    .page-header-actions .scan-button,
+    .page-header-actions .primary-button {
+        flex: 1 1 100%;
+        min-height: 48px;
+    }
+
+    .window-rows-table .col-type,
+    .window-rows-table td.col-type .type-badge {
+        max-width: 110px;
+    }
+
     .modal {
         padding: 8px;
     }
 
     .modal-content {
-        max-height: 95vh;
+        max-height: 92vh;
+        border-radius: 14px 14px 0 0;
+    }
+
+    .tracker-status-buttons {
+        width: 100%;
+    }
+
+    .tracker-status {
+        min-height: 40px;
     }
 
     .modal-body {
@@ -2282,8 +3984,902 @@ img {
 
 
 /* =========================================================
+   DASHBOARD: SCAN BUTTON + TWO TABLES
+   ========================================================= */
+
+.page-header-actions {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+/*
+   The Scan button is the most-used action on the workshop floor,
+   so it is visually distinct (dark, outlined) rather than another
+   blue button competing with New Project.
+*/
+.scan-button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 9px;
+    border: 1px solid var(--primary);
+    background: var(--primary);
+    color: white;
+    border-radius: var(--radius-sm);
+    padding: 10px 20px;
+    font-size: 14px;
+    font-weight: 700;
+    white-space: nowrap;
+    box-shadow: 0 4px 12px rgba(20, 59, 107, 0.26);
+    transition: background 0.18s ease, transform 0.1s ease, box-shadow 0.18s ease;
+}
+
+.scan-button .icon {
+    width: 17px;
+    height: 17px;
+}
+
+.scan-button:hover {
+    background: var(--primary-dark);
+    box-shadow: 0 6px 16px rgba(20, 59, 107, 0.34);
+}
+
+.scan-button:active {
+    transform: scale(0.97);
+}
+
+/* Banner shown while editing an existing project. */
+
+.edit-mode-banner {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 13px 18px;
+    margin-bottom: 16px;
+    border-radius: var(--radius);
+    background: #fff8e6;
+    border: 1px solid #f0d99b;
+    color: #8a5a06;
+    font-size: 13.5px;
+    font-weight: 600;
+    scroll-margin-top: 150px;
+}
+
+/*
+   An explicit `display: flex` beats the browser's default
+   `[hidden] { display: none }`, so the attribute has to be
+   honoured explicitly or the banner never hides.
+*/
+.edit-mode-banner[hidden] {
+    display: none;
+}
+
+.edit-mode-banner .icon {
+    width: 18px;
+    height: 18px;
+    flex: 0 0 auto;
+}
+
+/* The edit pencil on a project card. */
+
+.edit-icon-button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 30px;
+    height: 30px;
+    color: var(--text-light);
+}
+
+.edit-icon-button .icon {
+    width: 15px;
+    height: 15px;
+}
+
+.edit-icon-button:hover {
+    background: var(--accent-soft);
+    border-color: var(--accent);
+    color: var(--accent);
+}
+
+.dashboard-project-row .col-edit-cell {
+    width: 46px;
+    text-align: center;
+}
+
+/* Table 1: projects. Each row is clickable. */
+
+.dashboard-projects-table {
+    min-width: 900px;
+}
+
+.dashboard-project-row {
+    cursor: pointer;
+    transition: background 0.15s ease;
+}
+
+.dashboard-project-row:hover {
+    background: #eef4ff;
+}
+
+.dashboard-project-row.selected {
+    background: #e8f1ff;
+    box-shadow: inset 4px 0 0 var(--accent);
+}
+
+.dashboard-project-row .col-expand {
+    width: 38px;
+    text-align: center;
+    color: var(--text-muted);
+}
+
+/* The chevron points right at rest, and rotates down when open. */
+.dashboard-project-row .chevron {
+    width: 16px;
+    height: 16px;
+    transition: transform 0.18s ease;
+}
+
+.dashboard-project-row.selected .chevron {
+    transform: rotate(90deg);
+    color: var(--accent);
+}
+
+.dashboard-project-row .col-prj {
+    min-width: 220px;
+}
+
+.dashboard-project-row .col-prj strong {
+    display: block;
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--primary-dark);
+}
+
+.dashboard-project-row .col-prj small {
+    display: block;
+    font-size: 11.5px;
+    color: var(--text-muted);
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+.dashboard-project-row .col-cust {
+    min-width: 170px;
+    color: var(--text-light);
+}
+
+.dashboard-project-row .col-count {
+    min-width: 150px;
+    font-size: 12.5px;
+    color: var(--text-light);
+}
+
+.dashboard-project-row .col-age {
+    width: 120px;
+}
+
+.dashboard-project-row .col-prog {
+    min-width: 250px;
+}
+
+/* Allocation badge: who owns this window. */
+
+.allocated-badge {
+    display: inline-block;
+    font-size: 11.5px;
+    font-weight: 700;
+    border-radius: 999px;
+    padding: 3px 10px;
+    white-space: nowrap;
+    border: 1px solid transparent;
+    max-width: 140px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.allocated-set {
+    background: #e8f5ee;
+    color: #166534;
+    border-color: #bfe3cd;
+}
+
+.allocated-none {
+    background: #eef2f7;
+    color: var(--text-muted);
+    border-color: var(--border);
+    font-weight: 600;
+}
+
+.window-rows-table .col-allocated {
+    width: 140px;
+}
+
+/* Product type badge: doors and windows read differently. */
+
+.type-badge {
+    display: inline-block;
+    font-size: 11.5px;
+    font-weight: 700;
+    border-radius: 999px;
+    padding: 3px 10px;
+    white-space: nowrap;
+    border: 1px solid transparent;
+}
+
+.type-window {
+    background: #e8effc;
+    color: var(--accent-dark);
+    border-color: #c5d8f7;
+}
+
+.type-door {
+    background: #f3e9df;
+    color: #92400e;
+    border-color: #e3cbb2;
+}
+
+.type-none {
+    background: #eef2f7;
+    color: var(--text-light);
+    border-color: var(--border);
+    font-weight: 600;
+}
+
+.window-rows-table .col-type {
+    width: 132px;
+}
+
+.window-rows-table td.col-type .type-badge {
+    display: inline-block;
+    max-width: 120px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* =========================================================
+   PRODUCTIVITY DASHBOARD
+   ========================================================= */
+
+/* Period selector: presets on the left, custom range on the right. */
+
+.period-card {
+    padding: 16px 20px;
+}
+
+.period-bar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 16px;
+    flex-wrap: wrap;
+}
+
+.period-presets {
+    display: inline-flex;
+    gap: 6px;
+    flex-wrap: wrap;
+    background: var(--surface-light);
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    padding: 4px;
+}
+
+.period-button {
+    border: none;
+    background: transparent;
+    border-radius: 999px;
+    padding: 7px 15px;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-light);
+    white-space: nowrap;
+    transition: background 0.15s ease, color 0.15s ease;
+}
+
+.period-button:hover {
+    color: var(--primary);
+    background: #e8eef7;
+}
+
+.period-button.active {
+    background: var(--primary);
+    color: white;
+    box-shadow: 0 3px 10px rgba(20, 59, 107, 0.25);
+}
+
+.period-custom {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.period-custom label {
+    font-size: 12.5px;
+    font-weight: 600;
+    color: var(--text-light);
+}
+
+.period-custom input[type="date"] {
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    padding: 7px 10px;
+    font-size: 13px;
+    background: white;
+    color: var(--text);
+}
+
+.period-custom input[type="date"]:focus {
+    outline: none;
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+}
+
+.period-summary {
+    margin-top: 12px;
+    font-size: 13px;
+    color: var(--text-light);
+}
+
+/* Productivity KPIs use the shared dashboard card styling. */
+
+.productivity-cards {
+    grid-template-columns: repeat(4, 1fr);
+}
+
+/* Per-employee ranking table. */
+
+.productivity-table {
+    min-width: 720px;
+}
+
+.productivity-table .col-rank {
+    width: 48px;
+    text-align: center;
+    font-weight: 700;
+    color: var(--text-muted);
+    font-variant-numeric: tabular-nums;
+}
+
+.productivity-table .col-name {
+    min-width: 220px;
+}
+
+.productivity-table .col-name strong {
+    display: block;
+    font-size: 14px;
+    color: var(--primary-dark);
+}
+
+.productivity-table .col-name small,
+.productivity-table .col-steps small {
+    display: block;
+    font-size: 11.5px;
+    color: var(--text-muted);
+}
+
+.productivity-table .col-steps {
+    width: 92px;
+    text-align: right;
+}
+
+.productivity-table .col-steps strong {
+    font-size: 18px;
+    font-weight: 800;
+    color: var(--accent);
+    font-variant-numeric: tabular-nums;
+}
+
+.productivity-table .col-share {
+    width: 190px;
+}
+
+.productivity-table .col-share small {
+    display: block;
+    font-size: 11px;
+    color: var(--text-muted);
+    margin-top: 3px;
+}
+
+.productivity-table .col-last {
+    width: 150px;
+    font-size: 12.5px;
+    color: var(--text-light);
+    white-space: nowrap;
+}
+
+/* A compact bar showing each person's share of the work. */
+
+.share-bar {
+    height: 8px;
+    border-radius: 999px;
+    background: #e6ebf2;
+    overflow: hidden;
+    min-width: 110px;
+}
+
+.share-bar span {
+    display: block;
+    height: 100%;
+    border-radius: 999px;
+    background: linear-gradient(90deg, var(--accent) 0%, var(--primary-light) 100%);
+    transition: width 0.4s ease;
+}
+
+/* Breakdown of steps by production status. */
+
+.step-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 12px;
+}
+
+.step-card {
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    background: var(--surface-light);
+    padding: 14px;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 6px;
+}
+
+.step-card strong {
+    font-size: 26px;
+    font-weight: 800;
+    letter-spacing: -0.03em;
+    color: var(--primary-dark);
+    font-variant-numeric: tabular-nums;
+}
+
+.step-card small {
+    font-size: 11.5px;
+    color: var(--text-muted);
+}
+
+/* Recent activity log. */
+
+.activity-log {
+    list-style: none;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    max-height: 460px;
+    overflow-y: auto;
+}
+
+.activity-log li {
+    display: grid;
+    grid-template-columns: 130px 1fr auto;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 12px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    background: var(--surface-light);
+}
+
+.activity-main {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+}
+
+.activity-main strong {
+    font-size: 13.5px;
+    color: var(--primary-dark);
+}
+
+.activity-main small {
+    font-size: 12px;
+    color: var(--text-light);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.activity-when {
+    font-size: 12px;
+    color: var(--text-muted);
+    white-space: nowrap;
+}
+
+/* Scanner: find a window by typing. */
+
+.scanner-search-card {
+    margin-top: 0;
+}
+
+.scanner-search-controls {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    margin-bottom: 10px;
+}
+
+.scan-search-input {
+    flex: 1 1 auto;
+    width: 100%;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    padding: 11px 13px;
+    font-size: 15px;
+    background: white;
+    color: var(--text);
+    transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.scan-search-input:focus {
+    outline: none;
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12);
+}
+
+.scan-search-hint {
+    font-size: 12.5px;
+    color: var(--text-light);
+    margin-bottom: 6px;
+}
+
+.scan-search-results {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-top: 12px;
+    max-height: 420px;
+    overflow-y: auto;
+}
+
+/*
+   An explicit display on the container would beat the browser's
+   [hidden] rule, so honour the attribute explicitly.
+*/
+.scan-search-results[hidden] {
+    display: none;
+}
+
+.scan-result {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    align-items: center;
+    gap: 10px;
+    text-align: left;
+    width: 100%;
+    padding: 11px 13px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    background: var(--surface-light);
+    transition: background 0.15s ease, border-color 0.15s ease;
+}
+
+.scan-result:hover {
+    background: var(--accent-soft);
+    border-color: var(--accent);
+}
+
+.scan-result-main {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 0;
+}
+
+.scan-result-main strong {
+    font-size: 13.5px;
+    font-weight: 700;
+    color: var(--primary-dark);
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+.scan-result-main small {
+    font-size: 12px;
+    color: var(--text-light);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.scan-result-meta {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+}
+
+.scan-result-project {
+    grid-column: 1 / -1;
+    font-size: 11.5px;
+    color: var(--text-muted);
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+.scan-more-note {
+    text-align: center;
+    padding-top: 4px;
+}
+
+/* Scanner employee gate. */
+
+.scan-employee-gate {
+    display: flex;
+    flex-direction: column;
+    gap: 7px;
+    padding: 14px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    background: var(--surface-light);
+    margin-bottom: 18px;
+}
+
+.scan-employee-gate label {
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--secondary);
+}
+
+.scan-employee-select {
+    width: 100%;
+    max-width: 380px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    padding: 11px 12px;
+    font-size: 15px;
+    font-weight: 600;
+    background: white;
+    color: var(--text);
+}
+
+.scan-employee-select:focus {
+    outline: 2px solid var(--accent);
+    outline-offset: 1px;
+    border-color: var(--accent);
+}
+
+.scan-employee-hint {
+    font-size: 12.5px;
+    color: var(--text-light);
+}
+
+.scan-employee-ok {
+    color: var(--success);
+    font-weight: 600;
+}
+
+.scan-employee-warn {
+    color: var(--warning);
+    font-weight: 600;
+}
+
+.scan-step-header {
+    margin-top: 4px;
+}
+
+/* A disabled Start Camera makes the gate obvious. */
+
+.primary-button[disabled] {
+    background: #b8c2cf;
+    box-shadow: none;
+    cursor: not-allowed;
+    opacity: 0.9;
+}
+
+.primary-button[disabled]:hover {
+    background: #b8c2cf;
+}
+
+/* =========================================================
+   SYNC BADGE + SIGN OUT (header)
+   ========================================================= */
+
+.header-status {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+}
+
+.sync-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 11.5px;
+    font-weight: 700;
+    border-radius: 999px;
+    padding: 4px 11px;
+    white-space: nowrap;
+    border: 1px solid transparent;
+}
+
+/* A dot makes the state readable at a glance on a phone. */
+.sync-badge::before {
+    content: "";
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: currentColor;
+    flex: 0 0 auto;
+}
+
+.sync-ok {
+    background: rgba(74, 222, 128, 0.18);
+    color: #86efac;
+    border-color: rgba(74, 222, 128, 0.45);
+}
+
+.sync-syncing {
+    background: rgba(147, 197, 253, 0.18);
+    color: #bfdbfe;
+    border-color: rgba(147, 197, 253, 0.45);
+}
+
+.sync-pending {
+    background: rgba(253, 224, 71, 0.18);
+    color: #fde68a;
+    border-color: rgba(253, 224, 71, 0.45);
+}
+
+.sync-offline {
+    background: rgba(148, 163, 184, 0.22);
+    color: #cbd5e1;
+    border-color: rgba(148, 163, 184, 0.45);
+}
+
+.sync-error {
+    background: rgba(248, 113, 113, 0.2);
+    color: #fecaca;
+    border-color: rgba(248, 113, 113, 0.5);
+}
+
+.signout-button {
+    border: 1px solid rgba(255, 255, 255, 0.28);
+    background: rgba(255, 255, 255, 0.08);
+    color: rgba(255, 255, 255, 0.9);
+    border-radius: 999px;
+    padding: 5px 13px;
+    font-size: 11.5px;
+    font-weight: 600;
+    white-space: nowrap;
+}
+
+.signout-button:hover {
+    background: rgba(255, 255, 255, 0.18);
+    color: white;
+}
+
+/* =========================================================
+   SIGN IN
+   ========================================================= */
+
+.signin-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 4000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+    background:
+        radial-gradient(900px 420px at 50% 0%, #1e5aa8 0%, rgba(30, 90, 168, 0) 65%),
+        linear-gradient(160deg, var(--primary) 0%, var(--primary-dark) 100%);
+}
+
+/* Honour the attribute, which an explicit display would beat. */
+.signin-overlay[hidden] {
+    display: none;
+}
+
+.signin-card {
+    width: 100%;
+    max-width: 420px;
+    background: white;
+    border-radius: var(--radius);
+    padding: 28px 26px;
+    box-shadow: 0 30px 70px rgba(15, 23, 42, 0.45);
+}
+
+.signin-brand {
+    display: flex;
+    align-items: center;
+    gap: 13px;
+    margin-bottom: 24px;
+}
+
+.signin-brand .company-mark {
+    background: var(--primary);
+    border-color: var(--primary);
+    color: white;
+}
+
+.signin-brand h2 {
+    font-size: 19px;
+    font-weight: 700;
+    color: var(--primary-dark);
+    margin: 0;
+}
+
+.signin-brand p {
+    font-size: 12.5px;
+    color: var(--text-light);
+    margin: 2px 0 0;
+}
+
+.signin-field {
+    display: flex;
+    flex-direction: column;
+    gap: 7px;
+    margin-bottom: 16px;
+}
+
+.signin-field[hidden] {
+    display: none;
+}
+
+.signin-field label {
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--secondary);
+}
+
+.signin-select,
+.signin-pin {
+    width: 100%;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    padding: 12px 13px;
+    font-size: 16px;
+    background: white;
+    color: var(--text);
+}
+
+/* A PIN is typed on a phone keypad, so make it big and spaced. */
+.signin-pin {
+    font-size: 22px;
+    font-weight: 700;
+    text-align: center;
+    letter-spacing: 0.4em;
+    padding-left: 0.4em;
+}
+
+.signin-select:focus,
+.signin-pin:focus {
+    outline: none;
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12);
+}
+
+.signin-message {
+    font-size: 13px;
+    color: var(--text-light);
+    margin-bottom: 16px;
+    min-height: 19px;
+}
+
+.signin-message-error {
+    color: var(--danger);
+    font-weight: 600;
+}
+
+.signin-button {
+    width: 100%;
+    min-height: 48px;
+    font-size: 15px;
+}
+
+.signin-note {
+    font-size: 12px;
+    color: var(--text-muted);
+    text-align: center;
+    margin-top: 16px;
+}
+
+/* =========================================================
    UTILITY CLASSES
-========================================================= */
+   ========================================================= */
 
 .hidden {
     display: none !important;
@@ -2396,5 +4992,1039 @@ img {
 
     .print-section {
         page-break-inside: avoid;
+    }
+}/* =========================================================
+   QUOTE BUILDER
+   =========================================================
+
+   Styles for the Quotes tab. Kept in one block at the end of
+   the sheet so the production UI is untouched and this whole
+   section can be reviewed (or removed) on its own.
+*/
+
+/* -------- Add-line bar -------- */
+
+.quote-add-bar {
+    background: var(--surface-light);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    padding: 14px;
+    margin-bottom: 16px;
+}
+
+.quote-add-row {
+    display: flex;
+    align-items: flex-end;
+    gap: 12px;
+    flex-wrap: wrap;
+}
+
+.quote-add-field {
+    flex: 1 1 320px;
+    min-width: 240px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.quote-add-field label {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text-light);
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+}
+
+.quote-add-field select {
+    width: 100%;
+    padding: 10px 12px;
+    border: 1px solid var(--border-dark);
+    border-radius: var(--radius-sm);
+    background: var(--surface);
+    color: var(--text);
+    font-size: 14px;
+    font-family: inherit;
+}
+
+.quote-add-field select:focus {
+    outline: none;
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px var(--accent-soft);
+}
+
+.quote-product-hint {
+    margin-top: 10px;
+    font-size: 12px;
+    color: var(--text-muted);
+}
+
+/*
+   The catalogue refresh sits at the end of the add-line row.
+   It is deliberately the quietest button in the group: it is
+   housekeeping, not part of building a quote.
+*/
+.catalogue-refresh-button {
+    white-space: nowrap;
+}
+
+.catalogue-refresh-button .icon {
+    transition: transform 0.6s ease;
+}
+
+.catalogue-refresh-button.is-busy {
+    opacity: 0.7;
+    cursor: progress;
+}
+
+.catalogue-refresh-button.is-busy .icon {
+    animation: catalogue-spin 0.9s linear infinite;
+}
+
+@keyframes catalogue-spin {
+    from {
+        transform: rotate(0deg);
+    }
+
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+/* Live prices off the shop read as normal text; the built-in
+   fallback list is flagged in the warning colour so nobody
+   quotes from stale figures by accident. */
+.quote-product-hint-live {
+    color: var(--text-muted);
+}
+
+.quote-product-hint-offline {
+    color: var(--warning, #b45309);
+    font-weight: 600;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .catalogue-refresh-button.is-busy .icon {
+        animation: none;
+    }
+}
+
+/* -------- Lines table -------- */
+
+.quote-lines-wrapper {
+    overflow-x: auto;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+}
+
+.quote-lines-table {
+    width: 100%;
+    border-collapse: collapse;
+    min-width: 1080px;
+}
+
+.quote-lines-table thead th {
+    background: var(--surface-light);
+    color: var(--text-light);
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    text-align: left;
+    padding: 10px 8px;
+    border-bottom: 1px solid var(--border);
+    white-space: nowrap;
+}
+
+.quote-lines-table tbody td {
+    padding: 6px 5px;
+    border-bottom: 1px solid var(--border);
+    vertical-align: middle;
+}
+
+.quote-lines-table tbody tr:last-child td {
+    border-bottom: 0;
+}
+
+.quote-lines-table tbody tr:hover {
+    background: var(--surface-light);
+}
+
+.quote-cell-input {
+    width: 100%;
+    padding: 7px 8px;
+    border: 1px solid transparent;
+    border-radius: 6px;
+    background: transparent;
+    color: var(--text);
+    font-size: 13px;
+    font-family: inherit;
+    box-sizing: border-box;
+}
+
+.quote-cell-input:hover {
+    border-color: var(--border);
+}
+
+.quote-cell-input:focus {
+    outline: none;
+    border-color: var(--accent);
+    background: var(--surface);
+    box-shadow: 0 0 0 3px var(--accent-soft);
+}
+
+/* Column widths - a fixed layout keeps the money column steady
+   while descriptions wrap. */
+.quote-lines-table .q-code { width: 92px; }
+.quote-lines-table .q-desc { width: 26%; min-width: 200px; }
+.quote-lines-table .q-type { width: 108px; }
+.quote-lines-table .q-qty { width: 62px; }
+.quote-lines-table .q-size { width: 84px; }
+.quote-lines-table .q-fins { width: 128px; }
+.quote-lines-table .q-unit { width: 106px; }
+.quote-lines-table .q-disc { width: 72px; }
+.quote-lines-table .q-line { width: 110px; }
+.quote-lines-table .q-actions { width: 68px; }
+
+.quote-lines-table .q-qty input,
+.quote-lines-table .q-size input,
+.quote-lines-table .q-unit input,
+.quote-lines-table .q-disc input {
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+}
+
+.quote-lines-table .q-code input {
+    font-weight: 600;
+    text-transform: uppercase;
+}
+
+.quote-line-total {
+    text-align: right;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    padding-right: 10px;
+    white-space: nowrap;
+}
+
+.q-actions {
+    text-align: right;
+    white-space: nowrap;
+}
+
+.quote-row-button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    background: var(--surface);
+    color: var(--text-light);
+    cursor: pointer;
+    padding: 0;
+    transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+}
+
+.quote-row-button .icon {
+    width: 14px;
+    height: 14px;
+    stroke: currentColor;
+    fill: none;
+    stroke-width: 1.8;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+}
+
+.quote-row-button:hover {
+    background: var(--accent-soft);
+    border-color: var(--accent);
+    color: var(--accent-dark);
+}
+
+.quote-row-remove:hover {
+    background: var(--danger-soft);
+    border-color: var(--danger);
+    color: var(--danger);
+}
+
+.quote-lines-empty {
+    margin-top: 4px;
+}
+
+.quote-other-amount {
+    margin-top: 8px;
+}
+
+/* -------- Summary -------- */
+
+.quote-summary-layout {
+    display: grid;
+    grid-template-columns: 1fr 360px;
+    gap: 22px;
+    align-items: start;
+}
+
+.quote-summary-fields {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 16px;
+}
+
+.quote-totals {
+    background: var(--surface-light);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    padding: 14px 16px;
+}
+
+.quote-total-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: 14px;
+    padding: 7px 0;
+    font-size: 13px;
+    color: var(--text-light);
+    border-bottom: 1px dashed var(--border);
+}
+
+.quote-total-row:last-child {
+    border-bottom: 0;
+}
+
+.quote-total-row strong {
+    font-variant-numeric: tabular-nums;
+    color: var(--text);
+    white-space: nowrap;
+}
+
+.quote-total-discount strong {
+    color: var(--danger);
+}
+
+.quote-total-grand {
+    border-top: 2px solid var(--primary-dark);
+    border-bottom: 0;
+    margin-top: 6px;
+    padding-top: 12px;
+    font-size: 15px;
+    font-weight: 700;
+    color: var(--primary-dark);
+}
+
+.quote-total-grand strong {
+    font-size: 19px;
+    color: var(--primary-dark);
+}
+
+.quote-total-deposit {
+    border-top: 1px solid var(--border);
+    padding-top: 12px;
+    font-weight: 600;
+    color: var(--success);
+}
+
+.quote-total-deposit strong {
+    color: var(--success);
+}
+
+/* -------- Saved quotes -------- */
+
+.quote-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.quote-list-item {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    padding: 14px 16px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    background: var(--surface);
+    flex-wrap: wrap;
+    transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.quote-list-item:hover {
+    border-color: var(--accent);
+    box-shadow: var(--shadow-xs);
+}
+
+.quote-list-main {
+    flex: 1 1 320px;
+    min-width: 220px;
+}
+
+.quote-list-title {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+    margin-bottom: 3px;
+}
+
+.quote-list-title strong {
+    color: var(--primary-dark);
+    font-size: 15px;
+}
+
+.quote-list-customer {
+    color: var(--text);
+    font-size: 13px;
+}
+
+.quote-list-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    font-size: 12px;
+    color: var(--text-muted);
+}
+
+.quote-list-total {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 2px;
+    min-width: 130px;
+}
+
+.quote-list-total span {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--text-muted);
+}
+
+.quote-list-total strong {
+    font-size: 17px;
+    color: var(--primary-dark);
+    font-variant-numeric: tabular-nums;
+}
+
+.quote-list-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.quote-list-button {
+    padding: 7px 14px;
+    font-size: 13px;
+}
+
+/* =========================================================
+   QUOTE PRINT SHEET
+   =========================================================
+
+   Reuses the worksheet letterhead, rules and section styles
+   already defined for the production print sheets, and adds
+   only what a quote needs: money columns and a cost block.
+*/
+
+#printQuoteSheet {
+    display: none;
+}
+
+@media print {
+
+    /*
+       A quote and a workshop worksheet are both `.print-only`,
+       so only the one being printed may be displayed. The body
+       class is set by printQuote() just before window.print().
+    */
+    body.printing-quote #printWorksheet.print-only {
+        display: none !important;
+    }
+
+    body:not(.printing-quote) #quotePrintSheet.print-only {
+        display: none !important;
+    }
+
+    #quotePrintSheet.print-only {
+        display: flex !important;
+        flex-direction: column;
+        position: absolute;
+        left: 0;
+        top: 0;
+        right: 0;
+        min-height: 267mm;
+        padding: 0;
+        box-sizing: border-box;
+        background: white;
+        color: #000;
+        font-family: "Segoe UI", Arial, Helvetica, sans-serif;
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+    }
+
+    #quotePrintSheet.print-only > * {
+        padding-left: 1.5mm;
+        padding-right: 1.5mm;
+    }
+
+    #quotePrintSheet.print-only > .print-letterhead {
+        padding-left: 0;
+        padding-right: 0;
+    }
+
+    /* Money columns line up on the decimal. */
+    .quote-print-schedule .c-num { width: 4%; text-align: right; }
+    .quote-print-schedule .c-code { width: 10%; font-weight: 600; }
+    .quote-print-schedule .c-desc { width: 26%; }
+    .quote-print-schedule .c-type { width: 8%; }
+    .quote-print-schedule .c-qty { width: 5%; text-align: right; }
+    .quote-print-schedule .c-size { width: 7%; text-align: right; font-variant-numeric: tabular-nums; }
+    .quote-print-schedule .c-finish { width: 11%; }
+    .quote-print-schedule .c-money { width: 11%; text-align: right; font-variant-numeric: tabular-nums; }
+
+    .quote-print-schedule td.c-money {
+        white-space: nowrap;
+    }
+
+    .print-manual-tag {
+        display: inline-block;
+        margin-left: 4px;
+        padding: 0.3mm 1.2mm;
+        border: 0.5pt solid #666;
+        border-radius: 1mm;
+        font-size: 6.5pt;
+        text-transform: uppercase;
+        letter-spacing: 0.03em;
+        color: #333;
+    }
+
+    /* Two columns: the costs loaded, beside the totals. */
+    .quote-print-costs {
+        display: flex;
+        gap: 8mm;
+        align-items: flex-start;
+    }
+
+    .quote-print-col {
+        flex: 1 1 0;
+        min-width: 0;
+    }
+
+    .print-cost-table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 9pt;
+    }
+
+    .print-cost-table td {
+        padding: 1.2mm 1.5mm;
+        border-bottom: 0.5pt solid #ccc;
+        vertical-align: top;
+    }
+
+    .print-cost-table td.c-money {
+        text-align: right;
+        white-space: nowrap;
+        font-variant-numeric: tabular-nums;
+    }
+
+    .print-totals-table tr:last-child td,
+    .print-cost-table tbody tr:last-child td {
+        border-bottom: 0;
+    }
+
+    .print-totals-table tr.print-row-strong td {
+        border-top: 1pt solid #000;
+        border-bottom: 1pt solid #000;
+        font-weight: 700;
+        font-size: 11pt;
+        padding-top: 2mm;
+        padding-bottom: 2mm;
+    }
+
+    .quote-print-none {
+        color: #666;
+        font-style: italic;
+    }
+}
+
+/* -------- Responsive -------- */
+
+@media (max-width: 1100px) {
+
+    .quote-summary-layout {
+        grid-template-columns: 1fr;
+    }
+
+    .quote-summary-fields {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
+
+@media (max-width: 720px) {
+
+    .quote-add-row {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .quote-add-row .primary-button,
+    .quote-add-row .secondary-button {
+        width: 100%;
+        justify-content: center;
+    }
+
+    .quote-summary-fields {
+        grid-template-columns: 1fr;
+    }
+
+    .quote-list-item {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+
+    .quote-list-total {
+        align-items: flex-start;
+    }
+
+    .quote-list-actions {
+        width: 100%;
+    }
+
+    .quote-list-actions .quote-list-button {
+        flex: 1;
+    }
+}
+/* =========================================================
+   ROOF & WATERPROOFING QUOTATION - PRINT TEMPLATE
+   =========================================================
+
+   Mirrors the AGA roof & waterproofing quotation:
+
+     cover  - QUOTATION title, CLIENT / OFFICE blocks
+     body   - scope of works, preliminaries, "what this cost
+              includes", per-section pricing tables, timeline,
+              costing summary, notes, terms
+     close  - acceptance page and footer
+
+   Pages 1-4 of the source document are scanned letterhead and
+   company-profile artwork; those are represented here by the
+   standard AGA letterhead image plus a text company block, so
+   the whole quote stays printable and editable.
+*/
+
+@media print {
+
+    /*
+       The three print documents are all `.print-only`, so only
+       the one being printed may be displayed. `printing-roof`
+       is set by printRoofQuote() just before window.print().
+    */
+    body.printing-roof #printWorksheet.print-only,
+    body.printing-roof #quotePrintSheet.print-only {
+        display: none !important;
+    }
+
+    body:not(.printing-roof) #roofQuotePrintSheet.print-only {
+        display: none !important;
+    }
+
+    #roofQuotePrintSheet.print-only {
+        display: block !important;
+        position: absolute;
+        left: 0;
+        top: 0;
+        right: 0;
+        box-sizing: border-box;
+        background: white;
+        color: #000;
+        font-family: "Segoe UI", Arial, Helvetica, sans-serif;
+        font-size: 10pt;
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+    }
+
+    /* Force a fresh page for the cover and the acceptance page. */
+    .roof-break-before {
+        break-before: page;
+        page-break-before: always;
+    }
+
+    .roof-section,
+    .roof-price-section,
+    .roof-timeline-stage {
+        break-inside: avoid;
+        page-break-inside: avoid;
+    }
+
+    /*
+       Each signature block is one unbreakable unit. Without this
+       the label could be left at the foot of one page while its
+       writing line started the next.
+    */
+    .roof-signature {
+        break-inside: avoid;
+        page-break-inside: avoid;
+    }
+
+    /* ---------------- Letterhead ---------------- */
+
+    .roof-letterhead {
+        width: 100%;
+        margin: 0 0 3mm;
+    }
+
+    .roof-letterhead .print-letterhead-image {
+        display: block;
+        width: 100%;
+        height: auto;
+    }
+
+    /* ---------------- Title block ---------------- */
+
+    .roof-titleblock {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        gap: 8mm;
+        padding: 0 1.5mm;
+        margin: 3mm 0 2mm;
+    }
+
+    .roof-titleblock-main h1 {
+        margin: 0;
+        font-size: 15pt;
+        line-height: 1.15;
+        color: #2e5e86;
+    }
+
+    .roof-titleblock-sub {
+        margin: 1mm 0 0;
+        font-size: 10.5pt;
+        color: #444;
+    }
+
+    .roof-titleblock-id {
+        text-align: right;
+        white-space: nowrap;
+    }
+
+    .roof-id-label {
+        display: block;
+        font-size: 7pt;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        color: #666;
+    }
+
+    .roof-titleblock-id strong {
+        display: block;
+        font-size: 13pt;
+    }
+
+    .roof-status-chip {
+        display: inline-block;
+        margin-top: 1.5mm;
+        padding: 0.8mm 2mm;
+        border: 0.5pt solid #999;
+        border-radius: 1mm;
+        font-size: 7.5pt;
+        color: #333;
+    }
+
+    /* ---------------- Cover page ---------------- */
+
+    .roof-cover {
+        padding: 0 1.5mm;
+    }
+
+    .roof-cover-title {
+        display: flex;
+        justify-content: space-between;
+        align-items: baseline;
+        border-bottom: 1.6pt solid #2e5e86;
+        padding-bottom: 2mm;
+        margin-bottom: 6mm;
+    }
+
+    .roof-cover-title h1 {
+        margin: 0;
+        font-size: 26pt;
+        letter-spacing: 0.06em;
+        color: #2e5e86;
+    }
+
+    .roof-cover-date {
+        font-size: 10pt;
+        text-align: right;
+    }
+
+    .roof-cover-date span {
+        display: block;
+        font-size: 7pt;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        color: #666;
+    }
+
+    .roof-cover-grid {
+        display: flex;
+        gap: 10mm;
+        align-items: flex-start;
+        margin-bottom: 8mm;
+    }
+
+    .roof-cover-block {
+        flex: 1 1 0;
+        min-width: 0;
+    }
+
+    .roof-cover-label {
+        margin: 0 0 2mm;
+        padding: 1mm 2mm;
+        background: #2e5e86;
+        color: #fff;
+        font-size: 9pt;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+    }
+
+    .roof-cover-table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 9.5pt;
+    }
+
+    .roof-cover-table th {
+        width: 30%;
+        padding: 1.4mm 0;
+        text-align: left;
+        font-weight: 600;
+        vertical-align: top;
+        color: #333;
+    }
+
+    .roof-cover-table td {
+        padding: 1.4mm 0;
+        vertical-align: top;
+        border-bottom: 0.5pt dotted #bbb;
+    }
+
+    .roof-cover-office {
+        border-top: 0.5pt solid #999;
+        padding-top: 3mm;
+        font-size: 9pt;
+    }
+
+    .roof-cover-office p {
+        margin: 0 0 1mm;
+    }
+
+    /* ---------------- Generic sections ---------------- */
+
+    .roof-section {
+        padding: 0 1.5mm;
+        margin-bottom: 4.5mm;
+    }
+
+    .roof-section-title {
+        margin: 0 0 2mm;
+        padding-bottom: 1mm;
+        border-bottom: 0.75pt solid #2e5e86;
+        font-size: 10.5pt;
+        letter-spacing: 0.04em;
+        text-transform: uppercase;
+        color: #2e5e86;
+    }
+
+    .roof-note {
+        margin: 0 0 2.5mm;
+        font-size: 9pt;
+        font-style: italic;
+        color: #555;
+    }
+
+    .roof-empty {
+        margin: 0;
+        font-size: 9.5pt;
+        font-style: italic;
+        color: #777;
+    }
+
+    /* ---------------- Bullet lists ---------------- */
+
+    .roof-bullets,
+    .roof-check-list {
+        margin: 0 0 0 5mm;
+        padding: 0;
+        font-size: 9.5pt;
+        line-height: 1.45;
+    }
+
+    .roof-bullets li,
+    .roof-check-list li {
+        margin-bottom: 1.2mm;
+    }
+
+    .roof-check-list {
+        list-style: none;
+        margin-left: 0;
+    }
+
+    /*
+       The example quote marks inclusions with a tick. A drawn
+       glyph keeps this working without an icon font.
+    */
+    .roof-check-list li::before {
+        content: "\2714";
+        display: inline-block;
+        width: 5mm;
+        color: #2e5e86;
+        font-weight: 700;
+    }
+
+    .roof-include-group {
+        margin-bottom: 3mm;
+    }
+
+    .roof-include-title {
+        margin: 0 0 1.5mm;
+        font-size: 10pt;
+        color: #1f4a6b;
+    }
+
+    .roof-preliminaries {
+        list-style: disc;
+    }
+
+    /* ---------------- Pricing tables ---------------- */
+
+    .roof-price-table,
+    .roof-costing-table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 9pt;
+        table-layout: fixed;
+    }
+
+    .roof-price-table th,
+    .roof-costing-table th {
+        padding: 1.4mm 1.5mm;
+        background: #e4ecf3;
+        border: 0.5pt solid #7d9db5;
+        text-align: left;
+        font-size: 8pt;
+        letter-spacing: 0.03em;
+        text-transform: uppercase;
+        color: #1f4a6b;
+    }
+
+    .roof-price-table td,
+    .roof-costing-table td {
+        padding: 1.4mm 1.5mm;
+        border: 0.5pt solid #9fb8ca;
+        vertical-align: top;
+    }
+
+    .roof-price-table thead,
+    .roof-costing-table thead {
+        display: table-header-group;
+    }
+
+    .roof-price-table tr {
+        break-inside: avoid;
+        page-break-inside: avoid;
+    }
+
+    .roof-price-table .c-code { width: 9%; text-align: left; font-weight: 600; }
+    .roof-price-table .c-desc { width: 40%; }
+    .roof-price-table .c-qty { width: 10%; text-align: right; font-variant-numeric: tabular-nums; }
+    .roof-price-table .c-unit { width: 9%; text-align: left; }
+    .roof-price-table .c-rate { width: 15%; text-align: right; font-variant-numeric: tabular-nums; }
+    .roof-price-table .c-amount { width: 17%; text-align: right; font-variant-numeric: tabular-nums; }
+
+    .roof-costing-table .c-desc { width: 46%; }
+    .roof-costing-table .c-qty { width: 16%; text-align: right; font-variant-numeric: tabular-nums; }
+    .roof-costing-table .c-rate { width: 17%; text-align: right; font-variant-numeric: tabular-nums; }
+    .roof-costing-table .c-amount { width: 21%; text-align: right; font-variant-numeric: tabular-nums; }
+
+    /*
+       The total rows carry the eye down the costing summary, so
+       they get the strongest treatment on the page.
+    */
+    .roof-row-strong td {
+        background: #f0f4f8;
+        border-top: 1pt solid #2e5e86;
+        border-bottom: 1pt solid #2e5e86;
+        font-weight: 700;
+        font-size: 10pt;
+    }
+
+    /* ---------------- Timeline ---------------- */
+
+    .roof-timeline-title {
+        margin: 0 0 1.5mm;
+        font-size: 10pt;
+        color: #1f4a6b;
+    }
+
+    .roof-timeline-duration {
+        font-weight: 400;
+        color: #555;
+    }
+
+    .roof-timeline-label {
+        display: block;
+        margin-bottom: 1mm;
+        font-size: 9pt;
+        font-weight: 600;
+        color: #444;
+    }
+
+    .roof-timeline-stage {
+        margin-bottom: 3mm;
+    }
+
+    /* ---------------- Acceptance page ---------------- */
+
+    .roof-acceptance {
+        margin-top: 8mm;
+    }
+
+    .roof-acceptance-text {
+        margin: 0 0 10mm;
+        font-size: 10pt;
+        line-height: 1.5;
+    }
+
+    /*
+       A table rather than a flex grid: browsers keep a table's
+       rows together across a page break far more reliably than
+       a wrapping flex container, which was leaving signature
+       labels stranded on their own page.
+    */
+    .roof-signatures {
+        width: 100%;
+        border-collapse: separate;
+        border-spacing: 8mm 6mm;
+        table-layout: fixed;
+        margin-left: -8mm;
+    }
+
+    .roof-signature {
+        width: 50%;
+        vertical-align: bottom;
+    }
+
+    .roof-signature-line {
+        display: block;
+        height: 10mm;
+        border-bottom: 0.5pt solid #333;
+        margin-bottom: 1.5mm;
+    }
+
+    .roof-signature strong {
+        font-size: 8.5pt;
+        color: #444;
     }
 }

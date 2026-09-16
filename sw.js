@@ -11,16 +11,25 @@
    Bump this whenever the app shell changes. It is the signal to
    every installed browser that its cached copy is obsolete.
 */
-const CACHE_NAME = "aga-shell-v4";
+const CACHE_NAME = "aga-shell-v21";
 
 /* The app shell: everything needed to boot the UI offline. */
 const APP_SHELL = [
     "./",
     "./index.html",
     "./styles.css",
+    "./supabase-config.js",
     "./email.js",
+    "./sync.js",
+    "./signin.js",
     "./app.js",
-    "./favicon.png"
+    "./catalogue.js",
+    "./quotes.js",
+    "./export.js",
+    "./favicon.png",
+    /* Letterhead art, so a worksheet can still be printed offline. */
+    "./logo.png",
+    "./FullLetterHead.png"
 ];
 
 /* Install: pre-cache the app shell. */

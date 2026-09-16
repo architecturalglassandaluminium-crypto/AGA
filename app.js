@@ -15,6 +15,13 @@ const EMPLOYEE_KEY = "aga_employees";
 const PROJECT_KEY = "aga_projects";
 
 /*
+   One entry is written here every time a window moves to a new
+   production status. That is the single source of truth for the
+   productivity dashboard: who did what, on which window, when.
+*/
+const ACTIVITY_KEY = "aga_activity";
+
+/*
    Frame colours offered on every window row.
 */
 const FRAME_COLOURS = [
@@ -37,6 +44,60 @@ const GLASS_TYPES = [
 ];
 
 /*
+   Product type. A job is not only windows - it also covers doors,
+   and the workshop builds several distinct kinds. Grouping them
+   keeps the capture sheet readable and lets the schedule be
+   filtered by what is actually being made.
+*/
+const PRODUCT_TYPES = [
+    { group: "Windows", value: "Window" },
+    { group: "Windows", value: "Sliding Window" },
+    { group: "Windows", value: "Casement Window" },
+    { group: "Windows", value: "Awning Window" },
+    { group: "Windows", value: "Shopfront" },
+    { group: "Doors", value: "Aluminium Door" },
+    { group: "Doors", value: "Panel Door" },
+    { group: "Doors", value: "Concertina Door" },
+    { group: "Doors", value: "Workshop Door" },
+    { group: "Doors", value: "Stacking Door" },
+    { group: "Doors", value: "Sliding Door" }
+];
+
+/*
+   Plain list of the values, for validation.
+*/
+const PRODUCT_TYPE_VALUES = PRODUCT_TYPES.map(item => item.value);
+
+/*
+   A type is a door if its name says so - used to label rows and
+   to decide whether a glass type is required (a workshop door is
+   often solid, so glass is optional for it).
+*/
+function isDoorType(value) {
+    return safeText(value).toLowerCase().includes("door");
+}
+
+/*
+   Product type as a badge. Doors are tinted differently from
+   windows, so the two kinds can be told apart at a glance in a
+   long schedule.
+*/
+function productTypeBadgeHtml(productType) {
+
+    const value = safeText(productType);
+
+    if (!value) {
+        return `<span class="type-badge type-none">Not set</span>`;
+    }
+
+    const cls = isDoorType(value)
+        ? "type-badge type-door"
+        : "type-badge type-window";
+
+    return `<span class="${cls}">${escapeHtml(value)}</span>`;
+}
+
+/*
    Quality control result recorded per window.
 */
 const QC_CHECKS = [
@@ -48,11 +109,12 @@ const STATUSES = [
     "Measured",
     "In Production",
     "Frame Manufactured",
-    "Glazed",
+    "Manufacturing Completed",
     "Quality Checked",
+    "Wrapped",
     "Ready for Installation",
     "Installed",
-    "Completed"
+    "Project Completed"
 ];
 
 const MAX_PHOTO_SIZE = 5 * 1024 * 1024; // 5 MB
@@ -262,6 +324,14 @@ function saveProjects(projects) {
             JSON.stringify(projects)
         );
 
+        /*
+           Queue the changed project for upload. Hooking in here -
+           rather than at each call site - means every path that
+           saves a project is covered automatically, including any
+           added later.
+        */
+        queueProjectUploads(projects);
+
         return true;
     } catch (error) {
         console.error("Could not save projects:", error);
@@ -272,6 +342,147 @@ function saveProjects(projects) {
 
         return false;
     }
+}
+
+/*
+   Work out which projects actually changed and queue just those.
+
+   Comparing against the last-known server copy keeps the queue
+   small: editing one window in a 200-window job uploads that
+   job once, not every job on the phone.
+*/
+function queueProjectUploads(projects) {
+
+    if (typeof isBackendConfigured !== "function" || !isBackendConfigured()) {
+        return;
+    }
+
+    const queue = getSyncQueue();
+
+    /*
+       Work out what the queue already knows about, so a project
+       edited three times before signal returns is uploaded once.
+    */
+    const alreadyQueued = new Set(
+        queue
+            .filter(change => change.type === "project")
+            .map(change => change.projectId)
+    );
+
+    (projects || []).forEach(project => {
+
+        if (alreadyQueued.has(project.id)) {
+            return;
+        }
+
+        enqueue({
+            type: "project",
+            projectId: project.id
+        });
+    });
+}
+
+/* =========================================================
+   ACTIVITY LOG (PRODUCTIVITY)
+   =========================================================
+
+   Every status change writes one record:
+
+       { id, windowId, windowNumber, projectNumber, description,
+         status, employeeId, employee, date }
+
+   The dashboard only ever reads this list - it never reads the
+   windows themselves for productivity, so the numbers stay
+   correct even if a window is later deleted.
+*/
+
+function getActivity() {
+
+    try {
+        const stored = localStorage.getItem(ACTIVITY_KEY);
+
+        if (!stored) {
+            return [];
+        }
+
+        const parsed = JSON.parse(stored);
+
+        if (!Array.isArray(parsed)) {
+            console.warn("Invalid activity data found in localStorage.");
+            return [];
+        }
+
+        return parsed;
+
+    } catch (error) {
+
+        console.error("Could not read activity:", error);
+
+        return [];
+    }
+}
+
+function saveActivity(activity) {
+
+    try {
+        localStorage.setItem(
+            ACTIVITY_KEY,
+            JSON.stringify(activity)
+        );
+
+        return true;
+
+    } catch (error) {
+
+        console.error("Could not save activity:", error);
+
+        showError(
+            "The work record could not be saved. Your browser storage may be full."
+        );
+
+        return false;
+    }
+}
+
+/*
+   Record one completed production step against an employee.
+*/
+function logActivity(item, status, employeeId, employeeName) {
+
+    if (!item || !status || !employeeName) {
+        return false;
+    }
+
+    const activity = getActivity();
+
+    const entry = {
+        id: uuid(),
+        windowId: item.id,
+        windowNumber: safeText(item.windowNumber),
+        projectNumber: safeText(item.projectNumber),
+        projectName: safeText(item.projectName),
+        description: safeText(item.description),
+        status,
+        employeeId: safeText(employeeId),
+        employee: employeeName,
+        date: new Date().toISOString()
+    };
+
+    activity.push(entry);
+
+    /*
+       The activity log feeds productivity, so it is uploaded as
+       its own append-only record. Being append-only, it can never
+       conflict with another phone's entry.
+    */
+    if (typeof isBackendConfigured === "function" && isBackendConfigured()) {
+        enqueue({
+            type: "activity",
+            entry
+        });
+    }
+
+    return saveActivity(activity);
 }
 
 /* =========================================================
@@ -901,19 +1112,68 @@ function updateWindowStatus(
             );
         }
 
-        const windows = getWindows();
+        /*
+           Windows live inside projects, so resolve the owning
+           project and window there. Update the project record (the
+           source of truth), then optionally the legacy store.
+        */
+        const projects = getProjects();
 
-        const index = windows.findIndex(
-            item => item.id === windowId
-        );
+        let ownerProject = null;
+        let item = null;
 
-        if (index === -1) {
+        projects.forEach(project => {
+
+            (project.windows || []).forEach(window => {
+
+                if (window.id === windowId) {
+                    /*
+                       Keep the actual object from the projects
+                       array. getAllWindowsWithProject() returns
+                       copies, and mutating a copy would look like
+                       it worked while saving nothing.
+                    */
+                    ownerProject = project;
+                    item = window;
+                }
+            });
+        });
+
+        /*
+           Fallback for a window captured under the older flow.
+        */
+        if (!item) {
+
+            const legacy = getWindows().find(
+                window => window.id === windowId
+            );
+
+            if (legacy) {
+                item = legacy;
+            }
+        }
+
+        if (!item) {
             throw new Error(
                 "The selected window could not be found."
             );
         }
 
-        const item = windows[index];
+        /*
+           The flattened view carries the project and customer
+           names, which the status history and email both use.
+        */
+        const context = getAllWindowsWithProject().find(
+            window => window.id === windowId
+        );
+
+        if (context) {
+            item.projectNumber = context.projectNumber;
+            item.projectName = context.projectName;
+            item.customerName = context.customerName;
+            item.customerEmail = context.customerEmail;
+            item.description = context.description;
+        }
 
         const effectiveEmployeeName =
             employeeName || getEmployeeName(employeeId);
@@ -934,12 +1194,42 @@ function updateWindowStatus(
         const newIndex =
             STATUSES.indexOf(newStatus);
 
+        /*
+           A STATUS CHANGE REQUIRES A SCAN.
+
+           The window's QR code must have been scanned in this
+           session, and the scanner carries the window id it matched
+           on window.scannedWindowId. Without that proof the update
+           is refused, so a status can never be advanced by editing
+           or by calling this function directly from the page.
+
+           The guard is deliberately per-window: scanning window A
+           must not unlock changing window B.
+        */
+        const scannedId = safeText(window.scannedWindowId);
+
+        if (scannedId !== windowId) {
+
+            showError(
+                "To change a window's status you must scan its QR code first. Open the Dashboard and use Scan Window."
+            );
+
+            return false;
+        }
+
         if (newStatus === item.status) {
             showError(
                 `This window is already "${newStatus}".`
             );
             return false;
         }
+
+        /*
+           Remember where the window was BEFORE this change, so the
+           office is told only on the first move INTO production -
+           not on every later edit that leaves it in production.
+        */
+        const previousStatus = item.status;
 
         if (
             newIndex < currentIndex
@@ -1004,11 +1294,24 @@ function updateWindowStatus(
         }
 
         /*
-           When the window is quality checked, record WHO checked it.
+           When the window is quality checked, record WHO checked it
+           AND set the QC result.
+
+           QC cannot be typed into the project form any more, so the
+           scan through this step is what records the outcome: a
+           passed inspection. If a window later fails inspection, an
+           employee marks it QC fail from the record itself.
         */
         if (newStatus === "Quality Checked") {
+
             item.checkedById = employeeId;
             item.checkedBy = effectiveEmployeeName;
+            item.qcCheckedAt = new Date().toISOString();
+
+            /* Leave an explicit fail alone; otherwise record a pass. */
+            if (safeText(item.qcCheck).toLowerCase() !== "fail") {
+                item.qcCheck = "Pass";
+            }
         }
 
         const now =
@@ -1028,12 +1331,68 @@ function updateWindowStatus(
             employee: effectiveEmployeeName
         });
 
-        if (!saveWindows(windows)) {
-            return false;
+        /*
+           Persist to the projects store, which owns the window.
+           Only a legacy-only window is written back to the old
+           store.
+        */
+        if (ownerProject) {
+
+            if (!saveProjects(projects)) {
+                return false;
+            }
+
+        } else {
+
+            const legacyWindows = getWindows();
+
+            const legacyIndex = legacyWindows.findIndex(
+                window => window.id === windowId
+            );
+
+            if (legacyIndex !== -1) {
+                legacyWindows[legacyIndex] = item;
+            }
+
+            if (!saveWindows(legacyWindows)) {
+                return false;
+            }
         }
 
         /*
+           Queue just this window's status change. Sending only the
+           changed fields means two phones moving two different
+           windows never overwrite each other.
+        */
+        if (typeof isBackendConfigured === "function" && isBackendConfigured()) {
+            enqueue({
+                type: "status",
+                windowId: item.id,
+                status: newStatus,
+                employeeId: safeText(employeeId),
+                employeeName: effectiveEmployeeName
+            });
+        }
+
+        /*
+           Record the completed step for the productivity
+           dashboard. Done after the window is saved, so a failed
+           window save never leaves a phantom work record behind.
+        */
+        logActivity(item, newStatus, employeeId, effectiveEmployeeName);
+
+        /*
            Email notification (best effort).
+
+           Two messages can go out from a status change:
+
+             1. The customer, on every status (if they gave an address).
+             2. The office, ONLY when the window first moves into
+                production - that is the moment Tiffany and Jan asked
+                to hear about.
+
+           Neither may ever block the status update, so both are fired
+           without being awaited and both swallow their own errors.
         */
         if (
             item.customerEmail &&
@@ -1046,6 +1405,21 @@ function updateWindowStatus(
                     });
             } catch (emailError) {
                 console.error("Email error:", emailError);
+            }
+        }
+
+        if (
+            newStatus === "In Production" &&
+            previousStatus !== "In Production" &&
+            typeof sendProductionStartEmail === "function"
+        ) {
+            try {
+                sendProductionStartEmail(item, effectiveEmployeeName)
+                    .catch(error => {
+                        console.error("Office email failed:", error);
+                    });
+            } catch (emailError) {
+                console.error("Office email error:", emailError);
             }
         }
 
@@ -1180,6 +1554,11 @@ function addEmployee(event) {
 
         renderEmployees();
 
+        /* A new employee must be selectable on the scanner and
+           in the allocation filter. */
+        renderScanEmployeeOptions();
+        renderAllocatedFilterOptions();
+
     } catch (error) {
 
         console.error(
@@ -1208,7 +1587,7 @@ function frameColourOptions(selectedValue) {
     return FRAME_COLOURS.map(colour => {
         const selected =
             safeText(colour).toLowerCase() ===
-            safeText(selectedValue).toLowerCase()
+                safeText(selectedValue).toLowerCase()
                 ? " selected"
                 : "";
 
@@ -1256,7 +1635,7 @@ function qcCheckOptions(selectedValue) {
     return QC_CHECKS.map(check => {
         const selected =
             safeText(check).toLowerCase() ===
-            safeText(selectedValue).toLowerCase()
+                safeText(selectedValue).toLowerCase()
                 ? " selected"
                 : "";
 
@@ -1268,12 +1647,43 @@ function glassTypeOptions(selectedValue) {
     return GLASS_TYPES.map(type => {
         const selected =
             safeText(type).toLowerCase() ===
-            safeText(selectedValue).toLowerCase()
+                safeText(selectedValue).toLowerCase()
                 ? " selected"
                 : "";
 
         return `<option value="${escapeHtml(type)}"${selected}>${escapeHtml(type)}</option>`;
     }).join("");
+}
+
+/*
+   Product type options, grouped into Windows and Doors so a long
+   list stays quick to scan.
+*/
+function productTypeOptions(selectedValue) {
+
+    const current = safeText(selectedValue).toLowerCase();
+
+    const groups = {};
+
+    PRODUCT_TYPES.forEach(item => {
+
+        if (!groups[item.group]) {
+            groups[item.group] = [];
+        }
+
+        const selected =
+            safeText(item.value).toLowerCase() === current
+                ? " selected"
+                : "";
+
+        groups[item.group].push(
+            `<option value="${escapeHtml(item.value)}"${selected}>${escapeHtml(item.value)}</option>`
+        );
+    });
+
+    return Object.entries(groups).map(([group, options]) =>
+        `<optgroup label="${escapeHtml(group)}">${options.join("")}</optgroup>`
+    ).join("");
 }
 
 function addProjectWindowRow(rowData = {}) {
@@ -1296,6 +1706,12 @@ function addProjectWindowRow(rowData = {}) {
     tr.innerHTML = `
         <td class="window-row-id-cell">
             <span class="window-row-id" data-field="windowId">${escapeHtml(rowData.windowNumber || "—")}</span>
+        </td>
+        <td>
+            <select class="window-row-input" data-field="productType">
+                <option value="">Select type</option>
+                ${productTypeOptions(rowData.productType)}
+            </select>
         </td>
         <td>
             <input type="text" class="window-row-input" data-field="description"
@@ -1325,11 +1741,16 @@ function addProjectWindowRow(rowData = {}) {
                 ${glassTypeOptions(rowData.glassType)}
             </select>
         </td>
-        <td>
-            <select class="window-row-input" data-field="qcCheck">
-                <option value="">Not checked</option>
-                ${qcCheckOptions(rowData.qcCheck)}
-            </select>
+        <!--
+           QC is read-only here. A quality check is a record of what
+           was inspected on the floor, so it is set when the window
+           is scanned through its Quality Checked step, not typed in
+           by whoever happens to be editing the project.
+        -->
+        <td class="window-row-qc-readonly" data-field="qcCheck"
+            data-qc-value="${escapeHtml(rowData.qcCheck)}"
+            title="QC result is recorded by scanning the window through Quality Checked">
+            ${qcStatusPillHtml(rowData.qcCheck)}
         </td>
         <td class="window-row-photo-cell">
             <div class="row-photo" data-field="photo">
@@ -1370,6 +1791,16 @@ function addProjectWindowRow(rowData = {}) {
     */
     if (rowData.windowNumber) {
         tr.dataset.windowNumber = rowData.windowNumber;
+    }
+
+    /*
+       Remember which stored window this row represents. When the
+       project is edited and saved, this is how the row is matched
+       back to its record so its status, allocation and history
+       are carried over instead of being recreated.
+    */
+    if (rowData.id) {
+        tr.dataset.windowId = rowData.id;
     }
 
     tbody.appendChild(tr);
@@ -1638,6 +2069,9 @@ function collectProjectWindowRows() {
     return Array.from(
         tbody.querySelectorAll("tr")
     ).map(tr => ({
+        productType: safeText(
+            tr.querySelector('[data-field="productType"]')?.value
+        ),
         description: safeText(
             tr.querySelector('[data-field="description"]')?.value
         ),
@@ -1656,8 +2090,13 @@ function collectProjectWindowRows() {
         glassType: safeText(
             tr.querySelector('[data-field="glassType"]')?.value
         ),
+        /*
+           QC is read-only in this form, so its value is carried
+           on the cell as a data attribute. Reading .value here
+           would return undefined and wipe a recorded result.
+        */
         qcCheck: safeText(
-            tr.querySelector('[data-field="qcCheck"]')?.value
+            tr.querySelector('[data-field="qcCheck"]')?.dataset.qcValue
         ),
         photo: safeText(
             tr.querySelector('.row-photo-input')?.dataset.photo
@@ -1670,7 +2109,8 @@ function collectProjectWindowRows() {
    unused row never blocks the save.
 */
 function isBlankWindowRow(row) {
-    return !row.description &&
+    return !row.productType &&
+        !row.description &&
         !row.location &&
         !row.length &&
         !row.width &&
@@ -1696,12 +2136,146 @@ function resetProjectForm() {
 
     projectRowCounter = 0;
 
+    /*
+       Leaving edit mode, so the next save creates a new project
+       rather than updating the one we were editing.
+    */
+    editingProjectId = null;
+    updateProjectFormMode();
+
     addProjectWindowRow();
 
     if (form) {
         form.hidden = true;
     }
 }
+
+/*
+   Reflect create vs edit mode in the form itself, so the person
+   filling it in can see which project they are changing.
+*/
+function updateProjectFormMode() {
+
+    const submitButton = document.querySelector(
+        '#projectForm button[type="submit"]'
+    );
+
+    const heading = $("projectFormMode");
+
+    const cancelButton = $("cancelProjectButton");
+
+    if (editingProjectId) {
+
+        if (submitButton) {
+            submitButton.innerHTML =
+                `<svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><path d="M17 21v-8H7v8M7 3v5h8"/></svg> Save Changes`;
+        }
+
+        if (heading) {
+            heading.hidden = false;
+        }
+
+        if (cancelButton) {
+            cancelButton.textContent = "Cancel Edit";
+        }
+
+        return;
+    }
+
+    if (submitButton) {
+        submitButton.innerHTML =
+            `<svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><path d="M17 21v-8H7v8M7 3v5h8"/></svg> Save Project`;
+    }
+
+    if (heading) {
+        heading.hidden = true;
+    }
+
+    if (cancelButton) {
+        cancelButton.textContent = "Cancel";
+    }
+}
+
+/*
+   Load an existing project into the form for editing.
+
+   Every window is written back into a row, including its stored
+   id, so saving can match rows to records and leave production
+   state untouched.
+*/
+function editProject(projectId) {
+
+    try {
+
+        const project = getProjects().find(
+            item => item.id === projectId
+        );
+
+        if (!project) {
+            showError("The project could not be found.");
+            return;
+        }
+
+        const form = $("projectForm");
+
+        if (!form) {
+            return;
+        }
+
+        /* Switch into edit mode before filling anything in. */
+        editingProjectId = project.id;
+
+        $("prjName").value = project.projectName || "";
+        $("prjCustomerName").value = project.customerName || "";
+        $("prjCustomerEmail").value = project.customerEmail || "";
+        $("prjCustomerPhone").value = project.customerPhone || "";
+        $("prjSiteAddress").value = project.siteAddress || "";
+
+        const tbody = $("projectWindowRows");
+
+        if (tbody) {
+            tbody.innerHTML = "";
+        }
+
+        projectRowCounter = 0;
+
+        const windows = Array.isArray(project.windows)
+            ? project.windows
+            : [];
+
+        if (windows.length) {
+
+            windows.forEach(window => addProjectWindowRow(window));
+
+        } else {
+
+            addProjectWindowRow();
+        }
+
+        updateProjectFormMode();
+
+        /* Make sure the Projects tab is showing. */
+        switchView("projects");
+
+        form.hidden = false;
+
+        refreshRowIdPreviews();
+
+        form.scrollIntoView({ block: "start", behavior: "smooth" });
+
+        showSuccess(
+            `Editing ${project.projectNumber}. Change what you need and press Save Changes.`
+        );
+
+    } catch (error) {
+
+        console.error("Edit project error:", error);
+
+        showError("The project could not be opened for editing.");
+    }
+}
+
+window.editProject = editProject;
 
 function openProjectForm() {
 
@@ -1766,7 +2340,11 @@ function validateProjectForm() {
     }
 
     rows.forEach((row, index) => {
-        const position = `Window row ${index + 1}`;
+        const position = `Row ${index + 1}`;
+
+        if (!row.productType) {
+            errors.push(`${position}: select the window or door type.`);
+        }
 
         if (!row.description) {
             errors.push(`${position}: description is required.`);
@@ -1855,6 +2433,76 @@ function formatWindowId(value) {
     return `AGA-WIN-${String(value).padStart(4, "0")}`;
 }
 
+/*
+   The id of the project currently being edited, or null when the
+   form is creating a new one.
+*/
+let editingProjectId = null;
+
+/*
+   Build a window record from a form row.
+
+   When EDITING, an existing window is carried over so nothing that
+   the workshop has already recorded is lost: its ID, status,
+   allocation, QC result and full status history all survive a
+   change of description, size or colour.
+*/
+function buildWindowFromRow(row, existing, nextWindowId) {
+
+    /*
+       A row that came from a saved window keeps a data-window-id;
+       that is how we know which stored window it corresponds to.
+    */
+    const base = existing || {};
+
+    const isNew = !existing;
+
+    return {
+        /* Identity: keep what exists, otherwise mint a new one. */
+        id: base.id || uuid(),
+
+        windowId: isNew ? nextWindowId : base.windowId,
+
+        windowNumber: isNew
+            ? formatWindowId(nextWindowId)
+            : (base.windowNumber || formatWindowId(base.windowId)),
+
+        /* Editable specification. */
+        productType: row.productType || "Window",
+        description: row.description,
+        location: row.location,
+        length: Number(row.length),
+        width: Number(row.width),
+        frameColour: row.frameColour,
+        glassType: row.glassType,
+        qcCheck: row.qcCheck || "",
+        photo: row.photo || "",
+
+        /* Production state that must never be reset by an edit. */
+        status: base.status || "Measured",
+        manufacturer: base.manufacturer || "",
+        manufacturerId: base.manufacturerId || "",
+        manufacturedBy: base.manufacturedBy || "",
+        manufacturedById: base.manufacturedById || "",
+        checkedBy: base.checkedBy || "",
+        checkedById: base.checkedById || "",
+
+        allocatedTo: base.allocatedTo || "",
+        allocatedToId: base.allocatedToId || "",
+        allocatedAt: base.allocatedAt || "",
+
+        statusHistory: Array.isArray(base.statusHistory)
+            ? base.statusHistory
+            : [{
+                status: base.status || "Measured",
+                date: base.createdAt || new Date().toISOString(),
+                employee: ""
+            }],
+
+        createdAt: base.createdAt || new Date().toISOString()
+    };
+}
+
 function createProject(event) {
 
     event?.preventDefault();
@@ -1872,32 +2520,94 @@ function createProject(event) {
 
         const now = new Date().toISOString();
 
+        const rows = collectProjectWindowRows()
+            .filter(row => !isBlankWindowRow(row));
+
         /*
            Continue counting from the highest window ID already
-           stored, so IDs increase across every project.
+           stored, so IDs increase across every project. Only NEW
+           rows consume a number; edited rows keep the one they had.
         */
         let nextWindowId = getHighestWindowId() + 1;
 
-        const windows = collectProjectWindowRows()
-            .filter(row => !isBlankWindowRow(row))
-            .map(row => ({
-                id: uuid(),
+        /*
+           Editing: find the stored project and index its windows
+           by id, so each form row can find its original record.
+        */
+        const existingProject = editingProjectId
+            ? projects.find(item => item.id === editingProjectId)
+            : null;
 
-                windowId: nextWindowId++,
+        if (editingProjectId && !existingProject) {
+            showError("The project you were editing could not be found.");
+            resetProjectForm();
+            return;
+        }
 
-                windowNumber: formatWindowId(nextWindowId - 1),
+        const existingById = {};
 
-                description: row.description,
-                location: row.location,
-                length: Number(row.length),
-                width: Number(row.width),
-                frameColour: row.frameColour,
-                glassType: row.glassType,
-                qcCheck: row.qcCheck || "",
-                photo: row.photo || "",
-                status: "Measured",
-                createdAt: now
-            }));
+        if (existingProject) {
+            (existingProject.windows || []).forEach(window => {
+                existingById[window.id] = window;
+            });
+        }
+
+        /*
+           The row template writes the stored id onto the row, so a
+           saved window can be matched back to its record.
+        */
+        const tbody = $("projectWindowRows");
+
+        const rowIds = tbody
+            ? Array.from(tbody.querySelectorAll("tr")).map(tr => tr.dataset.windowId || "")
+            : [];
+
+        const windows = rows.map((row, index) => {
+
+            const existing = existingById[rowIds[index]] || null;
+
+            const built = buildWindowFromRow(
+                row,
+                existing,
+                nextWindowId
+            );
+
+            if (!existing) {
+                nextWindowId += 1;
+            }
+
+            return built;
+        });
+
+        if (existingProject) {
+
+            /*
+               Update the stored project in place. The project
+               number and creation date are deliberately kept.
+            */
+            existingProject.projectName = safeText($("prjName")?.value);
+            existingProject.customerName = safeText($("prjCustomerName")?.value);
+            existingProject.customerEmail = safeText($("prjCustomerEmail")?.value);
+            existingProject.customerPhone = safeText($("prjCustomerPhone")?.value);
+            existingProject.siteAddress = safeText($("prjSiteAddress")?.value);
+
+            existingProject.windows = windows;
+            existingProject.updatedAt = now;
+
+            if (!saveProjects(projects)) {
+                return;
+            }
+
+            showSuccess(
+                `${existingProject.projectNumber} updated \u2014 ${windows.length} item${windows.length === 1 ? "" : "s"}.`
+            );
+
+            resetProjectForm();
+
+            renderAll();
+
+            return;
+        }
 
         const newProject = {
             id: uuid(),
@@ -1922,6 +2632,26 @@ function createProject(event) {
             return;
         }
 
+        /*
+           Tell the office a new project has been saved. Best
+           effort only: a missing or broken mailer must never undo
+           the save or block the workshop, so it is fired without
+           being awaited and swallows its own errors.
+        */
+        if (typeof sendNewProjectEmail === "function") {
+            try {
+                const session =
+                    typeof getSession === "function" ? getSession() : null;
+
+                sendNewProjectEmail(newProject, session?.name || "")
+                    .catch(error => {
+                        console.error("Office email failed:", error);
+                    });
+            } catch (emailError) {
+                console.error("Office email error:", emailError);
+            }
+        }
+
         showSuccess(
             `${newProject.projectNumber} saved with ${windows.length} window${windows.length === 1 ? "" : "s"}.`
         );
@@ -1933,7 +2663,7 @@ function createProject(event) {
     } catch (error) {
 
         console.error(
-            "Unexpected error creating project:",
+            "Unexpected error saving project:",
             error
         );
 
@@ -2020,6 +2750,21 @@ function filterWindows() {
                 $("statusFilter")?.value
             );
 
+        const ageFilter =
+            safeText(
+                $("ageFilter")?.value
+            ) || "all";
+
+        const qcFilter =
+            safeText(
+                $("qcFilter")?.value
+            ) || "all";
+
+        const allocatedFilter =
+            safeText(
+                $("allocatedFilter")?.value
+            ) || "all";
+
         const windows =
             getAllWindowsWithProject();
 
@@ -2058,11 +2803,79 @@ function filterWindows() {
                     status === "all" ||
                     item.status === status;
 
+                /*
+                   Age filter: lets the workshop pull up every
+                   window that has passed a colour band, instead of
+                   scrolling the whole list looking for red badges.
+                */
+                const days = daysSince(item.createdAt);
+                const band = ageBand(days);
+
+                let matchesAge = true;
+
+                if (ageFilter === "overdue") {
+                    matchesAge = band === "red";
+                } else if (ageFilter === "attention") {
+                    matchesAge = band === "yellow" || band === "red";
+                } else if (ageFilter === "ontrack") {
+                    matchesAge = band === "green";
+                }
+
+                /*
+                   QC filter. "pending" also catches windows whose
+                   QC field is empty, so nothing slips through.
+                */
+                const qcValue = safeText(item.qcCheck).toLowerCase();
+
+                let matchesQc = true;
+
+                if (qcFilter === "pass") {
+                    matchesQc = qcValue === "pass";
+                } else if (qcFilter === "fail") {
+                    matchesQc = qcValue === "fail";
+                } else if (qcFilter === "pending") {
+                    matchesQc = qcValue !== "pass" && qcValue !== "fail";
+                }
+
+                /*
+                   Allocation filter: a specific employee, or
+                   anything not yet allocated.
+                */
+                const allocatedTo = safeText(item.allocatedTo);
+
+                let matchesAllocated = true;
+
+                if (allocatedFilter === "unallocated") {
+                    matchesAllocated = !allocatedTo;
+                } else if (allocatedFilter !== "all") {
+                    matchesAllocated = allocatedTo === allocatedFilter;
+                }
+
                 return (
                     matchesSearch &&
-                    matchesStatus
+                    matchesStatus &&
+                    matchesAge &&
+                    matchesQc &&
+                    matchesAllocated
                 );
             });
+
+        /*
+           Oldest first. The windows most likely to be a problem
+           are the ones that have been waiting longest, so they
+           belong at the top of the list.
+        */
+        filtered.sort((a, b) => {
+
+            const aTime = new Date(a.createdAt).getTime();
+            const bTime = new Date(b.createdAt).getTime();
+
+            if (isNaN(aTime) && isNaN(bTime)) return 0;
+            if (isNaN(aTime)) return 1;
+            if (isNaN(bTime)) return -1;
+
+            return aTime - bTime;
+        });
 
         renderWindowsList(filtered);
 
@@ -2100,8 +2913,11 @@ function renderWindowsList(
 
         container.innerHTML = `
             <div class="empty-state">
-                <h4>No windows yet</h4>
-                <p>Add windows by creating a project.</p>
+                <span class="empty-state-icon" aria-hidden="true">
+                    <svg class="icon" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="1.5"/><path d="M12 3v18M3 12h9"/></svg>
+                </span>
+                <h4>No windows captured yet</h4>
+                <p>Windows are captured inside a project. Create your first project to start adding windows.</p>
             </div>
         `;
 
@@ -2129,9 +2945,25 @@ function renderWindowsList(
                 <span class="project-window-count">
                     ${escapeHtml(item.projectNumber)}
                 </span>
+
+                ${qcStatusPillHtml(item.qcCheck)}
+
+                ${statusPillHtml(item.status)}
+
+                ${ageBadgeHtml(item.createdAt)}
             </div>
 
             <div class="window-card-body">
+
+                <p>
+                    <strong>Type:</strong>
+                    ${productTypeBadgeHtml(item.productType)}
+                </p>
+
+                <p>
+                    <strong>Allocated To:</strong>
+                    ${allocatedBadgeHtml(item.allocatedTo)}
+                </p>
 
                 <p>
                     <strong>Project:</strong>
@@ -2141,6 +2973,11 @@ function renderWindowsList(
                 <p>
                     <strong>Customer:</strong>
                     ${escapeHtml(item.customerName)}
+                </p>
+
+                <p>
+                    <strong>Created:</strong>
+                    ${escapeHtml(formatCreatedDate(item.createdAt).replace(/^Created\s+/, ""))}
                 </p>
 
                 <p>
@@ -2260,12 +3097,22 @@ function viewWindow(windowId) {
             );
         }
 
-        const windows = getWindows();
+        /*
+           Windows are stored inside projects, so look there first.
+           The flat getAllWindowsWithProject() list already merges in
+           the owning project's details, which the production record
+           needs (project and customer names in the sheet header).
 
-        const item = windows.find(
-            windowItem =>
-                windowItem.id === windowId
-        );
+           getWindows() is only a fallback for any window captured
+           under the older, single-window flow.
+        */
+        const item =
+            getAllWindowsWithProject().find(
+                windowItem => windowItem.id === windowId
+            ) ||
+            getWindows().find(
+                windowItem => windowItem.id === windowId
+            );
 
         if (!item) {
             throw new Error(
@@ -2278,7 +3125,7 @@ function viewWindow(windowId) {
 
         if (title) {
             title.textContent =
-                `${item.windowNumber}  •  ${item.windowType || "Window"}`;
+                `${item.windowNumber || "Window"}  •  ${item.productType || item.windowType || "Window"}`;
         }
 
         if (content) {
@@ -2345,12 +3192,27 @@ function buildWindowDetailsHtml(item) {
         <div class="details-top">
             <div class="details-block">
                 <p><strong>Project:</strong> ${escapeHtml(item.projectName || "-")}</p>
-                <p><strong>Customer:</strong> ${escapeHtml(item.customerName)}</p>
-                <p><strong>Location:</strong> ${escapeHtml(item.windowLocation || "-")}</p>
-                <p><strong>Type:</strong> ${escapeHtml(item.windowType || "-")} &nbsp;•&nbsp; Qty: ${escapeHtml(item.quantity || 1)}</p>
+                <p><strong>Customer:</strong> ${escapeHtml(item.customerName || "-")}</p>
+
+                ${/*
+                     A window captured in a project stores its type
+                     under productType and its location under
+                     location. The windowType/windowLocation names
+                     belong to the retired single-window flow, so
+                     both are checked to keep old records readable.
+                  */ ""}
+                <p><strong>Type:</strong> ${productTypeBadgeHtml(item.productType || item.windowType)}</p>
+                <p><strong>Location:</strong> ${escapeHtml(item.location || item.windowLocation || "-")}</p>
+                <p><strong>Allocated To:</strong> ${allocatedBadgeHtml(item.allocatedTo)}</p>
+                ${item.allocatedAt
+            ? `<p class="details-small">Allocated ${escapeHtml(formatCreatedDate(item.allocatedAt).replace(/^Created\s+/, ""))}</p>`
+            : ""}
             </div>
             <div class="details-block details-status">
                 <span class="status-badge ${statusBadgeClass(item.status)}">${escapeHtml(item.status)}</span>
+                <span class="qc-pill ${safeText(item.qcCheck).toLowerCase() === "pass" ? "qc-pill-pass" : (safeText(item.qcCheck).toLowerCase() === "fail" ? "qc-pill-fail" : "qc-pill-none")}">
+                    ${item.qcCheck ? `QC ${escapeHtml(item.qcCheck)}` : "QC pending"}
+                </span>
                 ${item.manufacturedBy
             ? `<p class="details-small">Manufactured by: <strong>${escapeHtml(item.manufacturedBy)}</strong></p>`
             : ""}
@@ -2361,8 +3223,11 @@ function buildWindowDetailsHtml(item) {
         </div>
 
         <div class="details-specs">
-            <p><strong>Frame Colour:</strong> ${escapeHtml(item.frameColour)}${item.customFrameColour ? ` (${escapeHtml(item.customFrameColour)})` : ""} • <strong>Series:</strong> ${escapeHtml(item.frameSeries || "-")}</p>
-            <p><strong>Glass:</strong> ${escapeHtml(item.glassType || "-")} ${item.glassThickness ? `• Thickness: ${escapeHtml(item.glassThickness)}` : ""}</p>
+            ${/* Sizes are stored as length/width in a project row. */ ""}
+            <p><strong>Size:</strong> ${escapeHtml(item.length || "-")} mm long &nbsp;×&nbsp; ${escapeHtml(item.width || "-")} mm wide</p>
+            <p><strong>Frame Colour:</strong> ${escapeHtml(item.frameColour || "-")}${item.customFrameColour ? ` (${escapeHtml(item.customFrameColour)})` : ""}${item.frameSeries ? ` • <strong>Series:</strong> ${escapeHtml(item.frameSeries)}` : ""}</p>
+            <p><strong>Glass:</strong> ${escapeHtml(item.glassType || "-")}${item.glassThickness ? ` • Thickness: ${escapeHtml(item.glassThickness)}` : ""}</p>
+            <p><strong>Created:</strong> ${escapeHtml(formatCreatedDate(item.createdAt).replace(/^Created\s+/, ""))} &nbsp; ${ageBadgeHtml(item.createdAt)}</p>
             ${item.notes ? `<p><strong>Notes:</strong> ${escapeHtml(item.notes)}</p>` : ""}
         </div>
 
@@ -2394,38 +3259,237 @@ function buildProductionTrackerHtml(item) {
 
     const employees = getEmployees();
 
+    /*
+       STATUS IS READ-ONLY HERE.
+
+       A window's production status may only be advanced by scanning
+       its QR code on the floor. That is what makes the record
+       trustworthy: the status reflects a real physical step, and
+       the productivity log credits whoever scanned it. These are
+       therefore a progress display, not buttons.
+    */
     const currentIndex = STATUSES.indexOf(item.status);
 
-    const statusButtons = STATUSES.map((status, index) => {
+    const statusSteps = STATUSES.map((status, index) => {
 
         const isCurrent = status === item.status;
-        const isAllowed = index >= currentIndex;
+        const isDone = index < currentIndex;
 
         const cssClass = isCurrent
-            ? "tracker-status tracker-current"
-            : (isAllowed ? "tracker-status" : "tracker-status tracker-past");
+            ? "tracker-step tracker-step-current"
+            : (isDone ? "tracker-step tracker-step-done" : "tracker-step");
 
-        const label = isCurrent ? `✓ ${status}` : status;
+        const mark = isCurrent ? "\u25cf" : (isDone ? "\u2713" : "\u25cb");
 
-        return `<button type="button" class="${cssClass}" data-status="${status}" ${isCurrent ? "disabled" : ""}>${label}</button>`;
+        return `<span class="${cssClass}" data-status="${escapeHtml(status)}">` +
+            `<span class="tracker-step-mark" aria-hidden="true">${mark}</span> ` +
+            `${escapeHtml(status)}</span>`;
     }).join("");
 
     const employeeOptions = `<option value="">Select employee</option>` + getEmployeeOptions();
 
+    /*
+       "Allocated To" is who is responsible for this window.
+       It is separate from the employee below, who records the
+       step being completed right now. Allocating does not move
+       the window along or affect productivity - it just answers
+       "whose job is this?".
+    */
+    const allocatedValue = safeText(item.allocatedToId);
+
+    const allocatedOptions =
+        `<option value="">Unallocated</option>` +
+        employees.map(employee => {
+
+            const selected = employee.id === allocatedValue
+                ? " selected"
+                : "";
+
+            return `<option value="${escapeHtml(employee.id)}"${selected}>${escapeHtml(employee.name)}${employee.number ? ` (${escapeHtml(employee.number)})` : ""}</option>`;
+        }).join("");
+
+    const allocatedName = safeText(item.allocatedTo);
+
     return `
     <div class="production-tracker">
-        <div class="tracker-employee-row">
-            <label for="trackerEmployeeSelect">Employee completing this step *</label>
-            <select id="trackerEmployeeSelect" class="tracker-employee-select">${employeeOptions}</select>
+
+        <div class="tracker-allocation">
+            <div class="tracker-employee-row">
+                <label for="trackerAllocatedSelect">Allocated to</label>
+                <div class="tracker-allocate-controls">
+                    <select id="trackerAllocatedSelect" class="tracker-employee-select">${allocatedOptions}</select>
+                    <button type="button" class="secondary-button"
+                        onclick="saveAllocation('${escapeHtml(item.id)}')">
+                        <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><path d="M17 21v-8H7v8M7 3v5h8"/></svg>
+                        Save
+                    </button>
+                </div>
+                <p class="tracker-hint" id="trackerAllocatedHint">
+                    ${allocatedName
+                        ? `Currently allocated to <strong>${escapeHtml(allocatedName)}</strong>.`
+                        : "Not allocated to anyone yet."}
+                </p>
+            </div>
         </div>
-        <div class="tracker-status-row">
-            <span class="tracker-label">Update to:</span>
-            <div class="tracker-status-buttons">${statusButtons}</div>
+
+        <div class="tracker-step-section">
+            <h4 class="tracker-section-title">Production Progress</h4>
+
+            <div class="tracker-steps-readonly">${statusSteps}</div>
+
+            <div class="scan-required-note">
+                <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 8V5a2 2 0 0 1 2-2h3M16 3h3a2 2 0 0 1 2 2v3M21 16v3a2 2 0 0 1-2 2h-3M8 21H5a2 2 0 0 1-2-2v-3"/><rect x="7" y="7" width="4" height="4" rx="1"/><rect x="13" y="13" width="4" height="4" rx="1"/></svg>
+                <span>To move this window to the next step, scan its QR code on the Dashboard and choose your name.</span>
+            </div>
+
+            <button type="button" class="primary-button tracker-scan-button"
+                onclick="closeWindowModal(); switchView('scanner');">
+                <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M23 7l-7 5 7 5V7z"/><rect x="1" y="5" width="15" height="14" rx="2"/></svg>
+                Go to Scanner
+            </button>
         </div>
+
         ${employees.length === 0
-            ? `<p class="tracker-warning">No employees added yet. Add employees in the Employees tab so workshop staff can be assigned to each step.</p>`
+            ? `<p class="tracker-warning">No employees added yet. Add employees in the Team tab so windows can be allocated and steps assigned.</p>`
             : ""}
     </div>`;
+}
+
+/* =========================================================
+   ALLOCATE A WINDOW
+   =========================================================
+
+   Writes the chosen employee onto the window record, then redraws
+   so every view showing that window picks the change up.
+*/
+function saveAllocation(windowId) {
+
+    try {
+
+        if (!windowId) {
+            showError("No window was selected.");
+            return false;
+        }
+
+        const select = $("trackerAllocatedSelect");
+
+        if (!select) {
+            return false;
+        }
+
+        const employeeId = safeText(select.value);
+
+        const employeeName = employeeId
+            ? getEmployeeName(employeeId)
+            : "";
+
+        /*
+           Guard against a stale id (an employee deleted since the
+           window was allocated) silently writing a blank name.
+        */
+        if (employeeId && !employeeName) {
+            showError("That employee could not be found. Please choose again.");
+            return false;
+        }
+
+        const projects = getProjects();
+
+        let found = false;
+
+        projects.forEach(project => {
+
+            (project.windows || []).forEach(window => {
+
+                if (window.id !== windowId) {
+                    return;
+                }
+
+                window.allocatedToId = employeeId;
+                window.allocatedTo = employeeName;
+                window.allocatedAt = employeeId
+                    ? new Date().toISOString()
+                    : "";
+
+                found = true;
+            });
+        });
+
+        if (!found) {
+            showError("The selected window could not be found.");
+            return false;
+        }
+
+        if (!saveProjects(projects)) {
+            return false;
+        }
+
+        /*
+           Allocation is its own small update, so two people
+           allocating different windows at once do not clash.
+        */
+        if (typeof isBackendConfigured === "function" && isBackendConfigured()) {
+            enqueue({
+                type: "allocate",
+                windowId,
+                employeeId,
+                employeeName
+            });
+        }
+
+        showSuccess(
+            employeeName
+                ? `Window allocated to ${employeeName}.`
+                : "Window allocation cleared."
+        );
+
+        /* Redraw everything, then reopen the same window record. */
+        renderAll();
+        viewWindow(windowId);
+
+        return true;
+
+    } catch (error) {
+
+        console.error("Allocation error:", error);
+
+        showError("The allocation could not be saved.");
+
+        return false;
+    }
+}
+
+window.saveAllocation = saveAllocation;
+
+/*
+   "Allocated To" as a badge, for tables and cards.
+*/
+/*
+   Row click handler. The row contains buttons (QR, photo), and a
+   click on those must do its own thing rather than also opening
+   the window record underneath it.
+*/
+function openWindowRow(event, windowId) {
+
+    const target = event?.target;
+
+    if (target && target.closest("button, a, input, select, textarea")) {
+        return;
+    }
+
+    viewWindow(windowId);
+}
+
+window.openWindowRow = openWindowRow;
+
+function allocatedBadgeHtml(allocatedTo) {
+
+    const value = safeText(allocatedTo);
+
+    if (!value) {
+        return `<span class="allocated-badge allocated-none">Unallocated</span>`;
+    }
+
+    return `<span class="allocated-badge allocated-set" title="Allocated to ${escapeHtml(value)}">${escapeHtml(value)}</span>`;
 }
 
 function formatStatusForEmail(status) {
@@ -2449,6 +3513,13 @@ function closeWindowModal() {
     if (modal) {
         modal.classList.remove("open");
     }
+
+    /*
+       Clearing the scan proof means a status can only be changed
+       in the session immediately after scanning, not later by
+       reopening a window record.
+    */
+    window.scannedWindowId = "";
 }
 
 /* =========================================================
@@ -2489,8 +3560,11 @@ function renderEmployees() {
 
         container.innerHTML = `
             <div class="empty-state">
+                <span class="empty-state-icon" aria-hidden="true">
+                    <svg class="icon" viewBox="0 0 24 24"><path d="M16 20v-1.5a4 4 0 0 0-4-4H7a4 4 0 0 0-4 4V20"/><circle cx="9.5" cy="7.5" r="3.5"/><path d="M21 20v-1.5a4 4 0 0 0-3-3.87M16 4.13a4 4 0 0 1 0 7.75"/></svg>
+                </span>
                 <h4>No employees yet</h4>
-                <p>Add your workshop staff so they can be assigned to production steps.</p>
+                <p>Add your workshop staff so each production step can be assigned to the person who completed it.</p>
             </div>
         `;
 
@@ -2527,18 +3601,207 @@ function renderEmployees() {
        Description | Location | Length | Width | Frame Color
 */
 
+/* =========================================================
+   AGE / WAITING TIME
+   =========================================================
+
+   A project's age is measured from the day it was created.
+   The colour tells the workshop how long a window has been
+   waiting to be started:
+
+        up to 10 days   green   - on track
+        up to 20 days   yellow  - getting old, watch it
+        over 20 days    red     - overdue, deal with it now
+   The same three bands are used on every window row and on
+   the project card, so the screen reads consistently.
+*/
+
+const AGE_GREEN_DAYS = 10;
+const AGE_YELLOW_DAYS = 20;
+
+/*
+   Whole days between a stored timestamp and today. Returns null
+   when there is no usable date, so callers can skip the badge
+   rather than render a misleading "0 days".
+*/
+function daysSince(dateValue) {
+
+    if (!dateValue) {
+        return null;
+    }
+
+    const then = new Date(dateValue);
+
+    if (isNaN(then.getTime())) {
+        return null;
+    }
+
+    const now = new Date();
+
+    /*
+       Compare calendar days, not 24-hour blocks, so something
+       captured yesterday evening reads as "1 day" this morning
+       rather than "0 days".
+    */
+    const thenMidnight = new Date(
+        then.getFullYear(),
+        then.getMonth(),
+        then.getDate()
+    );
+
+    const nowMidnight = new Date(
+        now.getFullYear(),
+        now.getMonth(),
+        now.getDate()
+    );
+
+    const diff = nowMidnight - thenMidnight;
+
+    return Math.max(0, Math.round(diff / 86400000));
+}
+
+/*
+   Which band a number of days falls into.
+*/
+function ageBand(days) {
+
+    if (days === null) {
+        return null;
+    }
+
+    if (days <= AGE_GREEN_DAYS) {
+        return "green";
+    }
+
+    if (days <= AGE_YELLOW_DAYS) {
+        return "yellow";
+    }
+
+    return "red";
+}
+
+/*
+   "Created 5 Aug 2026" - readable, day-first (South African
+   convention), and stable across browsers.
+*/
+function formatCreatedDate(dateValue) {
+
+    if (!dateValue) {
+        return "-";
+    }
+
+    const date = new Date(dateValue);
+
+    if (isNaN(date.getTime())) {
+        return "-";
+    }
+
+    return `Created ${date.toLocaleDateString("en-ZA", {
+        day: "numeric",
+        month: "short",
+        year: "numeric"
+    })}`;
+}
+
+/*
+   The age badge: "5 days", colour-coded by band. The title text
+   spells the rule out so nobody has to remember what red means.
+*/
+function ageBadgeHtml(dateValue) {
+
+    const days = daysSince(dateValue);
+
+    const band = ageBand(days);
+
+    if (band === null) {
+        return "";
+    }
+
+    const label = days === 0
+        ? "Today"
+        : (days === 1 ? "1 day" : `${days} days`);
+
+    const explanation = band === "green"
+        ? `Within ${AGE_GREEN_DAYS} days - on track`
+        : (band === "yellow"
+            ? `Over ${AGE_GREEN_DAYS} days - needs attention`
+            : `Over ${AGE_YELLOW_DAYS} days - overdue`);
+
+    return `<span class="age-badge age-${band}" title="${escapeHtml(explanation)}">${escapeHtml(label)}</span>`;
+}
+
+/*
+   Status pill. Reuses the existing status-badge palette so a
+   status reads the same here as it does in the window modal.
+*/
+function statusPillHtml(status) {
+
+    const value = safeText(status) || "Measured";
+
+    return `<span class="status-badge ${statusBadgeClass(value)}">${escapeHtml(value)}</span>`;
+}
+
+/*
+   QC check as a pill, matching the shape of the status pill so the
+   two read as a pair: what stage the window is at, and whether its
+   quality check passed.
+
+   A window can be quality checked as part of its normal flow, but
+   the per-window QC field is filled in by the person on the floor
+   and is independent of that - so it is shown separately.
+*/
+function qcStatusPillHtml(qcCheck) {
+
+    const value = safeText(qcCheck);
+
+    if (!value) {
+        return `<span class="qc-pill qc-pill-none" title="No quality check recorded yet">QC pending</span>`;
+    }
+
+    const lower = value.toLowerCase();
+
+    if (lower === "pass") {
+        return `<span class="qc-pill qc-pill-pass" title="Quality check passed">QC pass</span>`;
+    }
+
+    if (lower === "fail") {
+        return `<span class="qc-pill qc-pill-fail" title="Quality check failed - this window needs rework">QC fail</span>`;
+    }
+
+    return `<span class="qc-pill qc-pill-none">${escapeHtml(value)}</span>`;
+}
+
 function windowRowTableHtml(windows) {
 
+    /*
+       Rows open the window's production record when clicked, so
+       the dashboard and project schedules can be used to allocate
+       work without hunting for the QR button.
+    */
     const rows = windows.map(window => `
-        <tr data-window-id="${escapeHtml(window.id)}">
+        <tr data-window-id="${escapeHtml(window.id)}"
+            class="clickable-window-row"
+            tabindex="0"
+            title="Open ${escapeHtml(window.windowNumber || "window")} record"
+            onclick="openWindowRow(event, '${escapeHtml(window.id)}')"
+            onkeydown="if(event.key==='Enter'){event.preventDefault();viewWindow('${escapeHtml(window.id)}');}">
             <td class="col-id"><span class="window-id-badge">${escapeHtml(window.windowNumber || formatWindowId(window.windowId) || "—")}</span></td>
+            <td class="col-type">${productTypeBadgeHtml(window.productType)}</td>
             <td class="col-desc">${escapeHtml(window.description)}</td>
             <td class="col-loc">${escapeHtml(window.location)}</td>
             <td class="col-num">${escapeHtml(window.length)} mm</td>
             <td class="col-num">${escapeHtml(window.width)} mm</td>
             <td class="col-frame">${escapeHtml(window.frameColour)}</td>
             <td class="col-glass">${escapeHtml(window.glassType || "-")}</td>
-            <td class="col-qc">${qcCheckBadgeHtml(window.qcCheck)}</td>
+            <td class="col-qc">${qcStatusPillHtml(window.qcCheck)}</td>
+            <td class="col-status">${statusPillHtml(window.status)}</td>
+            <td class="col-allocated">${allocatedBadgeHtml(window.allocatedTo)}</td>
+            <td class="col-age">
+                <span class="age-stack">
+                    ${ageBadgeHtml(window.createdAt)}
+                    <small class="age-date">${escapeHtml(formatCreatedDate(window.createdAt))}</small>
+                </span>
+            </td>
             <td class="saved-photo-cell col-photo">${savedPhotoHtml(window.photo)}</td>
             <td class="window-row-qr-cell col-qr">
                 <button type="button" class="row-qr-button"
@@ -2558,6 +3821,7 @@ function windowRowTableHtml(windows) {
                 <thead>
                     <tr>
                         <th class="col-id">Window ID</th>
+                        <th class="col-type">Type</th>
                         <th class="col-desc">Description</th>
                         <th class="col-loc">Location</th>
                         <th class="col-num">Length</th>
@@ -2565,6 +3829,9 @@ function windowRowTableHtml(windows) {
                         <th class="col-frame">Frame Color</th>
                         <th class="col-glass">Glass</th>
                         <th class="col-qc">QC</th>
+                        <th class="col-status">Status</th>
+                        <th class="col-allocated">Allocated To</th>
+                        <th class="col-age">Age</th>
                         <th class="col-photo">Photo</th>
                         <th class="col-qr">QR Code</th>
                     </tr>
@@ -2610,6 +3877,94 @@ function savedPhotoHtml(photo) {
     </button>`;
 }
 
+/*
+   Project progress summary.
+
+   Shows how many of a project's windows sit in each status, so a
+   long job can be judged at a glance without reading every row.
+   A window counts as NOT STARTED while it is still "Measured" -
+   that is the state that drives the overdue colour.
+*/
+function projectStatusSummaryHtml(windows) {
+
+    const total = windows.length;
+
+    if (!total) {
+        return `<span class="project-progress project-progress-empty">No windows</span>`;
+    }
+
+    const counts = {};
+
+    windows.forEach(window => {
+        const key = safeText(window.status) || "Measured";
+        counts[key] = (counts[key] || 0) + 1;
+    });
+
+    /*
+       "Measured" means captured but not yet worked on. Reporting
+       it as "not started" is the number the workshop actually
+       cares about when a project is running late.
+    */
+    const notStarted = counts["Measured"] || 0;
+    const completed = (counts["Completed"] || 0) + (counts["Installed"] || 0);
+
+    const chips = [];
+
+    if (notStarted) {
+        chips.push(`<span class="progress-chip chip-notstarted">${notStarted} not started</span>`);
+    }
+
+    if (completed) {
+        chips.push(`<span class="progress-chip chip-done">${completed} done</span>`);
+    }
+
+    const others = total - notStarted - completed;
+
+    if (others > 0) {
+        chips.push(`<span class="progress-chip chip-inprogress">${others} in progress</span>`);
+    }
+
+    return `<span class="project-progress">${chips.join("")}</span>`;
+}
+
+/*
+   The oldest unstarted window in a project decides the project's
+   age colour. A job where everything has been built and shipped
+   should not be flagged red just because it is old.
+*/
+function projectAgeHtml(project) {
+
+    const windows = Array.isArray(project.windows) ? project.windows : [];
+
+    const unstarted = windows.filter(
+        window => (safeText(window.status) || "Measured") === "Measured"
+    );
+
+    /*
+       With nothing outstanding, show the project's own age in the
+       neutral green band - the job is not waiting on anybody.
+    */
+    if (unstarted.length === 0) {
+        return windows.length
+            ? `<span class="age-badge age-done" title="All windows have started production">Complete</span>`
+            : "";
+    }
+
+    const oldest = unstarted.reduce((oldestSoFar, window) => {
+
+        const value = new Date(window.createdAt).getTime();
+
+        if (isNaN(value)) {
+            return oldestSoFar;
+        }
+
+        return (oldestSoFar === null || value < oldestSoFar) ? value : oldestSoFar;
+
+    }, null);
+
+    return ageBadgeHtml(oldest === null ? project.createdAt : new Date(oldest).toISOString());
+}
+
 function renderProjects(
     projects = getProjects()
 ) {
@@ -2626,8 +3981,14 @@ function renderProjects(
 
         container.innerHTML = `
             <div class="empty-state">
+                <span class="empty-state-icon" aria-hidden="true">
+                    <svg class="icon" viewBox="0 0 24 24"><path d="M3 21h18"/><path d="M5 21V7l7-4 7 4v14"/><path d="M9 21v-6h6v6"/></svg>
+                </span>
                 <h4>No projects yet</h4>
-                <p>Create a project to capture all of its windows.</p>
+                <p>Create a project to capture all of its windows in one schedule.</p>
+                <button type="button" class="primary-button" onclick="openNewProject()">
+                    Create First Project
+                </button>
             </div>
         `;
 
@@ -2651,9 +4012,12 @@ function renderProjects(
                     <span class="project-number">${escapeHtml(project.projectNumber)}</span>
                 </div>
 
-                <span class="project-window-count">
-                    ${windows.length} window${windows.length === 1 ? "" : "s"}
-                </span>
+                <div class="project-card-tags">
+                    ${projectAgeHtml(project)}
+                    <span class="project-window-count">
+                        ${windows.length} window${windows.length === 1 ? "" : "s"}
+                    </span>
+                </div>
             </div>
 
             <div class="project-card-meta">
@@ -2661,6 +4025,8 @@ function renderProjects(
                 <p><strong>Phone:</strong> ${escapeHtml(project.customerPhone || "-")}</p>
                 <p><strong>Email:</strong> ${escapeHtml(project.customerEmail || "-")}</p>
                 <p><strong>Site:</strong> ${escapeHtml(project.siteAddress || "-")}</p>
+                <p><strong>Created:</strong> ${escapeHtml(formatCreatedDate(project.createdAt).replace(/^Created\s+/, ""))}</p>
+                <p><strong>Progress:</strong> ${projectStatusSummaryHtml(windows)}</p>
             </div>
 
             ${windows.length
@@ -2668,9 +4034,21 @@ function renderProjects(
                 : `<p class="details-small">No windows captured on this project.</p>`}
 
             <div class="window-card-actions">
+                <button type="button" class="primary-button card-action"
+                    onclick="editProject('${project.id}')">
+                    <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/></svg>
+                    Edit Project
+                </button>
+
                 <button type="button" class="secondary-button card-action"
                     onclick="printProject('${project.id}')">
                     Print
+                </button>
+
+                <button type="button" class="secondary-button card-action"
+                    onclick="emailProject('${project.id}')">
+                    <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="m2 7 10 6 10-6"/></svg>
+                    Email
                 </button>
 
                 <button type="button" class="secondary-button card-action"
@@ -2829,54 +4207,293 @@ function printProject(projectId) {
             ? project.windows
             : [];
 
+        /*
+           This is a SCHEDULE document: one sheet covering a whole
+           project. The title block therefore carries the project
+           number rather than an item number, and the detail grid
+           describes the job rather than one item.
+        */
         setPrintText("printWindowId", project.projectNumber);
         setPrintText("printProjectName", project.projectName);
-        setPrintText("printCustomerName", project.customerName);
-        setPrintText("printLocation", project.siteAddress);
-        setPrintText("printWindowType", `${windows.length} window(s)`);
-        setPrintText("printFrameColour", "See window schedule below");
-        setPrintText("printFrameSeries", project.customerPhone);
-        setPrintText("printWidth", "-");
-        setPrintText("printHeight", "-");
-        setPrintText("printGlassType", "-");
-        setPrintText("printGlassThickness", "-");
+        setPrintText("printProjectNameSub", project.customerName);
 
-        const photo = $("printPhoto");
-        if (photo) {
-            photo.src = "";
+        setPrintText("printCustomerName", project.customerName);
+        setPrintText("printSiteAddress", project.siteAddress);
+
+        /*
+           Contact: show the email and phone together, rather than
+           mislabelling the phone number as a frame series.
+        */
+        const contact = [project.customerEmail, project.customerPhone]
+            .map(value => safeText(value))
+            .filter(Boolean)
+            .join("  \u00b7  ");
+
+        setPrintText("printCustomerContact", contact);
+
+        /*
+           Item-level fields describe the project as a whole here,
+           because a schedule covers many items - saying "3 window(s)"
+           in the Item Type row was misleading.
+        */
+        const types = [...new Set(
+            windows.map(w => safeText(w.productType)).filter(Boolean)
+        )];
+
+        setPrintText(
+            "printWindowType",
+            types.length ? types.join(", ") : "No items captured"
+        );
+
+        /*
+           Summarise the specification instead of saying "See
+           schedule" four times, which reads as a dodge on a sheet
+           that goes to the customer.
+
+           Distinct values are listed, capped so a job with fifteen
+           colours does not blow the grid apart.
+        */
+        const distinct = (key) => [...new Set(
+            windows.map(w => safeText(w[key])).filter(Boolean)
+        )];
+
+        /*
+           Cap at TWO values rather than three. Three plus "+1 more"
+           wrapped to a second line in the detail grid, which made
+           that row taller than its neighbours.
+        */
+        const summarise = (values, emptyText) => {
+
+            if (!values.length) {
+                return emptyText;
+            }
+
+            if (values.length <= 2) {
+                return values.join(", ");
+            }
+
+            return `${values.slice(0, 2).join(", ")} +${values.length - 2} more`;
+        };
+
+        /*
+           "Location" describes where the items are installed, which
+           varies per item on a schedule. Putting an item COUNT in
+           that cell was simply the wrong label; the count already
+           appears next to the schedule heading.
+        */
+        setPrintText(
+            "printLocation",
+            summarise(distinct("location"), "Not specified")
+        );
+
+        setPrintText(
+            "printFrameColour",
+            summarise(distinct("frameColour"), "Not specified")
+        );
+
+        setPrintText(
+            "printGlassType",
+            summarise(distinct("glassType"), "Not specified")
+        );
+
+        /*
+           Sizes are per item, so the useful project-level fact is
+           the RANGE - it tells the workshop what it is dealing with
+           at a glance.
+        */
+        const lengths = windows
+            .map(w => Number(w.length))
+            .filter(n => Number.isFinite(n) && n > 0);
+
+        const widths = windows
+            .map(w => Number(w.width))
+            .filter(n => Number.isFinite(n) && n > 0);
+
+        const range = (values) => {
+
+            if (!values.length) {
+                return "\u2014";
+            }
+
+            const low = Math.min(...values);
+            const high = Math.max(...values);
+
+            return low === high ? `${low} mm` : `${low}\u2013${high} mm`;
+        };
+
+        /*
+           A project has no single size, so this shows the RANGE of
+           each dimension rather than one pair of numbers.
+
+           The ranges are LABELLED ("L 1800–2400 mm · W 900–2100 mm")
+           because two bare ranges beside each other - "1800–2400 mm
+           900–2100 mm" - give the workshop no way to tell which is
+           the length and which the width. The pair separator is for
+           a single item only, so it is hidden here.
+        */
+        const hasSizes = lengths.length || widths.length;
+
+        setPrintText(
+            "printWidth",
+            hasSizes ? `L ${range(lengths)}` : "\u2014"
+        );
+
+        setPrintText(
+            "printHeight",
+            hasSizes ? `W ${range(widths)}` : ""
+        );
+
+        const dimSeparator = document.querySelector(".print-dim-sep");
+
+        if (dimSeparator) {
+            dimSeparator.hidden = true;
         }
 
         /*
-           Reuse the worksheet measurement table for the window
-           schedule: one row per window with description, location,
-           length, width and frame colour.
+           The ranges read as two facts, so they are separated by a
+           middot rather than jammed together.
+        */
+        const dimCell = document.querySelector(".print-dim-cell");
+
+        if (dimCell) {
+            dimCell.classList.add("print-dim-ranging");
+        }
+
+        const allocated = [...new Set(
+            windows.map(w => safeText(w.allocatedTo)).filter(Boolean)
+        )];
+
+        setPrintText(
+            "printAllocatedTo",
+            allocated.length ? allocated.join(", ") : "Unallocated"
+        );
+
+        const qcCount = windows.filter(
+            w => safeText(w.qcCheck).toLowerCase() === "pass"
+        ).length;
+
+        setPrintText(
+            "printQcCheck",
+            windows.length ? `${qcCount} of ${windows.length} passed` : "Not applicable"
+        );
+
+        /*
+           Title-block status: the project's overall state, taken
+           from its least-advanced item, so "not started" is visible
+           rather than hidden behind a mixture.
+        */
+        const chip = $("printStatusChip");
+
+        if (chip) {
+            const notStarted = windows.filter(
+                w => (safeText(w.status) || "Measured") === "Measured"
+            ).length;
+
+            chip.textContent = windows.length
+                ? (notStarted
+                    ? `${notStarted} of ${windows.length} not started`
+                    : "Production started")
+                : "No items";
+        }
+
+        /*
+           The single-photo block is for ONE item. On a project
+           sheet each window has its own photo, so that block is
+           hidden and the photos are printed as a column in the
+           schedule instead - see below.
+        */
+        const photoSection = $("printPhotoSection");
+
+        if (photoSection) {
+            photoSection.hidden = true;
+        }
+
+        /*
+           Is there at least one photo on this job? If not, the
+           photo column is left out entirely rather than printing a
+           tall strip of empty boxes down the sheet.
+        */
+        const anyPhotos = windows.some(
+            window => safeText(window.photo)
+        );
+
+        /*
+           The photo column adds a 13th cell only when it is used,
+           so the empty-state colspan below has to match.
+        */
+        const columnCount = anyPhotos ? 13 : 12;
+
+        /*
+           Schedule: one row per item, with the columns the job
+           actually needs - including allocation, QC and status.
         */
         const schedule = $("printSchedule");
 
+        const photoHeader = document.querySelector("#printWorksheet th.c-photo");
+
+        if (photoHeader) {
+            photoHeader.hidden = !anyPhotos;
+        }
+
         if (schedule) {
-            schedule.innerHTML = windows.map((window, index) => `
+            schedule.innerHTML = windows.map(window => `
                 <tr>
-                    <td>${escapeHtml(window.windowNumber || formatWindowId(window.windowId) || "—")}</td>
-                    <td>${escapeHtml(window.description)}</td>
-                    <td>${escapeHtml(window.location)}</td>
-                    <td>${escapeHtml(window.length)} mm</td>
-                    <td>${escapeHtml(window.width)} mm</td>
-                    <td>${escapeHtml(window.frameColour)}</td>
-                    <td>${escapeHtml(window.glassType || "-")}</td>
-                    <td>${escapeHtml(window.qcCheck || "-")}</td>
-                    <td>${window.photo ? `<img class="print-row-photo" src="${escapeHtml(window.photo)}" alt="">` : "-"}</td>
-                    <td><span class="print-row-qr" data-qr-print="${escapeHtml(window.windowNumber || "")}"></span></td>
+                    <td class="c-id">${escapeHtml(window.windowNumber || formatWindowId(window.windowId) || "\u2014")}</td>
+                    <td class="c-type">${escapeHtml(window.productType || "\u2014")}</td>
+                    <td class="c-desc">${escapeHtml(window.description || "\u2014")}</td>
+                    <td class="c-loc">${escapeHtml(window.location || "\u2014")}</td>
+                    <td class="c-size">${escapeHtml(window.length)}</td>
+                    <td class="c-size">${escapeHtml(window.width)}</td>
+                    <td class="c-frame">${escapeHtml(formatPrintFrame(window.frameColour) || "\u2014")}</td>
+                    <td class="c-glass">${escapeHtml(window.glassType || "\u2014")}</td>
+                    <td class="c-who">${escapeHtml(window.allocatedTo || "Unallocated")}</td>
+                    <td class="c-status">${escapeHtml(formatPrintStatus(window.status))}</td>
+                    <td class="c-qc">${escapeHtml(formatPrintQc(window.qcCheck))}</td>
+                    <td class="c-photo"${anyPhotos ? "" : " hidden"}>${printRowPhotoHtml(window.photo)}</td>
+                    <td class="c-qr"><span class="print-row-qr" data-qr-print="${escapeHtml(window.windowNumber || "")}"></span></td>
                 </tr>
-            `).join("") || `<tr><td colspan="9">No windows captured.</td></tr>`;
+            `).join("") || `<tr><td colspan="${columnCount}" class="print-empty">No items captured on this project.</td></tr>`;
 
             renderPrintQRCodes(schedule);
         }
 
-        setPrintText("printNotes", "-");
-        setPrintText("printStatus", windows.length ? "Measured" : "-");
-        setPrintText("printDate", new Date().toLocaleDateString("en-ZA"));
-        setPrintText("printManufacturer", "");
-        setPrintText("printEmployee", "");
+        setPrintText("printScheduleCount", `${windows.length} item${windows.length === 1 ? "" : "s"}`);
+
+        /*
+           Notes: an empty box is correct here - the workshop writes
+           in it by hand. Passing "" with no fallback keeps it blank
+           rather than printing a stray dash.
+        */
+        const notesBox = $("printNotes");
+
+        if (notesBox) {
+            notesBox.textContent = "";
+        }
+
+        setPrintText(
+            "printDate",
+            new Date().toLocaleDateString("en-ZA", {
+                day: "numeric", month: "short", year: "numeric"
+            })
+        );
+
+        /*
+           Sign-off names: these are written by hand on the floor, so
+           they stay blank. Passing "" WITHOUT the dash fallback is
+           what stops a stray "-" printing under the label.
+        */
+        const manufacturerCell = $("printManufacturer");
+        const employeeCell = $("printEmployee");
+
+        if (manufacturerCell) {
+            manufacturerCell.textContent = "";
+        }
+
+        if (employeeCell) {
+            employeeCell.textContent = "";
+        }
+
+        setPrintGenerated("printGenerated");
 
         generateQRCode("printQRCode", buildProjectQRContent(project.id));
 
@@ -2891,6 +4508,155 @@ function printProject(projectId) {
         showError("The project could not be printed.");
     }
 }
+
+/* =========================================================
+   EMAIL PROJECT
+   ---------------------------------------------------------
+   The Email button on a project sends the project details AND
+   the project worksheet to the office (Tiffany and Jan).
+
+   Two paths, chosen automatically:
+
+     * If the mail backend is configured, the message is sent
+       server-side - no mail client needed, works on a phone -
+       with the worksheet attached as a file, and the schedule
+       repeated in the body so it can be read without opening the
+       attachment.
+     * If not, a mailto: draft is opened in the device's own
+       mail app, so the button is never a dead end while the
+       backend is still being set up.
+
+   IMPORTANT: mailto: cannot carry an attachment - that is a
+   limitation of the protocol, not of this code. On fallback
+   path the worksheet is therefore NOT attached; the user is told
+   plainly that the mail app has no attachment and that the
+   attached worksheet is only available once the mailer is set up.
+*/
+async function emailProject(projectId) {
+
+    try {
+
+        const project = getProjects().find(
+            item => item.id === projectId
+        );
+
+        if (!project) {
+            showError("The project could not be found.");
+            return;
+        }
+
+        const windows = Array.isArray(project.windows)
+            ? project.windows
+            : [];
+
+        const session =
+            typeof getSession === "function" ? getSession() : null;
+
+        const recipients = Array.isArray(window.OFFICE_RECIPIENTS)
+            ? window.OFFICE_RECIPIENTS
+            : [];
+
+        /*
+           The project worksheet travels with the message.
+
+           Built here rather than inside email.js so a failure to
+           build it can never stop the email itself: a message
+           without its attachment is far better than no message.
+        */
+        let attachments = [];
+
+        if (typeof buildWorksheetAttachment === "function") {
+            try {
+                attachments = buildWorksheetAttachment(project);
+            } catch (worksheetError) {
+                console.error(
+                    "Project worksheet could not be built:",
+                    worksheetError
+                );
+            }
+        }
+
+        /*
+           Try the backend first. A false result means no mailer is
+           configured OR it failed, and either way we fall back to a
+           mail draft rather than leaving the user with nothing.
+        */
+        let sent = false;
+
+        if (typeof sendNewProjectEmail === "function") {
+
+            showSuccess(
+                `Sending ${project.projectNumber} to the office...`
+            );
+
+            sent = await sendNewProjectEmail(
+                project,
+                session?.name || "",
+                attachments
+            );
+        }
+
+        if (sent) {
+            showSuccess(
+                attachments.length
+                    ? `${project.projectNumber} and its worksheet emailed to the office.`
+                    : `${project.projectNumber} emailed to the office (no worksheet could be attached).`
+            );
+            return;
+        }
+
+        /*
+           Fallback: open a pre-filled draft in the device's mail
+           app. Kept short and plain - mailto bodies are not HTML.
+        */
+        const to = recipients.join(",");
+
+        const subject =
+            `Project ${project.projectNumber} \u2014 ${project.projectName}`;
+
+        const lines = [`Project: ${project.projectNumber}`]
+            .concat(project.projectName ? [`Name: ${project.projectName}`] : [])
+            .concat(project.customerName ? [`Customer: ${project.customerName}`] : [])
+            .concat(project.customerEmail ? [`Email: ${project.customerEmail}`] : [])
+            .concat(project.customerPhone ? [`Phone: ${project.customerPhone}`] : [])
+            .concat(project.siteAddress ? [`Site: ${project.siteAddress}`] : [])
+            .concat([``, `Windows: ${windows.length}`])
+            .concat(windows.map(window =>
+                `- ${window.windowNumber || window.id}: ` +
+                `${window.description || ""}` +
+                (window.length || window.width
+                    ? ` (${window.length || "-"} \u00d7 ${window.width || "-"} mm)`
+                    : "")
+            ));
+
+        const href =
+            `mailto:${encodeURIComponent(to)}` +
+            `?subject=${encodeURIComponent(subject)}` +
+            `&body=${encodeURIComponent(lines.join("\n"))}`;
+
+        window.location.href = href;
+
+        /*
+           Say what actually happened. The worksheet is NOT on this
+           draft, and pretending otherwise would have someone
+           believe they had sent it.
+        */
+        showSuccess(
+            "Opened your mail app with the project details. " +
+            (attachments.length
+                ? "Your mail app cannot attach the worksheet - use Print Worksheet to send it separately."
+                : "")
+        );
+
+    } catch (error) {
+
+        console.error("Email project error:", error);
+
+        showError("The project could not be emailed.");
+    }
+}
+
+window.emailProject = emailProject;
 
 /*
    Project QR codes open this app with ?project=PROJECT-ID.
@@ -3007,64 +4773,204 @@ function setTextIfExists(id, value) {
 }
 
 /* =========================================================
-   RECENT WINDOWS
-   ========================================================= */
+   DASHBOARD: PROJECTS + WINDOWS TABLES
+   =========================================================
 
-function renderRecentWindows() {
+   Table 1 lists every project. Clicking a project loads its
+   windows into table 2 underneath, so the dashboard answers
+   "what is in this job?" without leaving the page.
+*/
 
-    const container =
-        $("recentWindows");
+/* Which project is currently expanded in table 2. */
+let dashboardSelectedProjectId = null;
+
+/*
+   Select a project (or collapse it if clicked again) and redraw
+   both tables.
+*/
+function selectDashboardProject(projectId) {
+
+    dashboardSelectedProjectId =
+        dashboardSelectedProjectId === projectId
+            ? null
+            : projectId;
+
+    renderDashboardProjects();
+    renderDashboardWindows();
+}
+
+window.selectDashboardProject = selectDashboardProject;
+
+function renderDashboardProjects() {
+
+    const container = $("dashboardProjects");
 
     if (!container) {
         return;
     }
 
-    const windows =
-        getAllWindowsWithProject()
-            .sort(
-                (a, b) =>
-                    new Date(b.createdAt) -
-                    new Date(a.createdAt)
-            )
-            .slice(0, 5);
+    const projects = getProjects();
 
-    container.innerHTML = "";
-
-    if (!windows.length) {
+    if (!projects.length) {
 
         container.innerHTML = `
             <div class="empty-state">
-                <h4>No windows yet</h4>
-                <p>Create your first window measurement to get started.</p>
+                <span class="empty-state-icon" aria-hidden="true">
+                    <svg class="icon" viewBox="0 0 24 24"><path d="M3 21h18"/><path d="M5 21V7l7-4 7 4v14"/><path d="M9 21v-6h6v6"/></svg>
+                </span>
+                <h4>No projects yet</h4>
+                <p>Create your first project to start capturing windows and doors.</p>
+                <button type="button" class="primary-button" onclick="openNewProject()">
+                    Create First Project
+                </button>
             </div>
         `;
 
         return;
     }
 
-    windows.forEach(item => {
+    /*
+       Newest first, so the job just captured is at the top.
+    */
+    const ordered = [...projects].sort(
+        (a, b) => new Date(b.createdAt) - new Date(a.createdAt)
+    );
 
-        const row =
-            document.createElement("div");
+    const rows = ordered.map(project => {
 
-        row.className =
-            "recent-window";
+        const windows = Array.isArray(project.windows)
+            ? project.windows
+            : [];
 
-        row.innerHTML = `
-            <div class="recent-window-main">
-                <strong>${escapeHtml(item.description)}</strong>
-                <span>${escapeHtml(item.projectName)}</span>
-                <small>${escapeHtml(item.location || "No location")} · ${escapeHtml(item.length)}×${escapeHtml(item.width)} mm · ${escapeHtml(item.frameColour)}</small>
+        const doors = windows.filter(w => isDoorType(w.productType)).length;
+        const panes = windows.length - doors;
+
+        const isSelected = project.id === dashboardSelectedProjectId;
+
+        /*
+           A compact make-up: how many windows and doors are in
+           this job, which is the thing a supervisor looks for.
+        */
+        const mix = [];
+        if (panes) mix.push(`${panes} window${panes === 1 ? "" : "s"}`);
+        if (doors) mix.push(`${doors} door${doors === 1 ? "" : "s"}`);
+
+        return `
+            <tr class="dashboard-project-row${isSelected ? " selected" : ""}"
+                data-project-id="${escapeHtml(project.id)}"
+                onclick="selectDashboardProject('${project.id}')"
+                tabindex="0"
+                onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();selectDashboardProject('${project.id}');}">
+                <td class="col-edit-cell">
+                    <button type="button" class="icon-button edit-icon-button"
+                        title="Edit ${escapeHtml(project.projectName)}"
+                        aria-label="Edit project"
+                        onclick="event.stopPropagation();editProject('${project.id}')">
+                        <svg class="icon" viewBox="0 0 24 24"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/></svg>
+                    </button>
+                </td>
+                <td class="col-expand" aria-hidden="true">
+                    <svg class="icon chevron" viewBox="0 0 24 24"><path d="m9 6 6 6-6 6"/></svg>
+                </td>
+                <td class="col-prj">
+                    <strong>${escapeHtml(project.projectName)}</strong>
+                    <small>${escapeHtml(project.projectNumber)}</small>
+                </td>
+                <td class="col-cust">${escapeHtml(project.customerName)}</td>
+                <td class="col-count">${mix.length ? mix.join(" &middot; ") : "0 items"}</td>
+                <td class="col-age">${projectAgeHtml(project)}</td>
+                <td class="col-prog">${projectStatusSummaryHtml(windows)}</td>
+            </tr>
+        `;
+    }).join("");
+
+    container.innerHTML = `
+        <div class="window-rows-wrapper">
+            <table class="window-rows-table dashboard-projects-table">
+                <thead>
+                    <tr>
+                        <th class="col-expand" aria-label="Expand"></th>
+                        <th class="col-edit-cell" aria-label="Actions"></th>
+                        <th class="col-prj">Project</th>
+                        <th class="col-cust">Customer</th>
+                        <th class="col-count">Contains</th>
+                        <th class="col-age">Age</th>
+                        <th class="col-prog">Progress</th>
+                    </tr>
+                </thead>
+                <tbody>${rows}</tbody>
+            </table>
+        </div>
+    `;
+}
+
+/*
+   Table 2: the windows and doors inside the selected project.
+*/
+function renderDashboardWindows() {
+
+    const container = $("dashboardWindows");
+    const title = $("dashboardWindowsTitle");
+    const note = $("dashboardWindowsNote");
+
+    if (!container) {
+        return;
+    }
+
+    const project = getProjects().find(
+        item => item.id === dashboardSelectedProjectId
+    );
+
+    if (!project) {
+
+        if (title) {
+            title.textContent = "Windows & Doors";
+        }
+
+        if (note) {
+            note.textContent = "Select a project above";
+        }
+
+        container.innerHTML = `
+            <div class="empty-state">
+                <span class="empty-state-icon" aria-hidden="true">
+                    <svg class="icon" viewBox="0 0 24 24"><path d="M3 3v18h18"/><path d="M9 9h6M9 13h6M9 17h3"/></svg>
+                </span>
+                <h4>No project selected</h4>
+                <p>Click a project in the table above to see every window and door in that job.</p>
             </div>
-            <span class="project-window-count">${escapeHtml(item.projectNumber)}</span>
         `;
 
-        row.addEventListener("click", () => {
-            switchView("projects");
-        });
+        return;
+    }
 
-        container.appendChild(row);
-    });
+    const windows = Array.isArray(project.windows)
+        ? project.windows
+        : [];
+
+    if (title) {
+        title.textContent = project.projectName;
+    }
+
+    if (note) {
+        note.textContent = `${project.projectNumber} \u00b7 ${windows.length} item${windows.length === 1 ? "" : "s"}`;
+    }
+
+    if (!windows.length) {
+
+        container.innerHTML = `<p class="details-small">No windows or doors captured on this project.</p>`;
+
+        return;
+    }
+
+    /*
+       Reuse the shared project window table so the dashboard and
+       the Projects tab show identical detail, including status,
+       QC and age.
+    */
+    container.innerHTML = windowRowTableHtml(windows);
+
+    renderWindowRowQRCodes(container);
 }
 
 /* =========================================================
@@ -3076,10 +4982,23 @@ function renderAll() {
     try {
 
         renderDashboard();
-        renderRecentWindows();
+        renderDashboardProjects();
+        renderDashboardWindows();
         renderProjects();
         renderWindowsList();
         renderEmployees();
+        renderScanEmployeeOptions();
+        renderAllocatedFilterOptions();
+        renderProductivity();
+
+        /*
+           The quote builder lives in its own module and may
+           not be loaded (or may fail to load) - guard it so a
+           quote problem can never blank the production views.
+        */
+        if (typeof window.renderQuotes === "function") {
+            window.renderQuotes();
+        }
 
     } catch (error) {
 
@@ -3278,6 +5197,33 @@ async function startScanner() {
 
     try {
 
+        /*
+           The employee gate. No scan is accepted until we know
+           who is doing the work, so every completed step can be
+           credited to a real person on the productivity dashboard.
+        */
+        const employeeId = safeText($("scanEmployeeSelect")?.value);
+
+        if (!getEmployees().length) {
+
+            showError(
+                "Add your workshop team on the Team tab before scanning work."
+            );
+
+            return;
+        }
+
+        if (!employeeId) {
+
+            showError(
+                "Please select your name before scanning."
+            );
+
+            updateScanGateState();
+
+            return;
+        }
+
         if (
             typeof Html5Qrcode ===
             "undefined"
@@ -3394,6 +5340,189 @@ async function stopScanner() {
 }
 
 /* =========================================================
+   SCANNER: FIND A WINDOW BY TEXT
+   =========================================================
+
+   The same outcome as a scan, without the camera. Typing a window
+   ID, project, customer or location finds the window and opens its
+   production record, and - because this is how the workshop gets
+   there without a QR code - it grants the same permission to change
+   status that a real scan does.
+
+   The employee gate still applies: a name must be chosen first, so
+   every completed step is still credited to a person.
+*/
+
+let scanSearchMatches = [];
+
+function renderScanSearch() {
+
+    const input = $("scanSearchInput");
+    const results = $("scanSearchResults");
+    const hint = $("scanSearchHint");
+    const clearButton = $("scanSearchClearButton");
+
+    if (!input || !results) {
+        return;
+    }
+
+    const query = safeText(input.value).toLowerCase();
+
+    if (clearButton) {
+        clearButton.hidden = !query;
+    }
+
+    if (!query) {
+
+        results.hidden = true;
+        results.innerHTML = "";
+        scanSearchMatches = [];
+
+        if (hint) {
+            hint.textContent = "Type part of a window ID, project, customer or location to find the window without the camera.";
+        }
+
+        return;
+    }
+
+    scanSearchMatches = getAllWindowsWithProject().filter(item => {
+
+        return (
+            safeText(item.windowNumber).toLowerCase().includes(query) ||
+            safeText(item.projectNumber).toLowerCase().includes(query) ||
+            safeText(item.projectName).toLowerCase().includes(query) ||
+            safeText(item.customerName).toLowerCase().includes(query) ||
+            safeText(item.location).toLowerCase().includes(query) ||
+            safeText(item.description).toLowerCase().includes(query) ||
+            safeText(item.productType).toLowerCase().includes(query) ||
+            safeText(item.allocatedTo).toLowerCase().includes(query)
+        );
+    });
+
+    /*
+       Cap the list so a broad search ("window") stays readable on
+       a phone; the count tells the user there are more.
+    */
+    const MAX_SHOWN = 25;
+
+    const shown = scanSearchMatches.slice(0, MAX_SHOWN);
+
+    if (hint) {
+        hint.textContent = scanSearchMatches.length
+            ? `${scanSearchMatches.length} window${scanSearchMatches.length === 1 ? "" : "s"} found. Select one to open it.`
+            : "No windows match that search.";
+    }
+
+    if (!shown.length) {
+        results.hidden = false;
+        results.innerHTML = `<p class="details-small">No windows match "${escapeHtml(input.value)}".</p>`;
+        return;
+    }
+
+    results.hidden = false;
+
+    results.innerHTML = shown.map((item, index) => `
+        <button type="button" class="scan-result" data-scan-index="${index}">
+            <span class="scan-result-main">
+                <strong>${escapeHtml(item.windowNumber || "-")}</strong>
+                <small>${escapeHtml(item.description || "")}${item.location ? ` \u00b7 ${escapeHtml(item.location)}` : ""}</small>
+            </span>
+            <span class="scan-result-meta">
+                ${productTypeBadgeHtml(item.productType)}
+                ${statusPillHtml(item.status)}
+            </span>
+            <span class="scan-result-project">${escapeHtml(item.projectNumber || "")}</span>
+        </button>
+    `).join("") + (scanSearchMatches.length > MAX_SHOWN
+        ? `<p class="details-small scan-more-note">Showing the first ${MAX_SHOWN}. Narrow the search to see more.</p>`
+        : "");
+
+    /*
+       Attach handlers directly rather than inline onclick, so the
+       window list is never interpolated into executable markup.
+    */
+    results.querySelectorAll("[data-scan-index]").forEach(button => {
+
+        button.addEventListener("click", () => {
+
+            const item = scanSearchMatches[Number(button.dataset.scanIndex)];
+
+            if (item) {
+                openWindowFromSearch(item);
+            }
+        });
+    });
+}
+
+/*
+   Open a window chosen from the search list.
+
+   Mirrors handleScannedQRCode: the employee gate is enforced, the
+   scan proof is set for THIS window, and the production record is
+   opened so the next tap is the completed step.
+*/
+function openWindowFromSearch(item) {
+
+    try {
+
+        const employeeId = safeText($("scanEmployeeSelect")?.value);
+
+        if (!getEmployees().length) {
+
+            showError("Add your workshop team on the Team tab before recording work.");
+
+            return;
+        }
+
+        if (!employeeId) {
+
+            showError("Please select your name before opening a window.");
+
+            updateScanGateState();
+
+            return;
+        }
+
+        const employeeName = getEmployeeName(employeeId);
+
+        window.scannedEmployeeId = employeeId;
+        window.scannedEmployeeName = employeeName;
+
+        /* Same proof a QR scan sets - this window may now be moved. */
+        window.scannedWindowId = item.id;
+        window.scannedWindow = item;
+
+        showSuccess(
+            `${item.windowNumber || item.description || "Window"} found for ${employeeName}.`
+        );
+
+        /* Clear the search so the view is ready for the next job. */
+        const input = $("scanSearchInput");
+
+        if (input) {
+            input.value = "";
+            renderScanSearch();
+        }
+
+        stopScanner();
+
+        switchView("projects");
+
+        if (item.projectId) {
+            highlightProjectWindow(item.projectId, item.id);
+        }
+
+        viewWindow(item.id);
+
+    } catch (error) {
+
+        console.error("Scan search open error:", error);
+
+        showError("The selected window could not be opened.");
+    }
+}
+
+/* =========================================================
    HANDLE QR CODE
    ========================================================= */
 
@@ -3463,8 +5592,27 @@ function handleScannedQRCode(decodedText) {
 
         window.scannedWindow = item;
 
+        /*
+           Carry the chosen employee through to the production
+           record, so the status buttons in the modal credit the
+           right person without asking again.
+        */
+        const employeeId = safeText($("scanEmployeeSelect")?.value);
+
+        const employeeName = getEmployeeName(employeeId);
+
+        window.scannedEmployeeId = employeeId;
+        window.scannedEmployeeName = employeeName;
+
+        /*
+           Record which window was actually scanned. updateWindowStatus
+           checks this before allowing a status change, so scanning
+           window A cannot be used to advance window B.
+        */
+        window.scannedWindowId = item.id;
+
         showSuccess(
-            `${item.windowNumber || item.description || "Window"} found.`
+            `${item.windowNumber || item.description || "Window"} found for ${employeeName}.`
         );
 
         /*
@@ -3473,14 +5621,16 @@ function handleScannedQRCode(decodedText) {
         stopScanner();
 
         /*
-           Jump to the project that owns this window and highlight
-           the row, so the workshop sees the full job context.
+           Open the window's production record straight away, so
+           the next tap is the step that was just completed.
         */
         switchView("projects");
 
         if (item.projectId) {
             highlightProjectWindow(item.projectId, item.id);
         }
+
+        viewWindow(item.id);
 
     } catch (error) {
 
@@ -3506,6 +5656,118 @@ function setPrintText(id, value, fallback = "-") {
     }
 }
 
+/*
+   Short forms used on the PRINTED schedule only.
+
+   A printed schedule has eleven columns across an A4 page, so the
+   longest status and colour names overflowed their cells. The app
+   keeps the full wording; the paper gets a form that fits.
+
+   These are readable at a glance on the bench, which matters more
+   than being exhaustive on paper.
+*/
+const PRINT_STATUS_SHORT = {
+    "Measured": "Measured",
+    "In Production": "In Prod.",
+    "Frame Manufactured": "Frame Mfd.",
+    "Glazed": "Glazed",
+    "Quality Checked": "QC Done",
+    "Ready for Installation": "Ready",
+    "Installed": "Installed",
+    "Completed": "Completed"
+};
+
+const PRINT_FRAME_SHORT = {
+    "Natural Aluminium": "Nat. Alu.",
+    "Clear Anodised": "C. Anod.",
+    "Dark Bronze": "Dk Bronze"
+};
+
+function formatPrintStatus(status) {
+
+    const value = safeText(status) || "Measured";
+
+    return PRINT_STATUS_SHORT[value] || value;
+}
+
+function formatPrintFrame(colour) {
+
+    const value = safeText(colour);
+
+    return PRINT_FRAME_SHORT[value] || value;
+}
+
+/*
+   QC result as a short, unambiguous mark.
+
+   An unchecked item reads "Todo", not a dash. A dash in a column
+   headed QC is ambiguous - it could mean "not applicable", "no
+   result" or "forgot to check". "Todo" says plainly that the
+   inspection has not happened yet, which is what the workshop
+   needs to know at a glance.
+*/
+function formatPrintQc(qcCheck) {
+
+    const value = safeText(qcCheck).toLowerCase();
+
+    if (value === "pass") {
+        return "PASS";
+    }
+
+    if (value === "fail") {
+        return "FAIL";
+    }
+
+    return "Todo";
+}
+
+/*
+   A window's photo as a small thumbnail for the printed schedule.
+
+   The stored value is a data URL written straight into src. It is
+   passed through escapeHtml so a crafted value cannot break out of
+   the attribute, and a window without a photo prints "\u2014".
+
+   A missing photo is NOT an empty box: on a printed sheet a blank
+   cell is ambiguous, so it says so in words.
+*/
+function printRowPhotoHtml(photo) {
+
+    const value = safeText(photo);
+
+    if (!value) {
+        return `<span class="print-row-photo-none">\u2014</span>`;
+    }
+
+    return `<img class="print-row-photo" src="${escapeHtml(value)}" alt="Window photo">`;
+}
+
+/*
+   A small "printed on" line in the footer. Useful on the floor:
+   two worksheets for the same item are told apart by when they
+   were produced, which matters when a job is reworked.
+*/
+function setPrintGenerated(id) {
+
+    const element = $(id);
+
+    if (!element) {
+        return;
+    }
+
+    const now = new Date();
+
+    const date = now.toLocaleDateString("en-ZA", {
+        day: "numeric", month: "short", year: "numeric"
+    });
+
+    const time = now.toLocaleTimeString("en-ZA", {
+        hour: "2-digit", minute: "2-digit"
+    });
+
+    element.textContent = `Printed ${date} at ${time}`;
+}
+
 function printWindow(windowId) {
 
     try {
@@ -3528,40 +5790,187 @@ function printWindow(windowId) {
             return;
         }
 
-        const w = item.finalWidth || item.width || "-";
-        const h = item.finalHeight || item.height || "-";
-
         /*
-           Fill every field on the worksheet.
+           This is the SINGLE ITEM worksheet, so every row in the
+           detail grid describes this one window or door.
         */
+        const length = safeText(item.length) || safeText(item.finalWidth);
+        const width = safeText(item.width) || safeText(item.finalHeight);
+
         setPrintText("printWindowId", item.windowNumber);
         setPrintText("printProjectName", item.projectName);
+        setPrintText("printProjectNameSub", item.customerName);
         setPrintText("printCustomerName", item.customerName);
-        setPrintText("printLocation", item.windowLocation);
-        setPrintText("printWindowType", item.windowType);
-        setPrintText("printFrameColour", item.frameColour + (item.customFrameColour ? ` (${item.customFrameColour})` : ""));
-        setPrintText("printFrameSeries", item.frameSeries);
-        setPrintText("printWidth", `${w} mm`);
-        setPrintText("printHeight", `${h} mm`);
-        setPrintText("printGlassType", item.glassType);
-        setPrintText("printGlassThickness", item.glassThickness);
 
-        setPrintText("printNotes", item.notes);
-        setPrintText("printStatus", item.status);
+        setPrintText("printSiteAddress", item.siteAddress);
 
-        const created = new Date(item.createdAt);
-        setPrintText("printDate", created.toLocaleDateString("en-ZA"));
+        const contact = [item.customerEmail, item.customerPhone]
+            .map(value => safeText(value))
+            .filter(Boolean)
+            .join("  \u00b7  ");
 
-        setPrintText("printManufacturer", item.manufacturedBy);
-        setPrintText("printEmployee", item.checkedBy || item.manufacturedBy);
+        setPrintText("printCustomerContact", contact);
+
+        setPrintText(
+            "printWindowType",
+            item.productType || item.windowType
+        );
+
+        setPrintText(
+            "printLocation",
+            item.location || item.windowLocation
+        );
+
+        setPrintText(
+            "printFrameColour",
+            item.frameColour +
+            (item.customFrameColour ? ` (${item.customFrameColour})` : "")
+        );
 
         /*
-           Photo
+           Sizes are the headline numbers on the floor, so they are
+           never left as a bare dash when a value exists on the
+           record.
+
+           The "mm" unit lives in the row label ("Size (mm)") rather
+           than beside each number, so this reads "2400 × 2100" and
+           not "2400 mm × 2100 mm".
+        */
+        setPrintText("printWidth", length || "\u2014");
+        setPrintText("printHeight", width || "\u2014");
+
+        setPrintText(
+            "printGlassType",
+            [item.glassType, item.glassThickness]
+                .map(value => safeText(value))
+                .filter(Boolean)
+                .join("  \u00b7  ")
+        );
+
+        setPrintText(
+            "printAllocatedTo",
+            item.allocatedTo || "Unallocated"
+        );
+
+        setPrintText(
+            "printQcCheck",
+            item.qcCheck || "Pending"
+        );
+
+        const notesBox = $("printNotes");
+
+        if (notesBox) {
+            notesBox.textContent = safeText(item.notes);
+        }
+
+        /*
+           Title-block status chip, so the item's stage is obvious
+           at arm's length on the bench.
+        */
+        const chip = $("printStatusChip");
+
+        if (chip) {
+            chip.textContent = item.status || "Measured";
+        }
+
+        setPrintText(
+            "printDate",
+            new Date().toLocaleDateString("en-ZA", {
+                day: "numeric", month: "short", year: "numeric"
+            })
+        );
+
+        const manufacturerCell = $("printManufacturer");
+        const employeeCell = $("printEmployee");
+
+        if (manufacturerCell) {
+            manufacturerCell.textContent = safeText(item.manufacturedBy);
+        }
+
+        if (employeeCell) {
+            employeeCell.textContent =
+                safeText(item.checkedBy) || safeText(item.manufacturedBy);
+        }
+
+        /*
+           A single item has one size, so the pair form is correct
+           here and the separator must be visible. (printProject
+           hides it, because a project shows a range instead.)
+        */
+        const dimSeparator = document.querySelector(".print-dim-sep");
+
+        if (dimSeparator) {
+            dimSeparator.hidden = false;
+        }
+
+        /* A single item is a pair, not two ranges. */
+        const dimCell = document.querySelector(".print-dim-cell");
+
+        if (dimCell) {
+            dimCell.classList.remove("print-dim-ranging");
+        }
+
+        /*
+           The single-item sheet has exactly one photo, so it is
+           worth printing. An empty block is hidden instead of
+           printing a broken frame.
         */
         const photo = $("printPhoto");
-        if (photo) {
-            photo.src = item.photo || "";
+        const photoSection = $("printPhotoSection");
+
+        const hasPhoto = Boolean(safeText(item.photo));
+
+        if (photoSection) {
+            photoSection.hidden = !hasPhoto;
         }
+
+        if (photo && hasPhoto) {
+            photo.src = item.photo;
+        }
+
+        /*
+           This sheet prints its one photo in the block above, so
+           the schedule's photo column is hidden here. Without this
+           the header would sit over an empty column on every
+           single-item sheet.
+        */
+        const photoHeader = document.querySelector("#printWorksheet th.c-photo");
+
+        if (photoHeader) {
+            photoHeader.hidden = true;
+        }
+
+        /*
+           One item on the sheet, so the schedule shows just it, and
+           the notes block gets a real box to write in.
+        */
+        const schedule = $("printSchedule");
+
+        if (schedule) {
+            schedule.innerHTML = `
+                <tr>
+                    <td class="c-id">${escapeHtml(item.windowNumber || "\u2014")}</td>
+                    <td class="c-type">${escapeHtml(item.productType || item.windowType || "\u2014")}</td>
+                    <td class="c-desc">${escapeHtml(item.description || "\u2014")}</td>
+                    <td class="c-loc">${escapeHtml(item.location || item.windowLocation || "\u2014")}</td>
+                    <td class="c-size">${escapeHtml(length || "\u2014")}</td>
+                    <td class="c-size">${escapeHtml(width || "\u2014")}</td>
+                    <td class="c-frame">${escapeHtml(formatPrintFrame(item.frameColour) || "\u2014")}</td>
+                    <td class="c-glass">${escapeHtml(item.glassType || "\u2014")}</td>
+                    <td class="c-who">${escapeHtml(item.allocatedTo || "Unallocated")}</td>
+                    <td class="c-status">${escapeHtml(formatPrintStatus(item.status))}</td>
+                    <td class="c-qc">${escapeHtml(formatPrintQc(item.qcCheck))}</td>
+                    <td class="c-photo" hidden></td>
+                    <td class="c-qr"><span class="print-row-qr" data-qr-print="${escapeHtml(item.windowNumber || "")}"></span></td>
+                </tr>
+            `;
+
+            renderPrintQRCodes(schedule);
+        }
+
+        setPrintText("printScheduleCount", "1 item");
+
+        setPrintGenerated("printGenerated");
 
         /*
            QR code pointing back at this window record.
@@ -3618,6 +6027,540 @@ function handleFrameColourChange() {
 }
 
 /* =========================================================
+   PRODUCTIVITY DASHBOARD
+   =========================================================
+
+   Reads the activity log and reports, for a chosen period:
+     - total steps completed
+     - windows worked on
+     - employees active
+     - average steps per working day
+     - a per-employee ranking
+     - a breakdown by production status
+     - the raw recent activity list
+*/
+
+/*
+   The currently selected period. "preset" is one of today / 7 /
+   30 / month / all; "custom" carries explicit from/to dates.
+*/
+let productivityPeriod = {
+    preset: "today",
+    from: null,
+    to: null
+};
+
+/*
+   Start of the day, so "today" means the whole calendar day
+   rather than the last 24 hours.
+*/
+function startOfDay(date) {
+    const copy = new Date(date);
+    copy.setHours(0, 0, 0, 0);
+    return copy;
+}
+
+function endOfDay(date) {
+    const copy = new Date(date);
+    copy.setHours(23, 59, 59, 999);
+    return copy;
+}
+
+/*
+   Turn the current selection into a concrete { from, to } window.
+   Returns null boundaries when "All time" is selected.
+*/
+function getPeriodRange() {
+
+    const now = new Date();
+
+    switch (productivityPeriod.preset) {
+
+        case "today":
+            return { from: startOfDay(now), to: endOfDay(now) };
+
+        case "7": {
+            const from = startOfDay(now);
+            from.setDate(from.getDate() - 6);
+            return { from, to: endOfDay(now) };
+        }
+
+        case "30": {
+            const from = startOfDay(now);
+            from.setDate(from.getDate() - 29);
+            return { from, to: endOfDay(now) };
+        }
+
+        case "month": {
+            const from = new Date(now.getFullYear(), now.getMonth(), 1);
+            return { from: startOfDay(from), to: endOfDay(now) };
+        }
+
+        case "custom": {
+            const from = productivityPeriod.from
+                ? startOfDay(new Date(productivityPeriod.from))
+                : null;
+
+            const to = productivityPeriod.to
+                ? endOfDay(new Date(productivityPeriod.to))
+                : null;
+
+            return { from, to };
+        }
+
+        default:
+            return { from: null, to: null };
+    }
+}
+
+function periodLabel() {
+
+    const { from, to } = getPeriodRange();
+
+    const short = (date) => date.toLocaleDateString("en-ZA", {
+        day: "numeric", month: "short", year: "numeric"
+    });
+
+    if (!from && !to) {
+        return "Showing all time.";
+    }
+
+    if (from && to) {
+        return `Showing ${short(from)} to ${short(to)}.`;
+    }
+
+    if (from) {
+        return `Showing from ${short(from)} onwards.`;
+    }
+
+    return `Showing up to ${short(to)}.`;
+}
+
+/*
+   The activity entries that fall inside the selected period.
+*/
+function getActivityInPeriod() {
+
+    const { from, to } = getPeriodRange();
+
+    return getActivity().filter(entry => {
+
+        const when = new Date(entry.date);
+
+        if (isNaN(when.getTime())) {
+            return false;
+        }
+
+        if (from && when < from) {
+            return false;
+        }
+
+        if (to && when > to) {
+            return false;
+        }
+
+        return true;
+    });
+}
+
+/*
+   Working days covered by the period, used for the daily average.
+   Counts the span of days that actually have activity, so a
+   one-off job on a Monday averages against one day, not a month.
+*/
+function activeDayCount(entries) {
+
+    if (!entries.length) {
+        return 0;
+    }
+
+    const days = new Set(
+        entries.map(entry => {
+            const d = new Date(entry.date);
+            return `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
+        })
+    );
+
+    return days.size;
+}
+
+function formatDateTime(value) {
+
+    const date = new Date(value);
+
+    if (isNaN(date.getTime())) {
+        return "-";
+    }
+
+    const day = date.toLocaleDateString("en-ZA", {
+        day: "numeric", month: "short"
+    });
+
+    const time = date.toLocaleTimeString("en-ZA", {
+        hour: "2-digit", minute: "2-digit"
+    });
+
+    return `${day} ${time}`;
+}
+
+function renderProductivity() {
+
+    try {
+
+        if (!$("productivity-view")) {
+            return;
+        }
+
+        const entries = getActivityInPeriod();
+
+        const totalSteps = entries.length;
+
+        const windowsTouched = new Set(
+            entries.map(entry => entry.windowId || entry.windowNumber)
+        ).size;
+
+        const employeeTally = {};
+
+        entries.forEach(entry => {
+
+            const name = safeText(entry.employee) || "Unrecorded";
+
+            if (!employeeTally[name]) {
+                employeeTally[name] = {
+                    name,
+                    steps: 0,
+                    windows: new Set(),
+                    last: null,
+                    byStatus: {}
+                };
+            }
+
+            const row = employeeTally[name];
+
+            row.steps += 1;
+
+            row.windows.add(entry.windowId || entry.windowNumber);
+
+            const when = new Date(entry.date);
+
+            if (!isNaN(when.getTime()) && (!row.last || when > row.last)) {
+                row.last = when;
+            }
+
+            const status = safeText(entry.status) || "Unknown";
+            row.byStatus[status] = (row.byStatus[status] || 0) + 1;
+        });
+
+        const employees = Object.values(employeeTally)
+            .sort((a, b) => b.steps - a.steps);
+
+        const days = activeDayCount(entries);
+
+        setTextIfExists("prodTotalSteps", totalSteps);
+        setTextIfExists("prodWindowsTouched", windowsTouched);
+        setTextIfExists("prodActiveEmployees", employees.length);
+        setTextIfExists(
+            "prodAvgPerDay",
+            days ? Math.round((totalSteps / days) * 10) / 10 : 0
+        );
+
+        setTextIfExists("periodSummary", periodLabel());
+
+        renderProductivityTable(employees, totalSteps);
+        renderProductivitySteps(entries, totalSteps);
+        renderProductivityLog(entries);
+
+    } catch (error) {
+
+        console.error("Productivity render error:", error);
+
+        showError("The productivity dashboard could not be displayed.");
+    }
+}
+
+/*
+   Per-employee ranking. A share bar makes the difference between
+   people obvious at a glance rather than by comparing numbers.
+*/
+function renderProductivityTable(employees, totalSteps) {
+
+    const container = $("productivityTable");
+
+    if (!container) {
+        return;
+    }
+
+    if (!employees.length) {
+
+        container.innerHTML = `
+            <div class="empty-state">
+                <span class="empty-state-icon" aria-hidden="true">
+                    <svg class="icon" viewBox="0 0 24 24"><path d="M3 3v18h18"/><path d="M7 16v-5M11.5 16V7M16 16v-3"/></svg>
+                </span>
+                <h4>No activity in this period</h4>
+                <p>Scan a window QR code, choose the employee doing the work, and their completed steps will appear here.</p>
+            </div>
+        `;
+
+        return;
+    }
+
+    const rows = employees.map((employee, index) => {
+
+        const share = totalSteps
+            ? Math.round((employee.steps / totalSteps) * 100)
+            : 0;
+
+        const last = employee.last
+            ? formatDateTime(employee.last)
+            : "-";
+
+        return `
+            <tr>
+                <td class="col-rank">${index + 1}</td>
+                <td class="col-name">
+                    <strong>${escapeHtml(employee.name)}</strong>
+                    <small>${employee.windows.size} window${employee.windows.size === 1 ? "" : "s"} worked</small>
+                </td>
+                <td class="col-steps">
+                    <strong>${employee.steps}</strong>
+                    <small>step${employee.steps === 1 ? "" : "s"}</small>
+                </td>
+                <td class="col-share">
+                    <div class="share-bar" title="${share}% of all steps in this period">
+                        <span style="width:${share}%"></span>
+                    </div>
+                    <small>${share}%</small>
+                </td>
+                <td class="col-last">${escapeHtml(last)}</td>
+            </tr>
+        `;
+    }).join("");
+
+    container.innerHTML = `
+        <div class="window-rows-wrapper">
+            <table class="window-rows-table productivity-table">
+                <thead>
+                    <tr>
+                        <th class="col-rank">#</th>
+                        <th class="col-name">Employee</th>
+                        <th class="col-steps">Steps</th>
+                        <th class="col-share">Share</th>
+                        <th class="col-last">Last Active</th>
+                    </tr>
+                </thead>
+                <tbody>${rows}</tbody>
+            </table>
+        </div>
+    `;
+}
+
+/*
+   Which production steps were actually performed.
+*/
+function renderProductivitySteps(entries, totalSteps) {
+
+    const container = $("productivitySteps");
+
+    if (!container) {
+        return;
+    }
+
+    if (!entries.length) {
+
+        container.innerHTML = `<p class="details-small">No completed steps in this period.</p>`;
+
+        return;
+    }
+
+    const tally = {};
+
+    entries.forEach(entry => {
+        const status = safeText(entry.status) || "Unknown";
+        tally[status] = (tally[status] || 0) + 1;
+    });
+
+    const steps = Object.entries(tally)
+        .sort((a, b) => b[1] - a[1]);
+
+    container.innerHTML = `
+        <div class="step-grid">
+            ${steps.map(([status, count]) => {
+
+        const share = totalSteps
+            ? Math.round((count / totalSteps) * 100)
+            : 0;
+
+        return `
+                    <div class="step-card">
+                        <span class="status-badge ${statusBadgeClass(status)}">${escapeHtml(status)}</span>
+                        <strong>${count}</strong>
+                        <small>${share}% of steps</small>
+                    </div>
+                `;
+    }).join("")}
+        </div>
+    `;
+}
+
+/*
+   Raw log of the most recent steps, newest first.
+*/
+function renderProductivityLog(entries) {
+
+    const container = $("productivityLog");
+
+    if (!container) {
+        return;
+    }
+
+    if (!entries.length) {
+
+        container.innerHTML = `<p class="details-small">Nothing recorded in this period.</p>`;
+
+        return;
+    }
+
+    const recent = [...entries]
+        .sort((a, b) => new Date(b.date) - new Date(a.date))
+        .slice(0, 40);
+
+    container.innerHTML = `
+        <ul class="activity-log">
+            ${recent.map(entry => `
+                <li>
+                    <span class="status-badge ${statusBadgeClass(entry.status)}">${escapeHtml(entry.status)}</span>
+                    <span class="activity-main">
+                        <strong>${escapeHtml(entry.employee)}</strong>
+                        <small>${escapeHtml(entry.windowNumber || "-")} &middot; ${escapeHtml(entry.description || "")}</small>
+                    </span>
+                    <span class="activity-when">${escapeHtml(formatDateTime(entry.date))}</span>
+                </li>
+            `).join("")}
+        </ul>
+    `;
+}
+
+/*
+   Fill the employee dropdown on the scanner with the workshop
+   team, alphabetical so it is quick to find a name.
+*/
+/*
+   Fill the "allocated to" filter with the team, so the Windows
+   tab can be narrowed to one person's work.
+*/
+function renderAllocatedFilterOptions() {
+
+    const select = $("allocatedFilter");
+
+    if (!select) {
+        return;
+    }
+
+    const current = select.value || "all";
+
+    const employees = [...getEmployees()].sort(
+        (a, b) => safeText(a.name).localeCompare(safeText(b.name))
+    );
+
+    select.innerHTML =
+        `<option value="all">All Allocations</option>` +
+        `<option value="unallocated">Unallocated</option>` +
+        employees.map(employee =>
+            `<option value="${escapeHtml(employee.name)}">${escapeHtml(employee.name)}</option>`
+        ).join("");
+
+    /*
+       Restore the previous choice when that employee still exists.
+    */
+    const stillValid = [...select.options].some(
+        option => option.value === current
+    );
+
+    select.value = stillValid ? current : "all";
+}
+
+function renderScanEmployeeOptions() {
+
+    const select = $("scanEmployeeSelect");
+
+    if (!select) {
+        return;
+    }
+
+    const current = select.value;
+
+    const employees = [...getEmployees()].sort(
+        (a, b) => safeText(a.name).localeCompare(safeText(b.name))
+    );
+
+    select.innerHTML = `<option value="">Select your name...</option>` +
+        employees.map(employee =>
+            `<option value="${escapeHtml(employee.id)}">${escapeHtml(employee.name)}${employee.number ? ` (${escapeHtml(employee.number)})` : ""}</option>`
+        ).join("");
+
+    /*
+       Keep the selection if that employee still exists, so a
+       re-render does not lose the person's choice mid-shift.
+    */
+    if (current && employees.some(employee => employee.id === current)) {
+        select.value = current;
+    }
+
+    updateScanGateState();
+}
+
+/*
+   The employee must be chosen before scanning is allowed. The
+   Start Camera button stays disabled until then, and says why.
+*/
+function updateScanGateState() {
+
+    const select = $("scanEmployeeSelect");
+    const startButton = $("startScannerButton");
+    const hint = $("scanEmployeeHint");
+
+    if (!select || !startButton) {
+        return;
+    }
+
+    const chosen = safeText(select.value);
+
+    const noEmployees = getEmployees().length === 0;
+
+    if (noEmployees) {
+
+        startButton.disabled = true;
+
+        if (hint) {
+            hint.textContent = "No employees yet. Add your team on the Team tab first.";
+            hint.className = "scan-employee-hint scan-employee-warn";
+        }
+
+        return;
+    }
+
+    if (!chosen) {
+
+        startButton.disabled = true;
+
+        if (hint) {
+            hint.textContent = "Choose your name first. Every scan is recorded against it.";
+            hint.className = "scan-employee-hint";
+        }
+
+        return;
+    }
+
+    startButton.disabled = false;
+
+    if (hint) {
+        hint.textContent = `Scanning as ${getEmployeeName(chosen)}.`;
+        hint.className = "scan-employee-hint scan-employee-ok";
+    }
+}
+
+/* =========================================================
    VIEW SWITCHING
    ========================================================= */
 
@@ -3631,7 +6574,9 @@ const VIEW_NAMES = [
     "projects",
     "windows",
     "scanner",
-    "employees"
+    "employees",
+    "productivity",
+    "quotes"
 ];
 
 /*
@@ -3682,7 +6627,19 @@ function switchView(viewName) {
        Stop the camera if we leave the scanner view.
     */
     if (viewName !== "scanner") {
+
         stopScanner();
+
+        /*
+           Leaving the scanner clears any search, so returning to
+           it always starts clean rather than showing a stale list.
+        */
+        const searchInput = $("scanSearchInput");
+
+        if (searchInput) {
+            searchInput.value = "";
+            renderScanSearch();
+        }
     }
 
     window.scrollTo({ top: 0, behavior: "smooth" });
@@ -3748,7 +6705,9 @@ function initialiseEventListeners() {
             projectsNewButton.addEventListener(
                 "click",
                 () => {
+                    /* Always start a clean create, not an edit. */
                     resetProjectForm();
+                    updateProjectFormMode();
                     openProjectForm();
                 }
             );
@@ -3808,6 +6767,39 @@ function initialiseEventListeners() {
             );
         }
 
+        const ageFilter =
+            $("ageFilter");
+
+        if (ageFilter) {
+
+            ageFilter.addEventListener(
+                "change",
+                filterWindows
+            );
+        }
+
+        const qcFilter =
+            $("qcFilter");
+
+        if (qcFilter) {
+
+            qcFilter.addEventListener(
+                "change",
+                filterWindows
+            );
+        }
+
+        const allocatedFilter =
+            $("allocatedFilter");
+
+        if (allocatedFilter) {
+
+            allocatedFilter.addEventListener(
+                "change",
+                filterWindows
+            );
+        }
+
         const startScannerButton =
             $("startScannerButton");
 
@@ -3851,6 +6843,123 @@ function initialiseEventListeners() {
         });
 
         /*
+           Scanner employee dropdown. Changing the name immediately
+           updates the gate, so Start Camera enables as soon as a
+           name is chosen.
+        */
+        const scanEmployeeSelect = $("scanEmployeeSelect");
+
+        if (scanEmployeeSelect) {
+
+            scanEmployeeSelect.addEventListener(
+                "change",
+                updateScanGateState
+            );
+        }
+
+        /*
+           Scanner search: find a window without the camera.
+        */
+        const scanSearchInput = $("scanSearchInput");
+
+        if (scanSearchInput) {
+
+            scanSearchInput.addEventListener(
+                "input",
+                renderScanSearch
+            );
+
+            /*
+               Enter opens the only result, so a full window ID can
+               be typed and confirmed without reaching for a mouse.
+            */
+            scanSearchInput.addEventListener("keydown", event => {
+
+                if (event.key !== "Enter") {
+                    return;
+                }
+
+                event.preventDefault();
+
+                if (scanSearchMatches.length === 1) {
+                    openWindowFromSearch(scanSearchMatches[0]);
+                }
+            });
+        }
+
+        const scanSearchClearButton = $("scanSearchClearButton");
+
+        if (scanSearchClearButton) {
+
+            scanSearchClearButton.addEventListener("click", () => {
+
+                if (scanSearchInput) {
+                    scanSearchInput.value = "";
+                    scanSearchInput.focus();
+                }
+
+                renderScanSearch();
+            });
+        }
+
+        /*
+           Productivity period presets.
+        */
+        document.querySelectorAll(".period-button").forEach(button => {
+
+            button.addEventListener("click", () => {
+
+                productivityPeriod.preset = button.dataset.period;
+                productivityPeriod.from = null;
+                productivityPeriod.to = null;
+
+                document.querySelectorAll(".period-button").forEach(other => {
+                    other.classList.toggle(
+                        "active",
+                        other === button
+                    );
+                });
+
+                /* Clear the custom date boxes so the preset wins. */
+                if ($("periodFrom")) $("periodFrom").value = "";
+                if ($("periodTo")) $("periodTo").value = "";
+
+                renderProductivity();
+            });
+        });
+
+        const applyPeriodButton = $("applyPeriodButton");
+
+        if (applyPeriodButton) {
+
+            applyPeriodButton.addEventListener("click", () => {
+
+                const from = safeText($("periodFrom")?.value);
+                const to = safeText($("periodTo")?.value);
+
+                if (!from && !to) {
+                    showError("Choose a from date, a to date, or both.");
+                    return;
+                }
+
+                if (from && to && new Date(from) > new Date(to)) {
+                    showError("The from date must be before the to date.");
+                    return;
+                }
+
+                productivityPeriod.preset = "custom";
+                productivityPeriod.from = from || null;
+                productivityPeriod.to = to || null;
+
+                document.querySelectorAll(".period-button").forEach(other => {
+                    other.classList.remove("active");
+                });
+
+                renderProductivity();
+            });
+        }
+
+        /*
            Dashboard / list "New Window" buttons
         */
         const dashboardNewButton =
@@ -3871,12 +6980,17 @@ function initialiseEventListeners() {
             });
         }
 
-        const viewAllButton =
-            $("viewAllWindowsButton");
+        /*
+           Scan button on the dashboard: jumps straight to the
+           camera, so the workshop does not have to hunt for it.
+        */
+        const dashboardScanButton =
+            $("dashboardScanButton");
 
-        if (viewAllButton) {
-            viewAllButton.addEventListener("click", () => {
-                switchView("windows");
+        if (dashboardScanButton) {
+
+            dashboardScanButton.addEventListener("click", () => {
+                switchView("scanner");
             });
         }
 
@@ -4055,13 +7169,104 @@ window.openNewProject =
 window.getAllWindowsWithProject =
     getAllWindowsWithProject;
 
+window.renderProductivity =
+    renderProductivity;
+
+window.renderDashboardProjects =
+    renderDashboardProjects;
+
+window.renderAllocatedFilterOptions =
+    renderAllocatedFilterOptions;
+
+window.renderScanSearch =
+    renderScanSearch;
+
+window.openWindowFromSearch =
+    openWindowFromSearch;
+
+window.renderDashboardWindows =
+    renderDashboardWindows;
+
+window.getActivity =
+    getActivity;
+
+window.logActivity =
+    logActivity;
+
 /* =========================================================
    APPLICATION STARTUP
    ========================================================= */
 
+/*
+   Boot the working app.
+
+   Kept separate from the listener below because it runs either
+   straight away (offline-only mode) or after a successful PIN
+   sign-in. The guard makes it safe to call from both paths.
+*/
+let appStarted = false;
+
+async function startApp() {
+
+    if (appStarted) {
+        return;
+    }
+
+    appStarted = true;
+
+    try {
+
+        /*
+           Pull the workshop's data. If the phone is offline this
+           quietly returns what is already stored locally, so the
+           app still opens and works.
+        */
+        const pull = await initBackend();
+
+        if (pull && pull.ok) {
+
+            /*
+               Re-render from the server copy. Only safe because
+               the pull refuses to overwrite when changes are still
+               queued for upload.
+            */
+            renderAll();
+        }
+
+        initialiseEventListeners();
+
+        /* Bring the quote builder up in the same guarded way. */
+        if (typeof window.initQuotes === "function") {
+            window.initQuotes();
+        }
+
+
+        /* Start the first project with a single empty window row. */
+        addProjectWindowRow();
+
+        renderAll();
+        handleDeepLink();
+        updateSyncIndicator();
+
+        console.log(
+            "AGA Workshop Management System loaded successfully."
+        );
+
+    } catch (error) {
+
+        console.error("Application startup error:", error);
+
+        showError(
+            "The AGA application could not be started correctly."
+        );
+    }
+}
+
+window.startApp = startApp;
+
 document.addEventListener(
     "DOMContentLoaded",
-    () => {
+    async () => {
 
         try {
 
@@ -4076,17 +7281,63 @@ document.addEventListener(
                     });
             }
 
-            initialiseEventListeners();
+            initialiseSignIn();
 
-            /* Start the first project with a single empty window row. */
-            addProjectWindowRow();
+            /*
+               No backend yet: the app runs exactly as before,
+               entirely on this device. This keeps the workshop
+               working during setup rather than showing a sign-in
+               screen it cannot satisfy.
+            */
+            if (!isBackendConfigured()) {
 
-            renderAll();
-            handleDeepLink();
+                await startApp();
 
-            console.log(
-                "AGA Workshop Management System loaded successfully."
-            );
+                return;
+            }
+
+            /*
+               OPEN ACCESS: the app is deliberately open to anyone
+               with the link while the workshop gets running. No
+               PIN screen. Employees still choose their name when
+               they scan, so work is still credited to a person.
+            */
+            if (isOpenAccess()) {
+
+                hideSignIn();
+
+                /*
+                   Show Sign out only when a session exists, so the
+                   header does not offer an action that does
+                   nothing.
+                */
+                const signOutButton = document.getElementById("signOutButton");
+
+                if (signOutButton) {
+                    signOutButton.hidden = !getSession();
+                }
+
+                await startApp();
+
+                return;
+            }
+
+            /*
+               PIN mode: a signed-in phone goes straight in, so the
+               PIN is entered once per device, not on every scan.
+            */
+            if (getSession()) {
+
+                hideSignIn();
+
+                await startApp();
+
+                return;
+            }
+
+            showSignIn();
+
+            await renderSignInEmployees();
 
         } catch (error) {
 
