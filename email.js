@@ -30,22 +30,33 @@ const EMAIL_COMPANY = {
 
    The endpoint must be the FUNCTION url, not the REST url:
 
-     ok    https://<ref>.supabase.co/functions/v1/send-production-email
+     ok    https://<ref>.supabase.co/functions/v1/send-email
      not   https://<ref>.supabase.co/rest/v1/
 */
 const SUPABASE_PROJECT_REF = "mvymxqajdiupucrkeqpg";
 
 /*
+   The deployed function's name.
+
+   IMPORTANT: this must match the name in the Supabase dashboard
+   exactly. A mismatch is a 404, and because a failed send is
+   swallowed by design (email must never block the workshop), it
+   shows up only in the browser console - not as anything the user
+   sees.
+*/
+const EMAIL_FUNCTION_NAME = "send-email";
+
+/*
    The live endpoint, or "" when not configured yet.
 
-   Built from the ref above so there is exactly one place to edit.
-   A ref starting with "<" means the placeholder is still in place,
-   so the function has not been deployed and the app falls back to a
-   mailto: draft.
+   Built from the two constants above so there is exactly one place
+   to edit each. A ref starting with "<" means the placeholder is
+   still in place, so the function has not been deployed and the app
+   falls back to a mailto: draft.
 */
 const EMAIL_ENDPOINT = SUPABASE_PROJECT_REF.startsWith("<")
     ? ""
-    : `https://${SUPABASE_PROJECT_REF}.supabase.co/functions/v1/send-production-email`;
+    : `https://${SUPABASE_PROJECT_REF}.supabase.co/functions/v1/${EMAIL_FUNCTION_NAME}`;
 
 /*
    Surface the endpoint once on load. A wrong project ref (or a ref

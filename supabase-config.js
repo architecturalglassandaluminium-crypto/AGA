@@ -18,9 +18,20 @@
 
 "use strict";
 
-const SUPABASE_URL = "";        /* e.g. https://abcdefgh.supabase.co */
+const SUPABASE_URL = "https://mvymxqajdiupucrkeqpg.supabase.co";
 
-const SUPABASE_ANON_KEY = "";   /* e.g. eyJhbGciOi... */
+/*
+   The PUBLISHABLE key.
+
+   Supabase renamed "anon key" to "publishable key" for their modern
+   sb_publishable_... style. It is the same role: safe to ship in
+   front-end code, because what protects the data is the Row Level
+   Security in supabase/schema.sql, not the secrecy of this value.
+
+   NEVER put the sb_secret_... key here. That one bypasses Row Level
+   Security entirely, and this file is served to every visitor.
+*/
+const SUPABASE_ANON_KEY = "sb_publishable_U5wCUR1JeDskIqQdGwdAbg_zaczJYlJ";
 
 /*
    The workshop this build belongs to. Generated when you run the

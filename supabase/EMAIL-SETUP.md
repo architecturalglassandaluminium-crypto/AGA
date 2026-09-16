@@ -261,3 +261,61 @@ you need to change the email logic:
 
 That way the repo stays the source of truth and a mistake in the
 browser is always recoverable.
+---
+
+# What is actually deployed (verified)
+
+Checked against the live project on **{{date}}**:
+
+| URL | Result | Meaning |
+|---|---|---|
+| `/functions/v1/send-email` | **500** | Deployed and running, but throwing |
+| `/functions/v1/send-production-email` | 404 | Not deployed |
+| `/functions/v1/nonexistent-xyz` | 404 | Not deployed |
+
+So the function in use is named **`send-email`**, and `email.js` points at it
+via `EMAIL_FUNCTION_NAME`.
+
+## The 500 on OPTIONS is the clue
+
+An `OPTIONS` preflight returning 500 (rather than 204 or 405) means the
+function throws **before** it handles CORS. That is a load-time or
+top-of-file error, not a Resend error - if Resend were the problem, only
+`POST` would fail.
+
+Things to check, in order:
+
+1. **`RESEND_API_KEY` and `FROM_EMAIL` are set.** This function reads
+   `FROM_EMAIL`, not `AGA_MAIL_FROM`. If your code reads a variable that
+   is not set and dereferences it at module scope, the whole function
+   throws on load and every request - including OPTIONS - becomes a 500.
+2. **The function's own Logs tab** shows the real stack trace. This is
+   the fastest way to the answer.
+3. **CORS defaults to `*` until `ALLOWED_ORIGINS` is set.** Set it to
+   `https://architecturalglassandaluminium-crypto.github.io` before
+   production, or any site can relay mail through your function.
+
+## Secret name mismatch
+
+`supabase/DASHBOARD-PASTE.ts` in this repo reads:
+
+- `AGA_MAIL_FROM`
+- `AGA_ALLOWED_ORIGIN`
+
+The deployed `send-email` function reads:
+
+- `FROM_EMAIL` and `FROM_NAME`
+- `ALLOWED_ORIGINS`
+
+**Only one of these can be right.** Pick one function and one set of
+names, and make the other match - otherwise the settings screen and the
+code disagree and the failure is confusing.
+
+If you keep the deployed `send-email`, set these secrets:
+
+| Name | Value |
+|---|---|
+| `RESEND_API_KEY` | your `re_...` key |
+| `FROM_EMAIL` | `no-reply@agasouthafrica.co.za` (verified in Resend) |
+| `FROM_NAME` | `AGA Workshop` |
+| `ALLOWED_ORIGINS` | `https://architecturalglassandaluminium-crypto.github.io` |
