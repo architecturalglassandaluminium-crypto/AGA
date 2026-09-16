@@ -18,30 +18,48 @@ const EMAIL_COMPANY = {
    only - it cannot run a serverless function. So the mailer runs
    as a Supabase Edge Function and is called cross-origin.
 
-   Deploy it with:
+   Deploy it with either:
 
      supabase functions deploy send-production-email
-   Replace <PROJECT-REF> below with your Supabase project ref (the
-   subdomain of your project URL, also shown by
-   `supabase projects list`).
+   or through the Supabase dashboard - see supabase/EMAIL-SETUP.md
+   and supabase/DASHBOARD-PASTE.ts.
 
-   Leave the placeholder in place and the app simply has no
-   mailer: every send returns false and falls back to a mailto:
-   draft, exactly as it did before the function existed. That is
-   why this is a constant rather than something that throws.
+   The ref below is the subdomain of the project URL. If the project
+   URL is https://abcdefghijk.supabase.co then the ref is
+   abcdefghijk.
+
+   The endpoint must be the FUNCTION url, not the REST url:
+
+     ok    https://<ref>.supabase.co/functions/v1/send-production-email
+     not   https://<ref>.supabase.co/rest/v1/
 */
-const SUPABASE_PROJECT_REF = "<PROJECT-REF>";
+const SUPABASE_PROJECT_REF = "mvymxqajdiupucrkeqpg";
 
 /*
    The live endpoint, or "" when not configured yet.
 
    Built from the ref above so there is exactly one place to edit.
-   A ref starting with "<" is still the placeholder, which means
-   the function has not been deployed yet.
+   A ref starting with "<" means the placeholder is still in place,
+   so the function has not been deployed and the app falls back to a
+   mailto: draft.
 */
 const EMAIL_ENDPOINT = SUPABASE_PROJECT_REF.startsWith("<")
     ? ""
     : `https://${SUPABASE_PROJECT_REF}.supabase.co/functions/v1/send-production-email`;
+
+/*
+   Surface the endpoint once on load. A wrong project ref (or a ref
+   copied from the REST url, which looks almost identical) is the
+   likeliest setup mistake, and this makes it visible instead of
+   leaving someone to guess from a failed send.
+*/
+if (EMAIL_ENDPOINT) {
+    console.log(`AGA: mailer endpoint is ${EMAIL_ENDPOINT}`);
+} else {
+    console.warn(
+        "AGA: no mailer configured - email will fall back to opening a mail app."
+    );
+}
 
 /*
    The office addresses that are copied on internal notifications:
