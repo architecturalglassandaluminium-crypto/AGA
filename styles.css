@@ -1223,6 +1223,121 @@ img {
     display: block;
 }
 
+/*
+   Read-only worksheet preview, shown in the modal from the dashboard.
+
+   Styled to look like a document rather than a form, which is the point:
+   nothing here can be typed into. The banner says so explicitly, because
+   an editable-looking table invites a click that does nothing.
+*/
+
+.worksheet-preview-banner {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    padding: 9px 12px;
+    margin-bottom: 14px;
+    font-size: 12px;
+    line-height: 1.45;
+    color: var(--text);
+    background: var(--surface-light);
+    border-left: 3px solid var(--accent);
+    border-radius: var(--radius-sm);
+}
+
+.worksheet-preview-banner .icon {
+    flex: 0 0 auto;
+    width: 15px;
+    height: 15px;
+    margin-top: 1px;
+}
+
+.worksheet-preview-title {
+    margin: 0;
+    font-size: 17px;
+    font-weight: 700;
+}
+
+.worksheet-preview-sub {
+    margin: 2px 0 12px;
+    font-size: 13px;
+    color: var(--text-muted);
+}
+
+.worksheet-preview-facts {
+    width: 100%;
+    border-collapse: collapse;
+    margin-bottom: 16px;
+    font-size: 13px;
+}
+
+.worksheet-preview-facts th {
+    text-align: left;
+    font-weight: 600;
+    color: var(--text-muted);
+    padding: 5px 10px 5px 0;
+    white-space: nowrap;
+    vertical-align: top;
+    width: 120px;
+}
+
+.worksheet-preview-facts td {
+    padding: 5px 0;
+    vertical-align: top;
+}
+
+.worksheet-preview-heading {
+    margin: 0 0 8px;
+    font-size: 13px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--text-muted);
+}
+
+/*
+   The item table can be wide (eleven columns), so it scrolls inside its
+   own box rather than stretching the modal.
+*/
+.worksheet-preview-scroll {
+    overflow-x: auto;
+    margin-bottom: 16px;
+}
+
+.worksheet-preview-items {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 12px;
+}
+
+.worksheet-preview-items th,
+.worksheet-preview-items td {
+    border-bottom: 1px solid var(--border);
+    padding: 6px 8px;
+    text-align: left;
+    white-space: nowrap;
+}
+
+.worksheet-preview-items th {
+    font-weight: 600;
+    color: var(--text-muted);
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    border-bottom: 1.5px solid var(--border-dark);
+}
+
+/* Numeric columns line up down the table. */
+.worksheet-preview-items .ws-num {
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+}
+
+.worksheet-preview-items .ws-id {
+    font-family: ui-monospace, Consolas, "Courier New", monospace;
+    font-weight: 700;
+}
+
 /* Label printer settings panel, shown in the modal. */
 
 .label-settings {

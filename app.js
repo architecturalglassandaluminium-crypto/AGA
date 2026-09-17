@@ -5393,6 +5393,12 @@ function renderDashboardWindows() {
         return;
     }
 
+    /*
+       The View Worksheet button follows the selection, so it is only
+       offered when there is a worksheet to look at.
+    */
+    syncDashboardWorksheetButton();
+
     const project = getProjects().find(
         item => item.id === dashboardSelectedProjectId
     );
@@ -5448,6 +5454,202 @@ function renderDashboardWindows() {
 
     renderWindowRowQRCodes(container);
 }
+
+/* =========================================================
+   VIEW A WORKSHEET (READ ONLY)
+   =========================================================
+
+   Shows on screen what printProject() sends to paper: the project
+   facts, then every window as one row.
+
+   READ-ONLY, and that is a design decision rather than an
+   unfinished one. The dashboard is where a job is CHECKED, and a
+   worksheet that could be edited here would be a second way to
+   change the same data, with its own chance of disagreeing with
+   the project form. So this renders text only - no inputs, no
+   selects, no save, and it calls nothing that writes.
+
+   The values come from the same project record the print path
+   reads, so the two cannot show different numbers.
+*/
+
+function buildWorksheetPreviewHtml(project) {
+
+    const windows = Array.isArray(project.windows)
+        ? project.windows
+        : [];
+
+    const row = (label, value) => `
+        <tr>
+            <th scope="row">${escapeHtml(label)}</th>
+            <td>${escapeHtml(value) || "\u2014"}</td>
+        </tr>`;
+
+    const contact = [project.customerEmail, project.customerPhone]
+        .map(value => safeText(value))
+        .filter(Boolean)
+        .join("  \u00b7  ");
+
+    /*
+       Due date: reuse normaliseDueDate + toLocaleDateString rather than
+       formatCreatedDate, which is for a CREATED timestamp and returned
+       an empty string here - so a date the user had set showed blank.
+
+       normaliseDueDate already handles the formats the app stores, and
+       returns "" for an absent date, which is the case to check for.
+    */
+    const dueNormalised = normaliseDueDate(project.dueDate);
+
+    let due = "";
+
+    if (dueNormalised) {
+        const parts = dueNormalised.split("-").map(Number);
+
+        due = new Date(parts[0], parts[1] - 1, parts[2]).toLocaleDateString(
+            "en-ZA",
+            { day: "numeric", month: "short", year: "numeric" }
+        );
+    }
+
+    /*
+       The item rows. Same columns the printed schedule carries,
+       minus the QR and barcode, which are marks for a scanner and
+       mean nothing on screen.
+    */
+    const itemRows = windows.map(window => `
+        <tr>
+            <td class="ws-id">${escapeHtml(window.windowNumber || formatWindowId(window.windowId) || "\u2014")}</td>
+            <td>${escapeHtml(window.productType || window.windowType || "\u2014")}</td>
+            <td>${escapeHtml(window.description || "\u2014")}</td>
+            <td>${escapeHtml(window.location || "\u2014")}</td>
+            <td class="ws-num">${escapeHtml(window.length) || "\u2014"}</td>
+            <td class="ws-num">${escapeHtml(window.width) || "\u2014"}</td>
+            <td>${escapeHtml(window.frameColour || "\u2014")}</td>
+            <td>${escapeHtml(window.glassType || "\u2014")}</td>
+            <td>${escapeHtml(window.status || "\u2014")}</td>
+            <td>${escapeHtml(window.qcCheck || "\u2014")}</td>
+            <td>${escapeHtml(window.allocatedTo || "Unallocated")}</td>
+        </tr>`).join("");
+
+    return `
+    <div class="worksheet-preview" data-readonly="true">
+
+        <div class="worksheet-preview-banner">
+            <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7z"/><circle cx="12" cy="12" r="3"/></svg>
+            <span>Read-only preview \u2014 this is what the worksheet prints. To change anything, use the Projects tab.</span>
+        </div>
+
+        <h3 class="worksheet-preview-title">${escapeHtml(project.projectNumber || "Project")}</h3>
+        <p class="worksheet-preview-sub">${escapeHtml(project.projectName || "")}</p>
+
+        <table class="worksheet-preview-facts">
+            <tbody>
+                ${row("Customer", project.customerName)}
+                ${row("Site Address", project.siteAddress)}
+                ${row("Contact", contact)}
+                ${row("Due Date", due || "Not set")}
+                ${row("Items", String(windows.length))}
+            </tbody>
+        </table>
+
+        ${/*
+             A project has no single size, type, frame or glass, so
+             none is stated here - the schedule below carries them per
+             item. Same rule the printed cover follows.
+          */ ""}
+        <h4 class="worksheet-preview-heading">Items</h4>
+
+        ${windows.length
+            ? `<div class="worksheet-preview-scroll">
+                <table class="worksheet-preview-items">
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>Type</th>
+                            <th>Description</th>
+                            <th>Location</th>
+                            <th class="ws-num">Length</th>
+                            <th class="ws-num">Width</th>
+                            <th>Frame</th>
+                            <th>Glass</th>
+                            <th>Status</th>
+                            <th>QC</th>
+                            <th>Allocated</th>
+                        </tr>
+                    </thead>
+                    <tbody>${itemRows}</tbody>
+                </table>
+               </div>`
+            : `<p class="details-small">No windows or doors captured on this project.</p>`}
+
+        <div class="details-actions">
+            <button type="button" class="primary-button"
+                onclick="printProject('${escapeHtml(project.id)}')">
+                Print Worksheet
+            </button>
+        </div>
+    </div>`;
+}
+
+/*
+   Open the preview for whichever project the dashboard has selected.
+*/
+function viewProjectWorksheet() {
+
+    const project = getProjects().find(
+        item => item.id === dashboardSelectedProjectId
+    );
+
+    if (!project) {
+        showError("Select a project on the dashboard first.");
+        return false;
+    }
+
+    const title = $("modalWindowTitle");
+    const content = $("modalWindowContent");
+
+    if (title) {
+        title.textContent = `Worksheet \u2014 ${safeText(project.projectNumber) || "Project"}`;
+    }
+
+    if (content) {
+        content.innerHTML = buildWorksheetPreviewHtml(project);
+    }
+
+    const modal = $("windowModal");
+
+    if (modal) {
+        modal.classList.add("open");
+        modal.setAttribute("aria-hidden", "false");
+    }
+
+    return true;
+}
+
+/*
+   Show or hide the View Worksheet button as the selection changes.
+   With no project chosen there is no worksheet to view.
+*/
+function syncDashboardWorksheetButton() {
+
+    const button = $("dashboardViewWorksheet");
+
+    if (!button) {
+        return;
+    }
+
+    const hasProject = Boolean(
+        getProjects().find(item => item.id === dashboardSelectedProjectId)
+    );
+
+    button.hidden = !hasProject;
+}
+
+window.viewProjectWorksheet = viewProjectWorksheet;
+
+window.buildWorksheetPreviewHtml = buildWorksheetPreviewHtml;
+
+window.syncDashboardWorksheetButton = syncDashboardWorksheetButton;
 
 /* =========================================================
    RENDER EVERYTHING

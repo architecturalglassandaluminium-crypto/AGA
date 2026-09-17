@@ -206,7 +206,29 @@
                         <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="1.5"/><path d="M12 3v18M3 12h9"/></svg>
                         <span id="dashboardWindowsTitle">Windows &amp; Doors</span>
                     </h3>
-                    <span class="measurement-note" id="dashboardWindowsNote">Select a project above</span>
+                    <div class="section-card-header-actions">
+                        <span class="measurement-note" id="dashboardWindowsNote">Select a project above</span>
+                        <!--
+                           READ-ONLY preview of the worksheet.
+
+                           Deliberately a look, not an editor: the
+                           dashboard is where the workshop checks a job,
+                           and a worksheet that could be changed from
+                           here would be a second way to edit the same
+                           data, with its own chance of disagreeing with
+                           the project form. It renders the same values
+                           printProject sends to paper, and nothing on it
+                           can be typed into or saved.
+
+                           Hidden until a project is selected.
+                        -->
+                        <button type="button" class="secondary-button"
+                            id="dashboardViewWorksheet" hidden
+                            onclick="viewProjectWorksheet()">
+                            <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><path d="M9 13h6M9 17h6"/></svg>
+                            View Worksheet
+                        </button>
+                    </div>
                 </div>
                 <div id="dashboardWindows"></div>
             </div>
