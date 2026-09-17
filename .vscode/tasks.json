@@ -4,15 +4,94 @@
         {
             "label": "AGA: start preview server",
             "type": "process",
-            "command": "node",
+            "command": "C:\\Program Files\\nodejs\\node.exe",
             "args": [
                 "${workspaceFolder}/preview-server.js"
             ],
             "isBackground": true,
-            "problemMatcher": [],
+            "problemMatcher": {
+                "owner": "aga-preview-server",
+                "pattern": [
+                    {
+                        "regexp": "AGA preview server (running at|starting)",
+                        "message": 0
+                    }
+                ],
+                "background": {
+                    "activeOnStart": false,
+                    "beginsPattern": "AGA preview server starting",
+                    "endsPattern": "AGA preview server running at"
+                }
+            },
             "presentation": {
                 "reveal": "never",
                 "panel": "dedicated"
+            }
+        },
+        {
+            "label": "AGA: test",
+            "type": "process",
+            "command": "C:\\Program Files\\nodejs\\node.exe",
+            "args": [
+                "--test",
+                "tools/*.test.js"
+            ],
+            "group": {
+                "kind": "test",
+                "isDefault": true
+            },
+            "presentation": {
+                "reveal": "always",
+                "panel": "shared",
+                "clear": true
+            },
+            "problemMatcher": {
+                "owner": "node-test",
+                "fileLocation": "absolute",
+                "pattern": [
+                    {
+                        "regexp": "({\\s*error.?,[^}]*})",
+                        "message": 1
+                    }
+                ],
+                "severity": "error",
+                "background": {
+                    "activeOnStart": true,
+                    "beginsPattern": "^>.+\\.test\\.js$",
+                    "endsPattern": "^[\\u2139\\u2716] (tests|fail) "
+                }
+            }
+        },
+        {
+            "label": "AGA: test (watch)",
+            "type": "process",
+            "command": "C:\\Program Files\\nodejs\\node.exe",
+            "args": [
+                "--test",
+                "--watch",
+                "tools/*.test.js"
+            ],
+            "isBackground": true,
+            "presentation": {
+                "reveal": "always",
+                "panel": "dedicated",
+                "clear": true
+            },
+            "problemMatcher": {
+                "owner": "node-test",
+                "fileLocation": "absolute",
+                "pattern": [
+                    {
+                        "regexp": "({\\s*error.?,[^}]*})",
+                        "message": 1
+                    }
+                ],
+                "severity": "error",
+                "background": {
+                    "activeOnStart": true,
+                    "beginsPattern": "^>.+\\.test\\.js$",
+                    "endsPattern": "^[\\u2139\\u2716] (tests|fail) "
+                }
             }
         }
     ]

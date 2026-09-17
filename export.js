@@ -105,7 +105,38 @@ function csvDate(value) {
         return String(value);
     }
 
-    return quoteStamp(date);
+    return exportStamp(date);
+}
+
+/*
+   "2026-09-15 08:14" - the same stamp the quote screen prints.
+
+   This is defined here, not borrowed from quotes.js, because this
+   file is also required by a Node background job where quotes.js is
+   not loaded. Depending on that global made csvDate() and
+   csvFilename() throw "quoteStamp is not defined" outside the
+   browser, which is exactly the case the header promises works.
+
+   Kept byte-for-byte identical to quotes.js/quoteStamp so a date
+   looks the same whether it is printed on a quote or exported.
+*/
+function exportStamp(date) {
+    const pad = value => String(value).padStart(2, "0");
+
+    const day = [
+        date.getFullYear(),
+        pad(date.getMonth() + 1),
+        pad(date.getDate())
+    ].join("-");
+
+    const time = [
+        pad(date.getHours()),
+        pad(date.getMinutes())
+    ].join(":");
+
+    const space = String.fromCharCode(32);
+
+    return day + space + time;
 }
 
 /* =========================================================
@@ -114,7 +145,7 @@ FILES
 
 /* A dated filename, so exports from different days do not collide. */
 function csvFilename(prefix) {
-    const stamp = quoteStamp(new Date()).split(" ")[0];
+    const stamp = exportStamp(new Date()).split(" ")[0];
 
     return "AGA-" + prefix + "-" + stamp + ".csv";
 }

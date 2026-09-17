@@ -1,0 +1,11 @@
+{
+  "name": "aga",
+  "version": "1.0.0",
+  "private": true,
+  "description": "AGA quote builder - browser app plus a local preview server.",
+  "scripts": {
+    "test": "node --test \"tools/*.test.js\"",
+    "test:watch": "node --test --watch \"tools/*.test.js\"",
+    "test:launch": "node --test tools/verify-launch-config.test.js"
+  }
+}

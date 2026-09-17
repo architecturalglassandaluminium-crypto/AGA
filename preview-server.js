@@ -102,6 +102,8 @@ http.createServer((req, res) => {
         res.writeHead(200, { 'Content-Type': MIME[ext] || 'application/octet-stream' });
         res.end(data);
     });
+console.log('AGA preview server starting');
+
 }).listen(PORT, '127.0.0.1', () => {
     console.log(`AGA preview server running at http://127.0.0.1:${PORT}/`);
 });
