@@ -88,16 +88,35 @@ test('the label container is print-only so it never shows on screen', () => {
     assert.match(htmlSource, /id="printLabel" class="print-only/);
 });
 
-test('the label carries a QR target, a barcode target and the window number', () => {
-    assert.match(htmlSource, /id="printLabelQRCode"/);
-    assert.match(htmlSource, /id="printLabelBarcode"/);
-    assert.match(htmlSource, /id="printLabelNumber"/);
+test('the label sheet provides a stack that labels are built into', () => {
+    // The sheet holds one label or many, so the markup is a container
+    // filled by renderLabelSheet() rather than a fixed single label.
+    assert.match(htmlSource, /id="printLabelStack"/);
 });
 
-test('the label carries project, type and size fields', () => {
-    assert.match(htmlSource, /id="printLabelProject"/);
-    assert.match(htmlSource, /id="printLabelType"/);
-    assert.match(htmlSource, /id="printLabelSize"/);
+test('the sheet no longer hard-codes a single label', () => {
+    // Guards the refactor: a fixed single label cannot print a project.
+    assert.doesNotMatch(htmlSource, /id="printLabelQRCode"/);
+});
+
+test('renderLabelSheet emits the number, project, type and size per label', () => {
+    const body = functionBody('renderLabelSheet');
+    assert.match(body, /class="print-label-number"/);
+    assert.match(body, /class="print-label-project"/);
+    assert.match(body, /item\.productType/);
+    assert.match(body, /item\.length/);
+});
+
+test('renderLabelSheet emits a QR and a barcode target per label', () => {
+    const body = functionBody('renderLabelSheet');
+    assert.match(body, /data-label-qr-value/);
+    assert.match(body, /data-label-barcode-value/);
+});
+
+test('renderLabelSheet escapes every value it writes', () => {
+    const body = functionBody('renderLabelSheet');
+    assert.match(body, /escapeHtml\(project\)/);
+    assert.match(body, /escapeHtml\(windowNumber\)/);
 });
 
 // ---------------------------------------------------------------------------
@@ -114,16 +133,23 @@ test('the modal offers a Print Label button next to Print Worksheet', () => {
     assert.match(appSource, /Print Label/);
 });
 
-test('printLabel draws BOTH a QR and a barcode', () => {
-    const body = functionBody('printLabel');
+test('the label sheet draws BOTH a QR and a barcode', () => {
+    // Drawing moved into the shared renderer so one window and a whole
+    // project take exactly the same path.
+    const body = functionBody('renderLabelSheet');
     assert.match(body, /generateQRCodeInElement\(/);
     assert.match(body, /generateBarcodeInElement\(/);
 });
 
 test('both marks encode the same window number', () => {
+    const body = functionBody('renderLabelSheet');
+    assert.match(body, /buildWindowIdQRContent\(node\.dataset\.labelQrValue\)/);
+    assert.match(body, /buildWindowBarcodeValue\(node\.dataset\.labelBarcodeValue\)/);
+});
+
+test('printLabel reuses the shared renderer rather than repeating it', () => {
     const body = functionBody('printLabel');
-    assert.match(body, /buildWindowIdQRContent\(windowNumber\)/);
-    assert.match(body, /buildWindowBarcodeValue\(windowNumber\)/);
+    assert.match(body, /renderLabelSheet\(\[item\]\)/);
 });
 
 test('printLabel refuses a window with no number rather than printing a blank label', () => {
@@ -135,6 +161,73 @@ test('printLabel reports a missing window instead of throwing', () => {
     const body = functionBody('printLabel');
     assert.match(body, /showError/);
     assert.match(body, /return false/);
+});
+
+// ---------------------------------------------------------------------------
+// Printing every label on a project
+// ---------------------------------------------------------------------------
+
+test('printProjectLabels exists and is exposed for the inline button', () => {
+    assert.match(appSource, /function printProjectLabels\(projectId\)/);
+    assert.match(appSource, /window\.printProjectLabels = printProjectLabels/);
+});
+
+test('the project card offers Print All Barcodes beside Email', () => {
+    // The two buttons must sit in the same action row.
+    assert.match(appSource, /Print All Barcodes/);
+    assert.match(appSource, /onclick="printProjectLabels\('\$\{project\.id\}'\)"/);
+    const actions = appSource.match(/window-card-actions"[\s\S]*?<\/div>/);
+    assert.ok(actions, 'the card action row was not found');
+    assert.match(actions[0], /emailProject/, 'Email must still be in the row');
+    assert.match(actions[0], /printProjectLabels/, 'Print All Barcodes must be in the row');
+});
+
+test('the button is only offered when the project has windows', () => {
+    // A label button on an empty project is a dead control.
+    const actions = appSource.match(/window-card-actions"[\s\S]*?<\/div>/);
+    assert.match(actions[0], /\$\{windows\.length/);
+});
+
+test('printProjectLabels reports a missing project instead of throwing', () => {
+    const body = functionBody('printProjectLabels');
+    assert.match(body, /showError\("The project could not be found/);
+});
+
+test('printProjectLabels refuses a project with no windows', () => {
+    const body = functionBody('printProjectLabels');
+    assert.match(body, /no windows to label/);
+});
+
+test('printProjectLabels skips windows with no number', () => {
+    // A window with no ID has nothing to encode, so it must not produce a
+    // blank sticker.
+    const body = functionBody('printProjectLabels');
+    assert.match(body, /filter\(window => safeText\(window\.windowNumber\)\)/);
+});
+
+test('printProjectLabels refuses when NO window has a number', () => {
+    const body = functionBody('printProjectLabels');
+    assert.match(body, /nothing to label/);
+});
+
+test('printProjectLabels carries the project detail onto each label', () => {
+    const body = functionBody('printProjectLabels');
+    assert.match(body, /projectNumber: project\.projectNumber/);
+    assert.match(body, /projectName: project\.projectName/);
+});
+
+test('printProjectLabels tells the user how many were skipped', () => {
+    const body = functionBody('printProjectLabels');
+    assert.match(body, /skipped/);
+    assert.match(body, /showSuccess/);
+});
+
+test('the whole project is drawn in ONE print job, not one per window', () => {
+    // Looping printLabel() would raise a print dialog per window.
+    const body = functionBody('printProjectLabels');
+    const prints = (body.match(/printWithLabelMode\(\)/g) || []).length;
+    assert.equal(prints, 1, 'printProjectLabels must print once');
+    assert.match(body, /renderLabelSheet\(labelled\)/);
 });
 
 // ---------------------------------------------------------------------------
@@ -220,6 +313,15 @@ test('the label barcode is not stretched horizontally', () => {
     assert.ok(rule, 'the label barcode size rule was not found');
     assert.match(rule[1], /width:\s*[\d.]+mm/);
     assert.match(rule[1], /height:\s*auto/);
+});
+
+test('the label stack lays labels out in a flowing grid', () => {
+    // A sticker is not a page: six windows should use one or two A4
+    // sheets, not six.
+    const rule = cssSource.match(/#printLabelStack\s*\{([\s\S]*?)\}/);
+    assert.ok(rule, 'the label stack rule was not found');
+    assert.match(rule[1], /display:\s*flex/);
+    assert.match(rule[1], /flex-wrap:\s*wrap/);
 });
 
 test('the label is sized to a sticker rather than a page', () => {

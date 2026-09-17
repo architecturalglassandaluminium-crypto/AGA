@@ -2035,6 +2035,10 @@ window.renderWindowRowQRCodes = renderWindowRowQRCodes;
 
 window.printLabel = printLabel;
 
+window.printProjectLabels = printProjectLabels;
+
+window.renderLabelSheet = renderLabelSheet;
+
 window.findWindowForPrint = findWindowForPrint;
 
 function removeProjectWindowRow(rowId) {
@@ -4402,6 +4406,19 @@ function renderProjects(
                     Email
                 </button>
 
+                <!--
+                   One label per window on the job, in a single print
+                   job - the stickers that go on the frames themselves.
+                   Only offered when there is something to label.
+                -->
+                ${windows.length
+                    ? `<button type="button" class="secondary-button card-action"
+                        onclick="printProjectLabels('${project.id}')">
+                        <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 5v14"/><path d="M8 5v14"/><path d="M12 5v14"/><path d="M17 5v14"/><path d="M21 5v14"/></svg>
+                        Print All Barcodes
+                    </button>`
+                    : ""}
+
                 <button type="button" class="secondary-button card-action"
                     onclick="deleteProject('${project.id}')">
                     Delete
@@ -6297,45 +6314,7 @@ function printLabel(windowId) {
             return false;
         }
 
-        setPrintText("printLabelNumber", windowNumber);
-
-        setPrintText(
-            "printLabelProject",
-            [item.projectNumber, item.projectName]
-                .map(value => safeText(value))
-                .filter(Boolean)
-                .join("  \u00b7  ")
-        );
-
-        setPrintText(
-            "printLabelType",
-            safeText(item.productType) || safeText(item.windowType)
-        );
-
-        const length = safeText(item.length) || safeText(item.finalWidth);
-        const width = safeText(item.width) || safeText(item.finalHeight);
-
-        setPrintText(
-            "printLabelSize",
-            length && width ? `${length} \u00d7 ${width} mm` : ""
-        );
-
-        /*
-           Both marks carry the same value, so whichever reader the
-           workshop owns can identify the item. Drawn before printing
-           because both libraries paint into a real element.
-        */
-        generateQRCodeInElement(
-            "#printLabelQRCode",
-            buildWindowIdQRContent(windowNumber),
-            220
-        );
-
-        generateBarcodeInElement(
-            "#printLabelBarcode",
-            buildWindowBarcodeValue(windowNumber),
-            60
-        );
+        renderLabelSheet([item]);
 
         return printWithLabelMode();
 
@@ -6349,6 +6328,154 @@ function printLabel(windowId) {
 
         return false;
     }
+}
+
+/*
+   Print a label for EVERY window on a project, in one print job.
+
+   The common case when a job arrives: thirty items each need a
+   sticker, and doing that one window at a time means thirty trips
+   into a record and back out. This builds the whole sheet at once.
+
+   Windows without a number are skipped rather than printing blank
+   stickers - they have nothing to scan and nothing to label.
+*/
+function printProjectLabels(projectId) {
+
+    try {
+
+        const project = getProjects().find(
+            item => item.id === projectId
+        );
+
+        if (!project) {
+            showError("The project could not be found.");
+            return false;
+        }
+
+        const windows = Array.isArray(project.windows)
+            ? project.windows
+            : [];
+
+        if (!windows.length) {
+            showError("This project has no windows to label yet.");
+            return false;
+        }
+
+        /*
+           Carry the project detail onto each window, the same way
+           getAllWindowsWithProject() does, so every label on the sheet
+           shows which job it belongs to. Without this the stickers
+           would be numbered but unlabelled as to project.
+        */
+        const labelled = windows
+            .filter(window => safeText(window.windowNumber))
+            .map(window => ({
+                projectNumber: project.projectNumber,
+                projectName: project.projectName,
+                ...window
+            }));
+
+        if (!labelled.length) {
+            showError("None of this project's windows have an ID yet, so there is nothing to label.");
+            return false;
+        }
+
+        const skipped = windows.length - labelled.length;
+
+        renderLabelSheet(labelled);
+
+        if (skipped > 0) {
+            showSuccess(
+                `Printing ${labelled.length} label${labelled.length === 1 ? "" : "s"}. ` +
+                `${skipped} window${skipped === 1 ? " has" : "s have"} no ID and ${skipped === 1 ? "was" : "were"} skipped.`
+            );
+        }
+
+        return printWithLabelMode();
+
+    } catch (error) {
+
+        document.body.classList.remove("print-label-active");
+
+        console.error("Print project labels error:", error);
+
+        showError("The labels could not be printed.");
+
+        return false;
+    }
+}
+
+/*
+   Fill the label sheet with one sticker per item.
+
+   The markup is built here and both QR and barcode are drawn AFTER it
+   is in the DOM, because both libraries paint into a real element that
+   has to exist first.
+*/
+function renderLabelSheet(items) {
+
+    const stack = $("printLabelStack");
+
+    if (!stack) {
+        throw new Error("The label sheet is missing from the page.");
+    }
+
+    stack.innerHTML = items.map((item, index) => {
+
+        const windowNumber = safeText(item.windowNumber);
+
+        const length = safeText(item.length) || safeText(item.finalWidth);
+        const width = safeText(item.width) || safeText(item.finalHeight);
+
+        const size = length && width
+            ? `${length} \u00d7 ${width} mm`
+            : "";
+
+        const project = [item.projectNumber, item.projectName]
+            .map(value => safeText(value))
+            .filter(Boolean)
+            .join("  \u00b7  ");
+
+        return `<div class="print-label">
+            <div class="print-label-head">
+                <strong class="print-label-company">AGA Architectural Glass &amp; Aluminium</strong>
+                <span class="print-label-project">${escapeHtml(project)}</span>
+            </div>
+
+            <div class="print-label-number">${escapeHtml(windowNumber)}</div>
+
+            <div class="print-label-marks">
+                <div class="print-label-qr" data-label-qr="${index}"
+                    data-label-qr-value="${escapeHtml(windowNumber)}"></div>
+                <div class="print-label-barcode" data-label-barcode="${index}"
+                    data-label-barcode-value="${escapeHtml(windowNumber)}"></div>
+            </div>
+
+            <div class="print-label-meta">
+                <span>${escapeHtml(safeText(item.productType) || safeText(item.windowType))}</span>
+                <span>${escapeHtml(size)}</span>
+            </div>
+        </div>`;
+    }).join("");
+
+    stack.querySelectorAll("[data-label-qr-value]").forEach(node => {
+        generateQRCodeInElement(
+            node,
+            buildWindowIdQRContent(node.dataset.labelQrValue),
+            220
+        );
+    });
+
+    stack.querySelectorAll("[data-label-barcode-value]").forEach(node => {
+        generateBarcodeInElement(
+            node,
+            buildWindowBarcodeValue(node.dataset.labelBarcodeValue),
+            60
+        );
+    });
+
+    return items.length;
 }
 
 /*

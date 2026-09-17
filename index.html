@@ -1195,24 +1195,11 @@
        worksheet does not emit a stray sticker.
     -->
     <div id="printLabel" class="print-only print-label-sheet">
-        <div class="print-label">
-            <div class="print-label-head">
-                <strong class="print-label-company">AGA Architectural Glass &amp; Aluminium</strong>
-                <span class="print-label-project" id="printLabelProject"></span>
-            </div>
-
-            <div class="print-label-number" id="printLabelNumber"></div>
-
-            <div class="print-label-marks">
-                <div class="print-label-qr"><div id="printLabelQRCode"></div></div>
-                <div class="print-label-barcode"><svg id="printLabelBarcode"></svg></div>
-            </div>
-
-            <div class="print-label-meta">
-                <span id="printLabelType"></span>
-                <span id="printLabelSize"></span>
-            </div>
-        </div>
+        <!--
+           Filled by printLabel() for a single sticker and by
+           printProjectLabels() for a whole project's worth.
+        -->
+        <div id="printLabelStack"></div>
     </div>
 
     <!-- NOTIFICATION TOAST -->

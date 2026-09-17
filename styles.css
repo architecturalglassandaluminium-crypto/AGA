@@ -5853,21 +5853,42 @@ img {
     }
 
     /*
-       One label per page, sized to a sensible sticker.
+       Labels, sized to a sensible sticker.
 
        90mm x 55mm keeps the QR at ~35mm - comfortably scannable -
        while the barcode gets the full width beneath it, since a 1D
        symbol needs horizontal room rather than height.
+
+       The sheet holds one label (single window) or many (whole
+       project). Each label is kept whole, but they must NOT all be
+       forced onto separate pages: a project with six windows should
+       use one or two A4 sheets, not six. A sticker is not a page.
     */
     .print-label-sheet .print-label {
         width: 90mm;
         min-height: 55mm;
-        margin: 0 auto;
+        margin: 0 auto 6mm;
         padding: 3mm;
         border: 0.5pt solid #000;
         box-sizing: border-box;
         break-inside: avoid;
         page-break-inside: avoid;
+    }
+
+    /*
+       Two labels side by side where the page is wide enough, so a
+       big job uses fewer sheets. Falls back to one per row on a
+       narrow printer automatically.
+    */
+    .print-label-sheet #printLabelStack {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 4mm;
+        justify-content: flex-start;
+    }
+
+    .print-label-sheet #printLabelStack .print-label {
+        margin: 0;
     }
 
     .print-label-head {
