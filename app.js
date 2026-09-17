@@ -4899,35 +4899,15 @@ function printProject(projectId) {
         }
 
         /*
-           Two rows per item, matching the two heading rows in
-           index.html. Every item contributes a pair of <tr>s and each
-           pair is kept together by .print-item-pair, so a page break
-           cannot land between an item's identity and its
-           specification.
+           One labelled block per item, built by buildPrintItemBlock.
+
+           Each block is its own element so a page break can never land
+           inside one - the whole record of an item stays on one page.
         */
         if (schedule) {
-            schedule.innerHTML = windows.map(window => `
-                <tbody class="print-item-pair">
-                    <tr class="print-row-1">
-                        <td class="c-id">${escapeHtml(window.windowNumber || formatWindowId(window.windowId) || "\u2014")}</td>
-                        <td class="c-desc">${escapeHtml(window.description || "\u2014")}</td>
-                        <td class="c-loc">${escapeHtml(window.location || "\u2014")}</td>
-                        <td class="c-size">${escapeHtml(window.length)}</td>
-                        <td class="c-size">${escapeHtml(window.width)}</td>
-                        <td class="c-frame">${escapeHtml(formatPrintFrame(window.frameColour) || "\u2014")}</td>
-                        <td class="c-barcode" rowspan="2"><span class="print-row-barcode" data-barcode-print="${escapeHtml(window.windowNumber || "")}"></span></td>
-                        <td class="c-qr" rowspan="2"><span class="print-row-qr" data-qr-print="${escapeHtml(window.windowNumber || "")}"></span></td>
-                    </tr>
-                    <tr class="print-row-2">
-                        <td class="c-type">${escapeHtml(window.productType || "\u2014")}</td>
-                        <td class="c-glass">${escapeHtml(window.glassType || "\u2014")}</td>
-                        <td class="c-who">${escapeHtml(window.allocatedTo || "Unallocated")}</td>
-                        <td class="c-status">${escapeHtml(formatPrintStatus(window.status))}</td>
-                        <td class="c-qc">${escapeHtml(formatPrintQc(window.qcCheck))}</td>
-                        <td class="c-photo"${anyPhotos ? "" : " hidden"}>${printRowPhotoHtml(window.photo)}</td>
-                    </tr>
-                </tbody>
-            `).join("") || `<tbody><tr><td colspan="${columnCount}" class="print-empty">No items captured on this project.</td></tr></tbody>`;
+            schedule.innerHTML = windows.length
+                ? windows.map(buildPrintItemBlock).join("")
+                : `<p class="print-empty">No items captured on this project.</p>`;
 
             renderPrintQRCodes(schedule);
             renderPrintBarcodes(schedule);
@@ -6924,6 +6904,110 @@ function openLabelSettings() {
     }
 }
 
+/* =========================================================
+   PRINT SCHEDULE: ONE LABELLED BLOCK PER ITEM
+   =========================================================
+
+   The printed schedule used to be a thirteen-column table, two
+   heading rows and two data rows per item. A grid forces every
+   column narrow, and at A4 width a heading and a value cannot both
+   be legible in one column - which is what made the sheet busy and
+   made values wrap mid-word.
+
+   Each item is now a block, with every field's heading ABOVE its
+   value. A block has the full page width to lay its fields out in,
+   so label and value are both readable, and it reads as a record of
+   one item rather than a line in a grid.
+
+   The image sits BESIDE the barcode, because both are marks that
+   identify the physical item: the photo is what a person matches by
+   eye, the barcode is what a scanner reads. Keeping them together
+   means the two ways of confirming "this is the right piece" are in
+   the same place, instead of the photo being marooned in a far
+   column.
+========================================================= */
+
+/*
+   One field: heading above value.
+*/
+function printFieldHtml(label, value, className) {
+
+    const shown = safeText(value);
+
+    return `<div class="pf ${className || ""}">
+        <span class="pf-label">${escapeHtml(label)}</span>
+        <span class="pf-value">${escapeHtml(shown) || "\u2014"}</span>
+    </div>`;
+}
+
+/*
+   One whole item, as a labelled block.
+*/
+function buildPrintItemBlock(window) {
+
+    const windowNumber = safeText(window.windowNumber) ||
+        safeText(formatWindowId(window.windowId));
+
+    const length = safeText(window.length) || safeText(window.finalWidth);
+    const width = safeText(window.width) || safeText(window.finalHeight);
+
+    const size = length && width ? `${length} \u00d7 ${width} mm` : "";
+
+    /*
+       The marks row: photo, barcode, QR. All three are ways of
+       identifying the piece, so they belong together.
+    */
+    const hasPhoto = Boolean(safeText(window.photo));
+
+    const marks = `
+        <div class="pf-marks">
+            ${hasPhoto
+                ? `<div class="pf-photo">
+                       <img src="${escapeHtml(window.photo)}" alt="Photo of ${escapeHtml(windowNumber)}">
+                   </div>`
+                : `<div class="pf-photo pf-photo-none">
+                       <span class="pf-label">Photo</span>
+                       <span class="pf-value">\u2014</span>
+                   </div>`}
+
+            <div class="pf-codes">
+                <div class="pf-code-wrap">
+                    <span class="pf-label">Barcode</span>
+                    <span class="print-item-barcode" data-barcode-print="${escapeHtml(window.windowNumber || "")}"></span>
+                </div>
+                <div class="pf-code-wrap pf-code-qr">
+                    <span class="pf-label">QR</span>
+                    <span class="print-item-qr" data-qr-print="${escapeHtml(window.windowNumber || "")}"></span>
+                </div>
+            </div>
+        </div>`;
+
+    return `<div class="print-item">
+
+        <div class="print-item-head">
+            <span class="print-item-id">${escapeHtml(windowNumber) || "\u2014"}</span>
+            <span class="print-item-type">${escapeHtml(safeText(window.productType) || safeText(window.windowType)) || "\u2014"}</span>
+        </div>
+
+        <div class="pf-grid">
+            ${printFieldHtml("Description", window.description, "pf-wide")}
+            ${printFieldHtml("Location", window.location)}
+            ${printFieldHtml("Size (mm)", size)}
+            ${printFieldHtml("Frame", formatPrintFrame(window.frameColour))}
+            ${printFieldHtml("Glass", window.glassType)}
+            ${printFieldHtml("Status", formatPrintStatus(window.status))}
+            ${printFieldHtml("QC", formatPrintQc(window.qcCheck))}
+            ${printFieldHtml("Allocated", window.allocatedTo || "Unallocated")}
+        </div>
+
+        ${marks}
+    </div>`;
+}
+
+window.buildPrintItemBlock = buildPrintItemBlock;
+
+window.printFieldHtml = printFieldHtml;
+
 /*
    Fill the label sheet with one sticker per item.
 
@@ -7243,36 +7327,18 @@ function printWindow(windowId) {
         const schedule = $("printSchedule");
 
         /*
-           Two rows per item, matching the two heading rows: the
-           identity and measurements on top, the specification and
-           the QR code below. The QR cell spans both rows.
+           The SAME labelled block the project schedule uses, so the
+           two sheets cannot drift apart visually - a single-item
+           sheet is just a schedule with one entry.
 
-           This is what buys the columns their width. Thirteen values
-           on one line forces every column narrow; split across two
-           lines each value gets roughly double the room, which is
-           why the schedule can be set larger and still fit A4.
+           item.windowLocation is a fallback for records captured under
+           the older single-window flow, where the field had that name.
         */
         if (schedule) {
-            schedule.innerHTML = `
-                <tr class="print-row-1">
-                    <td class="c-id">${escapeHtml(item.windowNumber || "\u2014")}</td>
-                    <td class="c-desc">${escapeHtml(item.description || "\u2014")}</td>
-                    <td class="c-loc">${escapeHtml(item.location || item.windowLocation || "\u2014")}</td>
-                    <td class="c-size">${escapeHtml(length || "\u2014")}</td>
-                    <td class="c-size">${escapeHtml(width || "\u2014")}</td>
-                    <td class="c-frame">${escapeHtml(formatPrintFrame(item.frameColour) || "\u2014")}</td>
-                    <td class="c-barcode" rowspan="2"><span class="print-row-barcode" data-barcode-print="${escapeHtml(item.windowNumber || "")}"></span></td>
-                    <td class="c-qr" rowspan="2"><span class="print-row-qr" data-qr-print="${escapeHtml(item.windowNumber || "")}"></span></td>
-                </tr>
-                <tr class="print-row-2">
-                    <td class="c-type">${escapeHtml(item.productType || item.windowType || "\u2014")}</td>
-                    <td class="c-glass">${escapeHtml(item.glassType || "\u2014")}</td>
-                    <td class="c-who">${escapeHtml(item.allocatedTo || "Unallocated")}</td>
-                    <td class="c-status">${escapeHtml(formatPrintStatus(item.status))}</td>
-                    <td class="c-qc">${escapeHtml(formatPrintQc(item.qcCheck))}</td>
-                    <td class="c-photo" hidden></td>
-                </tr>
-            `;
+            schedule.innerHTML = buildPrintItemBlock({
+                ...item,
+                location: item.location || item.windowLocation,
+            });
 
             renderPrintQRCodes(schedule);
             renderPrintBarcodes(schedule);

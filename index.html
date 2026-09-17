@@ -1104,63 +1104,23 @@
             </h2>
 
             <!--
-               TWO HEADER ROWS, over two data rows.
+               ONE LABELLED BLOCK PER ITEM.
 
-               Thirteen columns cannot each hold a legible heading and
-               a legible value at A4 width in ONE row - the headings
-               force every column narrow and the values then wrap to
-               two or three lines, which is what made the old sheet
-               cramped and busy.
+               This was a thirteen-column table with two heading rows
+               and two data rows per item. A grid makes every column
+               narrow, and at A4 width a heading and a value cannot both
+               be legible in one column - which is why the old sheet was
+               busy and why values wrapped.
 
-               So the printed schedule is a two-row record per item:
+               It is now a block per window, with each field's HEADING
+               ABOVE its value. A block has the full width to lay its
+               fields out in, so a label and its value are both readable
+               without the columns fighting each other, and it reads as a
+               record of one item rather than a line in a grid.
 
-                 row 1  identity + the measurements
-                 row 2  specification + who/when + the QR code, which
-                        spans both rows and is given real size because
-                        it is the one thing on the sheet nobody can
-                        read by eye.
-
-               The heading row labels the pair, and the second heading
-               row labels the second data row. `.print-row-2` marks the
-               cells the JavaScript fills into the lower row.
+               The fields are built by buildPrintItemBlock() in app.js.
             -->
-            <table class="print-schedule">
-                <thead>
-                    <tr class="print-schedule-head-1">
-                        <th class="c-id">ID</th>
-                        <th class="c-desc">Description</th>
-                        <th class="c-loc">Location</th>
-                        <th class="c-size">Length</th>
-                        <th class="c-size">Width</th>
-                        <th class="c-frame">Frame</th>
-                        <!--
-                           Two scannable marks per item, for two different
-                           readers: the QR is read by a phone camera, the
-                           barcode by a handheld laser scanner. Both carry
-                           the same window number, so either one identifies
-                           the item.
-                        -->
-                        <th class="c-barcode" rowspan="2">Barcode</th>
-                        <th class="c-qr" rowspan="2">QR</th>
-                    </tr>
-                    <tr class="print-schedule-head-2">
-                        <th class="c-type">Type</th>
-                        <th class="c-glass">Glass</th>
-                        <th class="c-who">Allocated</th>
-                        <th class="c-status">Status</th>
-                        <th class="c-qc">QC</th>
-                        <!--
-                           Photo column. Hidden by printProject when
-                           no window on the job has one, so a job with
-                           no photos does not print an empty strip.
-                           The single-item sheet hides it too: that
-                           sheet shows its photo in the block above.
-                        -->
-                        <th class="c-photo">Photo</th>
-                    </tr>
-                </thead>
-                <tbody id="printSchedule"></tbody>
-            </table>
+            <div class="print-schedule" id="printSchedule"></div>
         </section>
 
         <!-- NOTES -->

@@ -85,17 +85,37 @@ test('the barcode value is escaped when written into markup', () => {
 // Where the barcode is rendered
 // ---------------------------------------------------------------------------
 
-test('the print schedule defines a barcode column', () => {
-    assert.match(htmlSource, /class="c-barcode"/, 'the printed table has no barcode column');
+// Extract a top-level function so a test can assert on its body.
+function functionBody(name) {
+    const match = appSource.match(
+        new RegExp(`function ${name}\\([^)]*\\)\\s*\\{([\\s\\S]*?)\\n\\}`)
+    );
+    assert.ok(match, `${name} was not found in app.js`);
+    return match[1];
+}
+
+test('each printed item emits a barcode place holder', () => {
+    // The schedule is blocks rather than a table, so the place holder
+    // is emitted per ITEM by buildPrintItemBlock.
+    const body = appSource.match(/function buildPrintItemBlock\(window\)\s*\{([\s\S]*?)\n\}/);
+    assert.ok(body, 'buildPrintItemBlock was not found');
+    assert.match(body[1], /data-barcode-print=/);
 });
 
-test('the barcode column spans both rows of an item, like the QR', () => {
-    assert.match(htmlSource, /c-barcode"[^>]*rowspan="2"/);
+test('each printed item emits a QR place holder', () => {
+    const body = appSource.match(/function buildPrintItemBlock\(window\)\s*\{([\s\S]*?)\n\}/)[1];
+    assert.match(body, /data-qr-print=/);
 });
 
-test('the multi-item worksheet emits a barcode place holder per row', () => {
-    const count = (appSource.match(/data-barcode-print=/g) || []).length;
-    assert.equal(count, 2, 'expected one per-item and one single-item worksheet');
+test('every item in a project gets its own block', () => {
+    // One block per window, not one shared table row.
+    const body = functionBody('printProject');
+    assert.match(body, /windows\.map\(buildPrintItemBlock\)/);
+});
+
+test('the single-item sheet uses the same block, so they cannot drift', () => {
+    const body = functionBody('printWindow');
+    assert.match(body, /buildPrintItemBlock\(/);
 });
 
 test('a render helper exists and is called for the printed schedule', () => {
@@ -133,26 +153,28 @@ function lastRuleFor(selectorPattern) {
     return matches.length ? matches[matches.length - 1][1] : null;
 }
 
-test('the printed barcode has a fixed width so the stripes stay proportional', () => {
-    // A 1D barcode must not be stretched to fill its cell: the stripe
-    // widths are the data, and distorting them breaks the checksum.
-    const rule = lastRuleFor(/\.print-row-barcode svg\s*\{([\s\S]*?)\}/g);
-    assert.ok(rule, '.print-row-barcode svg rule was not found');
-    assert.match(rule, /width:\s*[\d.]+mm/, 'the barcode width must be set in mm');
+test('the printed barcode spans its available width without stretching', () => {
+    // A 1D barcode must not be SCALED to a fixed width: the stripe
+    // widths are the data, so the box is filled rather than distorted,
+    // and the height follows the width.
+    const rule = lastRuleFor(/\.print-item-barcode svg\s*\{([\s\S]*?)\}/g);
+    assert.ok(rule, '.print-item-barcode svg rule was not found');
+    assert.match(rule, /width:\s*100%/, 'the barcode should fill its column');
     assert.match(rule, /height:\s*auto/, 'the height must follow the width, not stretch');
 });
 
-test('the printed QR size was reduced to make room for the barcode', () => {
-    // Both marks share the item cell now, so an unchanged 24mm QR would
-    // overflow the column.
-    const rule = lastRuleFor(/\.print-row-qr,\s*\n\s*\.print-row-qr img,\s*\n\s*\.print-row-qr canvas\s*\{([\s\S]*?)\}/g);
-    assert.ok(rule, 'the print QR rule was not found');
-    const width = rule.match(/width:\s*([\d.]+)mm/);
-    assert.ok(width, 'the QR width could not be read as mm');
-    assert.ok(
-        Number(width[1]) < 24,
-        `the QR is still ${width[1]}mm; it must shrink to fit beside the barcode`
+test('the printed QR is square and big enough to scan', () => {
+    const rule = lastRuleFor(
+        /\.print-item-qr,\s*\n\s*\.print-item-qr img,\s*\n\s*\.print-item-qr canvas\s*\{([\s\S]*?)\}/g
     );
+    assert.ok(rule, 'the print QR rule was not found');
+
+    const width = rule.match(/width:\s*([\d.]+)mm/);
+    const height = rule.match(/height:\s*([\d.]+)mm/);
+
+    assert.ok(width && height, 'the QR must be sized in mm');
+    assert.equal(width[1], height[1], 'a QR must be square or it will not scan');
+    assert.ok(Number(width[1]) >= 15, `the QR is ${width[1]}mm, below the scannable floor`);
 });
 
 // ---------------------------------------------------------------------------

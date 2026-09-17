@@ -1197,31 +1197,15 @@ img {
     }
 }
 
-/* QR code on the printed schedule */
-
-.print-row-qr,
-.print-row-qr img,
-.print-row-qr canvas {
-    width: 52px !important;
-    height: 52px !important;
-    display: block;
-}
-
 /*
-   Barcode on the printed schedule.
+   The schedule's QR and barcode had screen sizes here
+   (.print-row-qr, .print-row-barcode). Both classes are gone - the
+   schedule is built of .print-item blocks now - and the sheet they
+   belong to is print-only, so it never renders on screen at all.
 
-   Wider than the QR on screen because a 1D barcode spends its
-   width on the stripes - squashing it is what stops a laser
-   scanner reading it. The SVG is drawn by JsBarcode; the text
-   under the stripes comes from displayValue.
+   Their printed sizes live with the rest of the block styling, under
+   .print-item-qr and .print-item-barcode in the print stylesheet.
 */
-
-.print-row-barcode svg {
-    width: 100% !important;
-    max-width: 150px;
-    height: auto !important;
-    display: block;
-}
 
 /*
    Read-only worksheet preview, shown in the modal from the dashboard.
@@ -3262,328 +3246,205 @@ img {
     }
 
     /*
-       A vertical hairline ONLY between the ID and the rest, which
-       separates the key from its description without ruling every
-       column.
+    /*
+       The column rules that used to live here - .c-id, .c-desc,
+       .c-size, .c-qr, .c-photo, .print-item-pair and the rest - are
+       REMOVED, not merely unused.
+
+       The schedule is no longer a table (see buildPrintItemBlock in
+       app.js), so those selectors matched nothing. A width rule on a
+       class that no longer exists is worse than absent: it reads as
+       live styling to whoever opens this file next and invites them
+       to "fix" a layout that was already replaced.
+
+       Per-item styling is now .print-item and .pf-* below.
     */
-    .print-schedule th.c-id,
-    .print-schedule td.c-id {
-        border-right: 0.4pt solid #e2e2e2;
+    /*
+       ITEM BLOCKS
+       The schedule is no longer a table: each item is a labelled block
+       (see buildPrintItemBlock in app.js). The column rules that used
+       to live here - .c-id, .c-desc, .c-qr, .print-item-pair and so on -
+       are dead, and are removed rather than left to rot, because a
+       stale width rule on a class that no longer exists is a trap for
+       whoever reads this next.
+
+       A block is kept whole across a page break: an item with its ID on
+       one page and its specification on the next is worse than useless
+       on the floor.
+    */
+    .print-item {
+        break-inside: avoid;
+        page-break-inside: avoid;
+        border: 0.75pt solid #000;
+        padding: 3mm;
+        margin-bottom: 4mm;
     }
 
     /*
-       Headings.
+       Block heading: the window number, with its type beside it.
 
-       These must never break mid-word. "LENGTH" broke as
-       "LENGT / H" because word-wrap: break-word still forces a
-       break when the content is wider than its column - so the
-       headings get nowrap AND word-wrap: normal, and the column
-       widths below are sized to fit them.
+       The number is the thing shouted across the workshop, so it leads.
+       The type is a supporting fact, so it is smaller and sits after it.
     */
-    /*
-       Headings: 7pt (up from 6.5pt) so the words stop crowding the
-       column edges, with tighter spacing than the old uppercase
-       treatment. Uppercase is kept - it is the one place where caps
-       read as a table header rather than shouting.
-    */
-    .print-schedule th {
-        background: #f2f2f2;
-        font-size: 7pt;
-        font-weight: 700;
-        text-transform: uppercase;
-        letter-spacing: 0.03em;
-        white-space: nowrap;
-        word-wrap: normal;
-        overflow-wrap: normal;
-        text-align: left;
-        color: #333;
-        /* The header must not be split from the table it belongs to. */
-        border-bottom: 0.75pt solid #b0b0b0;
+    .print-item-head {
+        display: flex;
+        align-items: baseline;
+        justify-content: space-between;
+        gap: 4mm;
+        border-bottom: 0.75pt solid #000;
+        padding-bottom: 1.5mm;
+        margin-bottom: 2.5mm;
     }
 
-    /* Numeric headings read better right-aligned over their values. */
-    .print-schedule th.c-size {
-        text-align: right;
-    }
-
-    .print-schedule th.c-qc,
-    .print-schedule th.c-qr,
-    .print-schedule th.c-barcode {
-        text-align: center;
-    }
-
-    /*
-       Body cells.
-
-       A wrapped value needs the row to grow, and that is fine. The
-       problem was text overflowing its BORDER, which happens when
-       the cell cannot grow - so rows are explicitly allowed to
-       size to their content.
-
-       IMPORTANT: `break-word` is deliberately NOT used here. It
-       split words mid-word with a visible hyphen ("Entrance
-       alu-minium door"), which reads as a typo on a document that
-       goes to a customer. Values wrap between words only.
-    */
-    .print-schedule td {
-        height: auto;
-        white-space: normal;
-        word-wrap: normal;
-        overflow-wrap: normal;
-        word-break: normal;
-        hyphens: none;
-        /* Long values shrink to fit rather than forcing a break. */
-        overflow: hidden;
-        text-overflow: ellipsis;
-    }
-
-    /*
-       Zebra striping assists the eye across a wide row. Kept very
-       light (#fafafa) - the old #f6f6f6 was heavy enough that a
-       long schedule printed as alternating grey bands.
-    */
-    /*
-       NO ZEBRA STRIPING.
-
-       With one row per item, alternate-row shading helped the eye
-       track a long schedule. Each item is now TWO rows, so striping
-       would shade the second half of every item and leave the first
-       half white - the banding would cut through the middle of a
-       record instead of separating records. The pair rule between
-       rows does the job instead.
-    */
-
-    /*
-       Column widths across an A4 page.
-
-       Rebalanced as part of the redesign. Because the vertical
-       column rules are gone, the same content needs less width per
-       column to read cleanly, so the space is redistributed towards
-       the two columns that were losing information:
-
-         * Description was 13% and truncated free text.
-         * Glass was 7% at 6.5pt and cut "6.38mm Laminated" to
-           "6.38mm Lami...", which is the specification the workshop
-           actually builds to.
-
-       The percentages total 100.
-    */
-    /*
-       WIDTHS
-       Six data columns plus a QR column, because a printed item is a
-       pair of rows (see the two heading rows in index.html) rather
-       than one thirteen-column line. Six columns across a 186mm
-       printable width means roughly 20-30mm each, which is what lets
-       the values be set at 8.5pt and still not wrap.
-    */
-    .print-schedule .c-id {
-        width: 13%;
+    .print-item-id {
         font-family: ui-monospace, Consolas, "Courier New", monospace;
-        font-size: 6.5pt;
+        font-size: 12pt;
         font-weight: 700;
-        white-space: nowrap;
+        letter-spacing: 0.01em;
     }
 
-    .print-schedule .c-type {
-        width: 14%;
-    }
-
-    /* Free text, so it gets the largest share of the table. */
-    .print-schedule .c-desc {
-        width: 22%;
-    }
-
-    .print-schedule .c-loc {
-        width: 14%;
-    }
-
-    /*
-       Numeric columns: right-aligned with tabular figures so the
-       digits line up vertically down the column, which is what
-       makes a size column scannable.
-    */
-    .print-schedule .c-size {
-        width: 8%;
-        text-align: right;
-        font-variant-numeric: tabular-nums;
-        white-space: nowrap;
-    }
-
-    .print-schedule .c-frame {
-        width: 9%;
-    }
-
-    /*
-       Glass now fits its full value: "6.38mm Laminated" is the
-       specification the item is built to, so truncating it is a
-       correctness problem, not a cosmetic one. The value never
-       splits mid-word ("Obscu / re" on an earlier version).
-    */
-    .print-schedule .c-glass {
-        width: 11%;
-        font-size: 6.5pt;
-        word-break: keep-all;
-        overflow-wrap: normal;
-    }
-
-    .print-schedule .c-who {
-        width: 11%;
-        font-size: 6.5pt;
-    }
-
-    /*
-       Status is the longest value ("Frame Manufactured"), so it
-       gets the short form on paper - see PRINT_STATUS_SHORT.
-    */
-    .print-schedule .c-status {
-        width: 10%;
-        font-size: 6.5pt;
-    }
-
-    .print-schedule tbody td.c-status,
-    .print-schedule tbody td.c-frame {
-        word-break: normal;
-        overflow-wrap: break-word;
-        hyphens: none;
-        line-height: 1.2;
-    }
-
-    /*
-       The summary line in the detail grid can run long (a list of
-       frame colours). Let it shrink rather than force the row taller,
-       so the grid keeps an even rhythm.
-    */
-    .print-detail-grid td {
-        font-size: 9pt;
-        line-height: 1.25;
-        /*
-           Keep a long summary ("Charcoal, Bronze, Natural Aluminium
-           +1 more") on as few lines as possible so the grid rows
-           stay an even height.
-        */
-        padding: 2mm 2.5mm;
-    }
-
-    /*
-       QC: PASS / FAIL / dash.
-
-       A failed inspection must be unmissable on the printed sheet,
-       because this is the copy that goes to the customer. It is set
-       in heavy type rather than colour, because a workshop printer
-       is usually mono.
-    */
-    .print-schedule .c-qc {
-        width: 10%;
-        text-align: center;
+    .print-item-type {
         font-size: 8pt;
         font-weight: 700;
-        letter-spacing: 0.03em;
-    }
-
-    .print-schedule tbody td.c-qc {
-        word-break: keep-all;
-        overflow-wrap: normal;
-        white-space: nowrap;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        color: #444;
     }
 
     /*
-       Photo: a window thumbnail printed beside its row.
+       THE FIELD GRID: heading above value.
 
-       The column is only shown when at least one window on the job
-       has a photo (printProject hides it otherwise), so these widths
-       are only paid for on sheets that use the column. The
-       thumbnails are small on purpose - a printed A4 row is about
-       8mm tall, and anything larger would either be cropped or
-       force every row taller.
+       Three columns at A4 width. A block has the full page to spread
+       into, so each field gets roughly 60mm - enough for a heading and
+       a value to both be legible, which is what the old thirteen-column
+       grid could not manage.
     */
-    .print-schedule .c-photo {
-        width: 10%;
-        text-align: center;
-        padding: 1mm;
+    .pf-grid {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 2mm 4mm;
+        margin-bottom: 3mm;
     }
 
-    .print-schedule .print-row-photo {
-        /*
-           Fixed height with auto width keeps the thumbnail's aspect
-           ratio, so a tall photo and a wide one both sit inside the
-           row without distorting.
+    /*
+       Description can be a sentence, so it spans the full width above
+       the numeric fields rather than being squeezed into a third.
+    */
+    .pf-wide {
+        grid-column: 1 / -1;
+    }
 
-           Larger than it was (9mm -> 12mm) because the item is a pair
-           of rows now: there is vertical room above it that the
-           old single-row layout did not have.
-        */
-        height: 12mm;
+    .pf {
+        min-width: 0;
+    }
+
+    /*
+       The heading, above its value - the arrangement the whole change
+       is for. Small, spaced and muted so it reads as a label rather
+       than competing with the value under it.
+    */
+    .pf-label {
+        display: block;
+        font-size: 6pt;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        color: #555;
+        margin-bottom: 0.6mm;
+    }
+
+    .pf-value {
+        display: block;
+        font-size: 9pt;
+        font-weight: 600;
+        line-height: 1.25;
+        /* Long free text must wrap rather than overflow the block. */
+        overflow-wrap: anywhere;
+    }
+
+    /*
+       THE MARKS ROW: photo beside the codes.
+
+       These are the three ways of confirming the physical piece - the
+       photo by eye, the barcode by a laser scanner, the QR by a phone.
+       They belong together, which is why the photo is no longer in a
+       far column of its own.
+    */
+    .pf-marks {
+        display: flex;
+        align-items: flex-start;
+        gap: 4mm;
+        border-top: 0.4pt solid #c8c8c8;
+        padding-top: 2.5mm;
+    }
+
+    .pf-photo {
+        flex: 0 0 auto;
+        width: 45mm;
+        height: 34mm;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        overflow: hidden;
+    }
+
+    .pf-photo img {
         max-width: 100%;
+        max-height: 100%;
         object-fit: contain;
-        border: 0.5pt solid #666;
-        background: #ffffff;
+        display: block;
+    }
+
+    /* No photo: a labelled dash, not an empty box to misread as a fault. */
+    .pf-photo-none {
+        border: 0.4pt dashed #b0b0b0;
+        flex-direction: column;
+        gap: 1mm;
+    }
+
+    .pf-codes {
+        flex: 1 1 auto;
+        display: flex;
+        align-items: flex-start;
+        gap: 5mm;
+        min-width: 0;
+    }
+
+    .pf-code-wrap {
+        min-width: 0;
     }
 
     /*
-       A window with no photo says so with a dash. A blank cell on a
-       printed sheet is ambiguous - it could mean "none", "not
-       required" or "forgot" - so the column always says something.
+       The barcode takes the remaining width: a 1D symbol needs
+       horizontal room, and its stripe widths are the data, so it must
+       not be stretched or squashed.
     */
-    .print-schedule .print-row-photo-none {
-        color: #9ca3af;
+    .pf-code-wrap:not(.pf-code-qr) {
+        flex: 1 1 auto;
+    }
+
+    .pf-code-qr {
+        flex: 0 0 auto;
+    }
+
+    .print-item-barcode svg {
+        width: 100% !important;
+        max-width: none;
+        height: auto !important;
+        display: block;
     }
 
     /*
-       The QR heading is short ("QR") but the codes need room to
-       scan, so the column is wider than its label. Codes are inset
-       from the border to keep the quiet zone a scanner needs.
+       The QR is square or it does not scan. 18mm keeps it comfortably
+       above the ~10mm floor a phone camera needs, and leaves the
+       barcode the rest of the row's width.
     */
-    .print-schedule .c-qr {
-        width: 13%;
-        text-align: center;
-        vertical-align: middle;
-        padding: 1.5mm;
-    }
-
-    /*
-       HEADER: the QR heading is the only <th> with rowspan, so it
-       must centre against the two heading rows beside it rather than
-       sitting at the top of the band.
-    */
-    .print-schedule .print-schedule-head-1,
-    .print-schedule .print-schedule-head-2 {
-        break-inside: avoid;
-        page-break-inside: avoid;
-    }
-
-    /*
-       ITEM PAIRS
-       Each item is its own <tbody> so the pair of rows can be held
-       together across a page break. Without this an item could have
-       its ID printed at the foot of one page and its specification at
-       the top of the next, which is worse than useless on the floor.
-    */
-    .print-schedule .print-item-pair {
-        break-inside: avoid;
-        page-break-inside: avoid;
-    }
-
-    /*
-       The second row of a pair is a continuation of the first, not a
-       new record, so it does not repeat the heavier top rule. A light
-       dashed rule reads as "same item" rather than "next item".
-    */
-    .print-schedule tbody tr.print-row-1 td {
-        border-bottom: 0.4pt dashed #c8c8c8;
-    }
-
-    .print-schedule tbody tr.print-row-2 td {
-        border-bottom: 0.75pt solid #b0b0b0;
-    }
-
-    /*
-       An item's second row agrees with the first on colour, so the
-       pair reads as one block rather than the halves drifting apart.
-       Zebra striping is deliberately NOT applied here: with pairs, a
-       stripe would cut through the middle of each item.
-    */
-    .print-schedule tbody .print-row-2 td {
-        padding-top: 0.8mm;
+    .print-item-qr,
+    .print-item-qr img,
+    .print-item-qr canvas {
+        width: 18mm !important;
+        height: 18mm !important;
+        display: block;
     }
 
     /*
@@ -3602,85 +3463,22 @@ img {
         font-size: 8.5pt;
     }
 
-    /* The ID is what gets read out loud, so it leads the row. */
-    .print-schedule tbody td.c-id {
-        font-size: 9pt;
-        font-weight: 700;
-    }
-
     .print-empty {
         text-align: center;
         font-style: italic;
         color: #555;
     }
 
-    /* QR codes must never overflow their cell. */
     /*
-       QR codes are sized to the row: big enough to scan from a
-       printed sheet, small enough that a long schedule still fits
-       and rows keep an even height.
+       The QR and barcode marks are sized by .print-item-qr and
+       .print-item-barcode in the ITEM BLOCKS section below.
+
+       The rules that used to sit here sized them per TABLE CELL
+       (.print-schedule td.c-qr, .print-schedule .c-barcode,
+       .print-row-qr, .print-row-barcode). Those cells no longer exist,
+       so they are removed rather than left as live-looking styling for
+       a layout that was replaced.
     */
-    /*
-       A QR code needs a quiet zone of white around it to scan
-       reliably, so it is inset from the cell border rather than
-       filling it.
-    */
-    .print-schedule td.c-qr {
-        padding: 1mm 1.5mm;
-    }
-
-    /*
-       The QR code is the largest mark on the schedule.
-
-       It was 10mm, which is small enough that a phone camera has to
-       hunt for it and a slightly worn print will not scan at all.
-       24mm is roughly the size a phone camera locks onto instantly
-       from a normal reading distance, and it fits because the cell
-       spans both rows of the item.
-
-       Scaled up from a 26mm column: 24mm of code plus the quiet zone
-       on each side still leaves the cell's border clear, which is
-       what keeps it scannable.
-    */
-    /*
-       The QR is now one of two scannable marks per item, so it comes
-       down from 24mm to 18mm to leave the barcode its width. 18mm is
-       still comfortably above the ~10mm floor a phone camera needs.
-    */
-    .print-row-qr,
-    .print-row-qr img,
-    .print-row-qr canvas {
-        width: 18mm !important;
-        height: 18mm !important;
-        display: block;
-        margin: 0 auto;
-    }
-
-    /*
-       The barcode column.
-
-       A 1D barcode scales in ONE axis: the stripe WIDTH must stay
-       proportional or a laser scanner misreads the module widths and
-       the symbol fails its checksum. So the width is fixed in mm and
-       the height follows, rather than stretching to fill the cell.
-
-       12mm high prints comfortably legible on a laser printer and
-       still fits inside the two-row item cell alongside the QR.
-    */
-    .print-schedule .c-barcode {
-        width: 15%;
-        text-align: center;
-        vertical-align: middle;
-        padding: 1mm 1.5mm;
-    }
-
-    .print-row-barcode svg {
-        width: 30mm !important;
-        max-width: none;
-        height: auto !important;
-        display: block;
-        margin: 0 auto;
-    }
 
     /*
        NOTE: the old bare `.print-row-photo` rule (fixed 12mm square,

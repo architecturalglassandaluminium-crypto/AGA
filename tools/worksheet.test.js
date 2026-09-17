@@ -138,8 +138,12 @@ test('the schedule below still carries per-item sizes', () => {
     // the schedule is now the ONLY place sizes appear on a project
     // sheet, so it has to be there.
     const body = functionBody('printProject');
-    assert.match(body, /windowRowTableHtml|printSchedule/);
-    assert.match(body, /c-size/);
+    assert.match(body, /printSchedule/);
+
+    const block = appSource.match(/function buildPrintItemBlock\(window\)\s*\{([\s\S]*?)\n\}/)[1];
+    assert.match(block, /printFieldHtml\("Size \(mm\)"/, 'the block does not show a size');
+    assert.match(block, /window\.length/);
+    assert.match(block, /window\.width/);
 });
 
 test('the shared detail grid carries the item-only markers', () => {
