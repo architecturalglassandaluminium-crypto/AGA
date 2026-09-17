@@ -227,6 +227,54 @@ If it does not:
 
 ---
 
+## Checking that the cloud side is actually set up
+
+There is a script that answers "is the backend really working?" in one
+command. Run it from the project folder:
+
+```bash
+npm run check:cloud
+```
+
+It reports, in order:
+
+1. whether `supabase-config.js` holds a well-formed URL and a
+   **publishable** key (and shouts if a secret key ever ends up there);
+2. whether the Supabase project is reachable with that key;
+3. whether all six tables from `supabase/schema.sql` exist;
+4. whether there is a workshop row to attach work to;
+5. whether Supabase Storage is reachable, and how many buckets it has;
+6. whether the `AGA_DRIVE_*` variables for the nightly export are set.
+
+Exit code is `0` when the essential pieces are in place and `1` otherwise,
+so it can be wired into a deploy step later.
+
+### Read the Storage line carefully
+
+The checker reports **"Storage is reachable and has no buckets"** — and
+that is correct, not a problem. This app does **not** use Supabase Storage
+buckets. Window photos are stored as base64 data-URL strings in the
+`windows.photo` column (see `supabase/schema.sql`). No file in this
+codebase calls `storage.from(...)` or creates a bucket.
+
+That design is why the "free tier is enough" note below is true, and it is
+also the thing to revisit first if photo volume grows.
+
+### The failure this checker exists to catch
+
+An un-migrated project fails in a way that looks like nothing is wrong.
+`isBackendConfigured()` returns `true` as soon as the URL and key are
+filled in, so the app believes it is online — but if the tables were never
+created, every sync request 404s. The app does not raise an error; it
+quietly keeps working on `localStorage`, and work simply never reaches the
+cloud.
+
+If that is what you are seeing, the fix is Step 2 of this guide: run
+`supabase/schema.sql` in the SQL editor. The file is idempotent
+(`create table if not exists`), so re-running it is safe.
+
+---
+
 ## Important notes
 
 - **Do not delete the Supabase project.** Deleting it deletes all workshop data.
