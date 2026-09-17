@@ -1182,6 +1182,39 @@
         </footer>
     </div>
 
+    <!--
+       PRINTABLE ITEM LABEL
+       A small sticker for ONE window: its number, a QR and a barcode.
+       Separate from #printWorksheet on purpose - the worksheet is a
+       whole A4 sheet of job detail, whereas this is a label that goes
+       on the frame itself, so the two must print independently.
+
+       Filled and printed by printLabel(); hidden on screen (print-only)
+       and hidden on paper until a label is actually being printed, via
+       .print-label-active on <body> so an ordinary Ctrl+P of the
+       worksheet does not emit a stray sticker.
+    -->
+    <div id="printLabel" class="print-only print-label-sheet">
+        <div class="print-label">
+            <div class="print-label-head">
+                <strong class="print-label-company">AGA Architectural Glass &amp; Aluminium</strong>
+                <span class="print-label-project" id="printLabelProject"></span>
+            </div>
+
+            <div class="print-label-number" id="printLabelNumber"></div>
+
+            <div class="print-label-marks">
+                <div class="print-label-qr"><div id="printLabelQRCode"></div></div>
+                <div class="print-label-barcode"><svg id="printLabelBarcode"></svg></div>
+            </div>
+
+            <div class="print-label-meta">
+                <span id="printLabelType"></span>
+                <span id="printLabelSize"></span>
+            </div>
+        </div>
+    </div>
+
     <!-- NOTIFICATION TOAST -->
     <div id="toast" class="toast" role="status" aria-live="polite"></div>
 

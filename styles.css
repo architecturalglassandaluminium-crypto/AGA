@@ -5818,6 +5818,133 @@ img {
         print-color-adjust: exact;
     }
 
+    /*
+       ITEM LABEL
+       The fourth print document. Same "only one may show" rule as the
+       other three: `print-label-active` is set by printLabel() just
+       before window.print(), and cleared on afterprint.
+
+       The default (no class) hides the label, so Ctrl+P on a worksheet
+       cannot emit a stray sticker; and while the label IS being printed
+       the worksheet and quotes are suppressed.
+    */
+    body:not(.print-label-active) #printLabel.print-only {
+        display: none !important;
+    }
+
+    body.print-label-active #printWorksheet.print-only,
+    body.print-label-active #quotePrintSheet.print-only,
+    body.print-label-active #roofQuotePrintSheet.print-only {
+        display: none !important;
+    }
+
+    body.print-label-active #printLabel.print-only {
+        display: block !important;
+        position: absolute;
+        left: 0;
+        top: 0;
+        right: 0;
+        box-sizing: border-box;
+        background: white;
+        color: #000;
+        font-family: "Segoe UI", Arial, Helvetica, sans-serif;
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+    }
+
+    /*
+       One label per page, sized to a sensible sticker.
+
+       90mm x 55mm keeps the QR at ~35mm - comfortably scannable -
+       while the barcode gets the full width beneath it, since a 1D
+       symbol needs horizontal room rather than height.
+    */
+    .print-label-sheet .print-label {
+        width: 90mm;
+        min-height: 55mm;
+        margin: 0 auto;
+        padding: 3mm;
+        border: 0.5pt solid #000;
+        box-sizing: border-box;
+        break-inside: avoid;
+        page-break-inside: avoid;
+    }
+
+    .print-label-head {
+        border-bottom: 0.5pt solid #999;
+        padding-bottom: 1.5mm;
+        margin-bottom: 2mm;
+    }
+
+    .print-label-company {
+        display: block;
+        font-size: 7pt;
+        letter-spacing: 0.02em;
+    }
+
+    .print-label-project {
+        display: block;
+        font-size: 7pt;
+        color: #444;
+        margin-top: 0.5mm;
+    }
+
+    /*
+       The window number is the one thing a person reads off this
+       label, so it is the largest type on it.
+    */
+    .print-label-number {
+        font-family: ui-monospace, Consolas, "Courier New", monospace;
+        font-size: 15pt;
+        font-weight: 700;
+        text-align: center;
+        margin-bottom: 2mm;
+    }
+
+    .print-label-marks {
+        text-align: center;
+    }
+
+    /* Fixed size: a QR is square, so width and height must match. */
+    .print-label-qr {
+        display: inline-block;
+        line-height: 0;
+        margin-bottom: 1.5mm;
+    }
+
+    .print-label-qr,
+    .print-label-qr img,
+    .print-label-qr canvas {
+        width: 35mm !important;
+        height: 35mm !important;
+    }
+
+    /*
+       The barcode is deliberately NOT stretched to the cell width:
+       its stripe widths encode the data, so scaling it horizontally
+       would change what it says and break the checksum.
+    */
+    .print-label-barcode svg {
+        width: 80mm !important;
+        max-width: none;
+        height: auto !important;
+        display: block;
+        margin: 0 auto;
+    }
+
+    .print-label-meta {
+        margin-top: 1.5mm;
+        padding-top: 1.5mm;
+        border-top: 0.5pt solid #999;
+        font-size: 7.5pt;
+        color: #333;
+        text-align: center;
+    }
+
+    .print-label-meta span + span::before {
+        content: "  \u00b7  ";
+    }
+
     /* Force a fresh page for the cover and the acceptance page. */
     .roof-break-before {
         break-before: page;

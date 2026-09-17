@@ -2033,6 +2033,10 @@ window.buildWindowIdQRContent = buildWindowIdQRContent;
 
 window.renderWindowRowQRCodes = renderWindowRowQRCodes;
 
+window.printLabel = printLabel;
+
+window.findWindowForPrint = findWindowForPrint;
+
 function removeProjectWindowRow(rowId) {
 
     const row = $(rowId);
@@ -3281,6 +3285,12 @@ function buildWindowDetailsHtml(item) {
 
         <div class="details-actions">
             <button type="button" class="primary-button" onclick="printWindow('${item.id}')">Print Worksheet</button>
+            <!--
+               The label is the sticker that goes on the frame: number,
+               QR and barcode only. Kept beside the worksheet button
+               because this is where someone stands when they need it.
+            -->
+            <button type="button" class="secondary-button" onclick="printLabel('${item.id}')">Print Label</button>
         </div>
 
         <div class="details-production">
@@ -6257,18 +6267,156 @@ function setPrintGenerated(id) {
     element.textContent = `Printed ${date} at ${time}`;
 }
 
+/*
+   Print a small LABEL for one window: number, QR and barcode.
+
+   Distinct from printWindow(), which produces a full A4 worksheet of
+   job detail. This one is for the frame itself - a sticker that says
+   which item it is, so it can be scanned on the floor.
+
+   Printing is isolated by toggling .print-label-active on <body>: the
+   printed label only appears while that class is set, so an ordinary
+   Ctrl+P of a worksheet never emits a stray sticker, and the worksheet
+   is suppressed for the short time the label is being printed.
+*/
+function printLabel(windowId) {
+
+    try {
+
+        const item = findWindowForPrint(windowId);
+
+        if (!item) {
+            showError("The window could not be found.");
+            return false;
+        }
+
+        const windowNumber = safeText(item.windowNumber);
+
+        if (!windowNumber) {
+            showError("This window does not have an ID yet, so there is nothing to label.");
+            return false;
+        }
+
+        setPrintText("printLabelNumber", windowNumber);
+
+        setPrintText(
+            "printLabelProject",
+            [item.projectNumber, item.projectName]
+                .map(value => safeText(value))
+                .filter(Boolean)
+                .join("  \u00b7  ")
+        );
+
+        setPrintText(
+            "printLabelType",
+            safeText(item.productType) || safeText(item.windowType)
+        );
+
+        const length = safeText(item.length) || safeText(item.finalWidth);
+        const width = safeText(item.width) || safeText(item.finalHeight);
+
+        setPrintText(
+            "printLabelSize",
+            length && width ? `${length} \u00d7 ${width} mm` : ""
+        );
+
+        /*
+           Both marks carry the same value, so whichever reader the
+           workshop owns can identify the item. Drawn before printing
+           because both libraries paint into a real element.
+        */
+        generateQRCodeInElement(
+            "#printLabelQRCode",
+            buildWindowIdQRContent(windowNumber),
+            220
+        );
+
+        generateBarcodeInElement(
+            "#printLabelBarcode",
+            buildWindowBarcodeValue(windowNumber),
+            60
+        );
+
+        return printWithLabelMode();
+
+    } catch (error) {
+
+        document.body.classList.remove("print-label-active");
+
+        console.error("Print label error:", error);
+
+        showError("The label could not be printed.");
+
+        return false;
+    }
+}
+
+/*
+   Set the label mode, print, and always clear it again.
+
+   the class is removed on window.onafterprint AND in a finally-style
+   fallback, because a browser that never fires afterprint (or a user
+   who cancels the dialog) would otherwise leave <body> stuck in label
+   mode, so the next worksheet print would come out as a sticker.
+*/
+function printWithLabelMode() {
+
+    document.body.classList.add("print-label-active");
+
+    const clear = () => {
+        document.body.classList.remove("print-label-active");
+        window.removeEventListener("afterprint", clear);
+    };
+
+    window.addEventListener("afterprint", clear);
+
+    try {
+        window.print();
+    } finally {
+        /*
+           Do not clear synchronously: some browsers print AFTER
+           window.print() returns, and removing the class here would
+           blank the label. afterprint is the reliable signal; this is
+           only a backstop for browsers that never fire it.
+        */
+        setTimeout(clear, 2000);
+    }
+
+    return true;
+}
+
+/*
+   Find a window for printing, wherever it lives.
+
+   Project windows are nested inside projects, not in the legacy flat
+   STORAGE_KEY list, so getWindows() alone finds nothing for a window
+   created through a project - which is every window the app now makes.
+   getAllWindowsWithProject() is the authoritative lookup (the same one
+   viewWindow uses), with the legacy list kept as a fallback.
+*/
+function findWindowForPrint(windowId) {
+
+    if (!windowId) {
+        return undefined;
+    }
+
+    return getAllWindowsWithProject().find(
+        windowItem => windowItem.id === windowId
+    ) || getWindows().find(
+        windowItem => windowItem.id === windowId
+    );
+}
+
 function printWindow(windowId) {
 
     try {
 
-        const windows =
-            getWindows();
-
-        const item =
-            windows.find(
-                windowItem =>
-                    windowItem.id === windowId
-            );
+        /*
+           Shared lookup: project windows are nested inside projects,
+           so getWindows() alone used to find nothing here and every
+           "Print Worksheet" answered "The window could not be found."
+        */
+        const item = findWindowForPrint(windowId);
 
         if (!item) {
 
