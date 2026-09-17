@@ -1527,8 +1527,16 @@ function addEmployee(event) {
             return;
         }
 
+        /*
+           The id is taken before the push so the same value goes to
+           the cloud. Generating a second one on upload would create
+           two rows for one person, which the sign-in list would then
+           show twice.
+        */
+        const employeeId = uuid();
+
         employees.push({
-            id: uuid(),
+            id: employeeId,
 
             name,
             number,
@@ -1541,8 +1549,39 @@ function addEmployee(event) {
             return;
         }
 
+        /*
+           Push to the cloud so the new hire appears in the sign-in
+           list on every other phone. Until now this only wrote to
+           localStorage, so a new employee was invisible to everyone
+           but the person who added them.
+
+           Not awaited: the local save is the source of truth, and an
+           employee must still be addable with no signal. The result
+           only decides which message is shown.
+        */
+        if (typeof uploadEmployee === "function" && isBackendConfigured()) {
+
+            uploadEmployee(employeeId).then(result => {
+
+                if (result && result.ok) {
+                    return;
+                }
+
+                if (result && result.reason === "duplicate-name") {
+                    showError(
+                        `${name} was saved on this device, but someone with this name already exists in the shared team list.`
+                    );
+                    return;
+                }
+
+                showError(
+                    `${name} was saved on this device but could not be shared. It will not appear on other phones until the connection is working.`
+                );
+            });
+        }
+
         showSuccess(
-            `${name} has been added.`
+            `${name} has been added. They will choose their own PIN the first time they sign in.`
         );
 
         const form =

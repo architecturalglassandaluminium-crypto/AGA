@@ -1230,8 +1230,21 @@
             </div>
 
             <div class="signin-field" id="signInPinField" hidden>
-                <label for="signInPin">Your PIN</label>
+                <label for="signInPin" id="signInPinLabel">Your PIN</label>
                 <input type="password" id="signInPin" class="signin-pin"
+                    inputmode="numeric" autocomplete="off"
+                    maxlength="6" placeholder="****">
+            </div>
+
+            <!--
+               Confirmation field, shown only while CHOOSING a PIN.
+               A PIN is hashed in the database and cannot be read back,
+               so a mistyped first PIN would lock the person out of
+               their own name with no way to see what went wrong.
+            -->
+            <div class="signin-field" id="signInPinConfirmField" hidden>
+                <label for="signInPinConfirm">Type it again</label>
+                <input type="password" id="signInPinConfirm" class="signin-pin"
                     inputmode="numeric" autocomplete="off"
                     maxlength="6" placeholder="****">
             </div>
@@ -1244,8 +1257,8 @@
                 Sign in
             </button>
 
-            <p class="signin-note">
-                Ask your supervisor if you have not been given a PIN yet.
+            <p class="signin-note" id="signInNote">
+                First time? Choose your name and set your own PIN.
             </p>
         </div>
     </div>

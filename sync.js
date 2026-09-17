@@ -573,6 +573,73 @@ async function uploadProject(projectId) {
     return { ok: true };
 }
 
+/*
+   Push one employee to the cloud, so a new hire appears in the
+   sign-in list on every other phone.
+
+   Deliberately does NOT send a PIN. A new employee has none - they
+   choose their own the first time they sign in, via
+   claim_employee_pin() - so there is no secret to transmit and
+   nothing to leak here.
+*/
+async function uploadEmployee(employeeId) {
+
+    const client = getSupabase();
+
+    if (!client) {
+        return { ok: false, reason: "not-configured" };
+    }
+
+    const workshopId = await getWorkshopId();
+
+    if (!workshopId) {
+        return { ok: false, reason: "no-workshop" };
+    }
+
+    const employee = getEmployees().find(item => item.id === employeeId);
+
+    if (!employee) {
+        return { ok: false, reason: "employee-missing" };
+    }
+
+    /*
+       The local record carries a `number`; the column is
+       `employee_number`. Mapping explicitly rather than spreading,
+       so a future local field cannot silently become a stray column
+       or, worse, a PIN.
+    */
+    const row = {
+        id: employee.id,
+        workshop_id: workshopId,
+        name: employee.name,
+        employee_number: employee.number || null,
+        is_active: true,
+        updated_at: new Date().toISOString(),
+    };
+
+    const { error } = await client
+        .from("employees")
+        .upsert(row, { onConflict: "id" });
+
+    if (error) {
+        /*
+           A duplicate name is the one failure a user can actually
+           fix, and the unique index is on lower(name) within a
+           workshop - so report it in those terms rather than
+           surfacing a raw constraint message.
+        */
+        if (/duplicate|unique/i.test(error.message)) {
+            return { ok: false, reason: "duplicate-name" };
+        }
+
+        return { ok: false, reason: error.message };
+    }
+
+    return { ok: true };
+}
+
+window.uploadEmployee = uploadEmployee;
+
 async function uploadStatusChange(windowId, status, employeeId, employeeName) {
 
     const client = getSupabase();
