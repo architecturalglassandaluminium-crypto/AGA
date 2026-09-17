@@ -2039,6 +2039,18 @@ window.printProjectLabels = printProjectLabels;
 
 window.renderLabelSheet = renderLabelSheet;
 
+window.setLabelPreset = setLabelPreset;
+
+window.getLabelPresetName = getLabelPresetName;
+
+window.getLabelPreset = getLabelPreset;
+
+window.applyLabelPreset = applyLabelPreset;
+
+window.openLabelSettings = openLabelSettings;
+
+window.buildLabelSettingsHtml = buildLabelSettingsHtml;
+
 window.findWindowForPrint = findWindowForPrint;
 
 function removeProjectWindowRow(rowId) {
@@ -4416,6 +4428,13 @@ function renderProjects(
                         onclick="printProjectLabels('${project.id}')">
                         <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 5v14"/><path d="M8 5v14"/><path d="M12 5v14"/><path d="M17 5v14"/><path d="M21 5v14"/></svg>
                         Print All Barcodes
+                    </button>
+
+                    <button type="button" class="secondary-button card-action"
+                        title="Choose the sticker size for this printer"
+                        onclick="openLabelSettings()">
+                        <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.6a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+                        Label Settings
                     </button>`
                     : ""}
 
@@ -6406,6 +6425,230 @@ function printProjectLabels(projectId) {
     }
 }
 
+/* =========================================================
+   LABEL PRINTER SETTINGS
+   =========================================================
+   Which sticker stock is loaded. The label was built around one
+   size (90 x 55mm); this makes that a choice, because a workshop
+   buys whatever sheet is available and a label that does not fit
+   the sticker is useless.
+
+   Sizes are in millimetres because that is how label stock is
+   sold. `across` is how many labels sit side by side on the
+   sheet, which decides the print grid.
+
+   The QR and barcode are scaled with the label rather than being
+   fixed, but both keep their minimum scannable size: a preset
+   that would shrink the QR below ~15mm is not offered, because a
+   phone camera cannot reliably resolve one that small.
+========================================================= */
+
+const LABEL_SIZE_PRESETS = {
+    "90x55": {
+        label: "90 \u00d7 55 mm (2 across A4)",
+        width: 90,
+        height: 55,
+        across: 2,
+        gap: 4,
+        padding: 3,
+        qr: 35,
+        barcode: 80,
+    },
+    "70x40": {
+        label: "70 \u00d7 40 mm (2 across A4)",
+        width: 70,
+        height: 40,
+        across: 2,
+        gap: 3,
+        padding: 2.5,
+        qr: 26,
+        barcode: 62,
+    },
+    "64x34": {
+        label: "64 \u00d7 34 mm (3 across A4) \u2014 common laser sheet",
+        width: 64,
+        height: 34,
+        across: 3,
+        gap: 2,
+        padding: 2,
+        qr: 21,
+        barcode: 56,
+    },
+    "50x30": {
+        label: "50 \u00d7 30 mm (3 across A4)",
+        width: 50,
+        height: 30,
+        across: 3,
+        gap: 2,
+        padding: 1.5,
+        qr: 17,
+        barcode: 44,
+    },
+    "a4-sheet": {
+        label: "A4 sheet, 1 label per page",
+        width: 186,
+        height: 130,
+        across: 1,
+        gap: 0,
+        padding: 6,
+        qr: 60,
+        barcode: 160,
+    },
+};
+
+const LABEL_PRESET_KEY = "aga_label_preset";
+
+const DEFAULT_LABEL_PRESET = "90x55";
+
+/*
+   The QR must never be shrunk below this or it stops scanning.
+   15mm is roughly the floor for a phone camera at arm's length.
+*/
+const MIN_LABEL_QR_MM = 15;
+
+/*
+   Read the saved preset name, falling back to the default when
+   nothing is stored or the stored value names a preset that no
+   longer exists (a stale key from an older build).
+*/
+function getLabelPresetName() {
+
+    try {
+
+        const stored = localStorage.getItem(LABEL_PRESET_KEY);
+
+        if (stored && Object.prototype.hasOwnProperty.call(LABEL_SIZE_PRESETS, stored)) {
+            return stored;
+        }
+
+    } catch (error) {
+
+        /* Private mode can throw on localStorage; the default is fine. */
+        console.warn("Could not read the label preset:", error);
+    }
+
+    return DEFAULT_LABEL_PRESET;
+}
+
+function getLabelPreset(name) {
+
+    const key = name || getLabelPresetName();
+
+    return LABEL_SIZE_PRESETS[key] || LABEL_SIZE_PRESETS[DEFAULT_LABEL_PRESET];
+}
+
+function setLabelPreset(name) {
+
+    if (!Object.prototype.hasOwnProperty.call(LABEL_SIZE_PRESETS, name)) {
+        return false;
+    }
+
+    try {
+        localStorage.setItem(LABEL_PRESET_KEY, name);
+    } catch (error) {
+        console.warn("Could not save the label preset:", error);
+        return false;
+    }
+
+    applyLabelPreset(name);
+
+    return true;
+}
+
+/*
+   Push the preset's geometry onto the label sheet as custom
+   properties, which is what the print stylesheet reads.
+
+   Setting them on the element (rather than rewriting a stylesheet)
+   keeps this to one property write per value and leaves the CSS as
+   the single place the geometry is.
+*/
+function applyLabelPreset(name) {
+
+    const preset = getLabelPreset(name);
+
+    const sheet = $("printLabel");
+
+    if (!sheet) {
+        return false;
+    }
+
+    const safeQr = Math.max(preset.qr, MIN_LABEL_QR_MM);
+
+    sheet.style.setProperty("--label-width", preset.width + "mm");
+    sheet.style.setProperty("--label-height", preset.height + "mm");
+    sheet.style.setProperty("--label-gap", preset.gap + "mm");
+    sheet.style.setProperty("--label-padding", preset.padding + "mm");
+    sheet.style.setProperty("--label-qr-size", safeQr + "mm");
+    sheet.style.setProperty("--label-barcode-width", preset.barcode + "mm");
+    sheet.style.setProperty("--label-across", String(preset.across));
+
+    return true;
+}
+
+/*
+   The Printer Settings panel, shown from the label area.
+*/
+function buildLabelSettingsHtml() {
+
+    const current = getLabelPresetName();
+
+    const options = Object.keys(LABEL_SIZE_PRESETS).map(key => {
+
+        const selected = key === current ? " selected" : "";
+
+        return `<option value="${escapeHtml(key)}"${selected}>${escapeHtml(LABEL_SIZE_PRESETS[key].label)}</option>`;
+    }).join("");
+
+    const preset = getLabelPreset(current);
+
+    return `<div class="label-settings">
+        <h4 class="label-settings-title">Label printer settings</h4>
+
+        <label class="label-settings-field" for="labelPresetSelect">
+            <span>Sticker size</span>
+            <select id="labelPresetSelect" onchange="setLabelPreset(this.value)">${options}</select>
+        </label>
+
+        <p class="label-settings-hint">
+            Currently printing <strong>${escapeHtml(String(preset.width))} \u00d7 ${escapeHtml(String(preset.height))} mm</strong>
+            labels, ${escapeHtml(String(preset.across))} across the sheet,
+            with a ${escapeHtml(String(Math.max(preset.qr, MIN_LABEL_QR_MM)))} mm QR code.
+        </p>
+
+        <p class="label-settings-tip">
+            In the print dialog set <strong>Margins: None</strong> and
+            <strong>Scale: 100%</strong> (not "Fit to page"), or the labels will
+            not land on the sticker positions.
+        </p>
+    </div>`;
+}
+
+/*
+   Open the settings in the modal, so a label does not have to be
+   printed to change the sticker size.
+*/
+function openLabelSettings() {
+
+    const title = $("modalWindowTitle");
+    const content = $("modalWindowContent");
+
+    if (title) {
+        title.textContent = "Label Printer Settings";
+    }
+
+    if (content) {
+        content.innerHTML = buildLabelSettingsHtml();
+    }
+
+    const modal = $("windowModal");
+
+    if (modal) {
+        modal.classList.add("open");
+        modal.setAttribute("aria-hidden", "false");
+    }
+}
+
 /*
    Fill the label sheet with one sticker per item.
 
@@ -6420,6 +6663,13 @@ function renderLabelSheet(items) {
     if (!stack) {
         throw new Error("The label sheet is missing from the page.");
     }
+
+    /*
+       Apply the saved sticker geometry before the markup is built,
+       so the QR and barcode are drawn for the size they will print
+       at rather than being rescaled afterwards.
+    */
+    applyLabelPreset(getLabelPresetName());
 
     stack.innerHTML = items.map((item, index) => {
 

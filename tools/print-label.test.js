@@ -293,25 +293,24 @@ test('the QR on the label is square, so it does not distort', () => {
         /\.print-label-qr,\s*\n\s*\.print-label-qr img,\s*\n\s*\.print-label-qr canvas\s*\{([\s\S]*?)\}/
     );
     assert.ok(rule, 'the label QR size rule was not found');
-    const width = rule[1].match(/width:\s*([\d.]+)mm/);
-    const height = rule[1].match(/height:\s*([\d.]+)mm/);
-    assert.ok(width && height, 'both width and height must be set in mm');
-    assert.equal(width[1], height[1], 'a QR must be square or it will not scan');
+    assert.match(rule[1], /width:\s*var\(--label-qr-size\)/);
+    assert.match(rule[1], /height:\s*var\(--label-qr-size\)/);
 });
 
 test('the label QR is big enough to scan reliably', () => {
     const rule = cssSource.match(
         /\.print-label-qr,\s*\n\s*\.print-label-qr img,\s*\n\s*\.print-label-qr canvas\s*\{([\s\S]*?)\}/
     );
-    const width = Number(rule[1].match(/width:\s*([\d.]+)mm/)[1]);
-    assert.ok(width >= 20, `the label QR is ${width}mm, too small to scan comfortably`);
+    assert.match(rule[1], /var\(--label-qr-size\)/);
+    const floor = Number(appSource.match(/const MIN_LABEL_QR_MM = (\d+)/)[1]);
+    assert.ok(floor >= 15, `the QR floor is ${floor}mm, too small for a phone camera`);
 });
 
 test('the label barcode is not stretched horizontally', () => {
     // Stretching changes the stripe widths, which ARE the data.
     const rule = cssSource.match(/\.print-label-barcode svg\s*\{([\s\S]*?)\}/);
     assert.ok(rule, 'the label barcode size rule was not found');
-    assert.match(rule[1], /width:\s*[\d.]+mm/);
+    assert.match(rule[1], /width:\s*var\(--label-barcode-width\)/);
     assert.match(rule[1], /height:\s*auto/);
 });
 
@@ -327,7 +326,7 @@ test('the label stack lays labels out in a flowing grid', () => {
 test('the label is sized to a sticker rather than a page', () => {
     const rule = cssSource.match(/\.print-label-sheet \.print-label\s*\{([\s\S]*?)\}/);
     assert.ok(rule, 'the label size rule was not found');
-    assert.match(rule[1], /width:\s*9\dmm/);
+    assert.match(rule[1], /width:\s*var\(--label-width\)/);
 });
 
 test('a label never splits across two pages', () => {
@@ -346,4 +345,145 @@ test('app.js parses as valid JavaScript', () => {
             stdio: 'pipe',
         });
     });
+});
+// ---------------------------------------------------------------------------
+// Label printer settings
+//
+// The geometry is chosen from a preset table rather than hardcoded, so the
+// invariants live there now. These check the table and the wiring, not
+// literal millimetre values that would change with every preset.
+// ---------------------------------------------------------------------------
+
+test('there is a preset table with a documented default', () => {
+    assert.match(appSource, /const LABEL_SIZE_PRESETS = \{/);
+    assert.match(appSource, /const DEFAULT_LABEL_PRESET = "90x55"/);
+});
+
+test('the default preset actually exists in the table', () => {
+    const key = appSource.match(/const DEFAULT_LABEL_PRESET = "([^"]+)"/)[1];
+    const block = appSource.match(/const LABEL_SIZE_PRESETS = \{([\s\S]*?)\n\};/)[1];
+    assert.ok(block.includes(`"${key}"`), `the default "${key}" is not in the preset table`);
+});
+
+test('every preset carries the full geometry the stylesheet needs', () => {
+    const block = appSource.match(/const LABEL_SIZE_PRESETS = \{([\s\S]*?)\n\};/)[1];
+    for (const field of ['width', 'height', 'across', 'gap', 'padding', 'qr', 'barcode']) {
+        assert.ok(block.includes(`${field}:`), `presets are missing "${field}"`);
+    }
+});
+
+test('no preset shrinks the QR below the scannable floor', () => {
+    // A QR the phone cannot resolve makes the sticker useless, so the
+    // values are checked rather than trusted.
+    const floor = Number(appSource.match(/const MIN_LABEL_QR_MM = (\d+)/)[1]);
+    const block = appSource.match(/const LABEL_SIZE_PRESETS = \{([\s\S]*?)\n\};/)[1];
+    const qrValues = [...block.matchAll(/qr:\s*([\d.]+)/g)].map(m => Number(m[1]));
+
+    assert.ok(qrValues.length >= 4, 'expected several presets to check');
+    for (const qr of qrValues) {
+        assert.ok(qr >= floor, `a preset has a ${qr}mm QR, below the ${floor}mm floor`);
+    }
+});
+
+test('the QR floor is enforced when applying, not only in the table', () => {
+    const body = functionBody('applyLabelPreset');
+    assert.match(body, /Math\.max\(preset\.qr, MIN_LABEL_QR_MM\)/);
+});
+
+test('every barcode fits inside its own label', () => {
+    // A barcode wider than the sticker would be clipped on paper.
+    const block = appSource.match(/const LABEL_SIZE_PRESETS = \{([\s\S]*?)\n\};/)[1];
+    const entries = [...block.matchAll(/width:\s*([\d.]+)([\s\S]*?)barcode:\s*([\d.]+)/g)];
+
+    assert.ok(entries.length >= 4, 'expected several presets to check');
+    for (const entry of entries) {
+        const labelWidth = Number(entry[1]);
+        const barcodeWidth = Number(entry[3]);
+        assert.ok(
+            barcodeWidth <= labelWidth,
+            `a ${barcodeWidth}mm barcode does not fit a ${labelWidth}mm label`
+        );
+    }
+});
+
+test('applying a preset writes every variable the stylesheet reads', () => {
+    const body = functionBody('applyLabelPreset');
+    for (const variable of [
+        '--label-width',
+        '--label-height',
+        '--label-gap',
+        '--label-padding',
+        '--label-qr-size',
+        '--label-barcode-width',
+        '--label-across',
+    ]) {
+        assert.ok(body.includes(variable), `applyLabelPreset never sets ${variable}`);
+    }
+});
+
+test('the preset is saved so it survives a reload', () => {
+    const body = functionBody('setLabelPreset');
+    assert.match(body, /localStorage\.setItem\(LABEL_PRESET_KEY/);
+});
+
+test('an unknown preset name is rejected rather than stored', () => {
+    const body = functionBody('setLabelPreset');
+    assert.match(body, /hasOwnProperty\.call\(LABEL_SIZE_PRESETS, name\)/);
+    assert.match(body, /return false/);
+});
+
+test('a stale saved preset falls back to the default', () => {
+    // A key from an older build could name a preset that no longer exists.
+    const body = functionBody('getLabelPresetName');
+    assert.match(body, /hasOwnProperty\.call\(LABEL_SIZE_PRESETS, stored\)/);
+    assert.match(body, /return DEFAULT_LABEL_PRESET/);
+});
+
+test('reading the preset survives localStorage being unavailable', () => {
+    // Private browsing can throw on access; the default is still correct.
+    const body = functionBody('getLabelPresetName');
+    assert.match(body, /catch/);
+});
+
+test('saving the preset survives localStorage being unavailable', () => {
+    const body = functionBody('setLabelPreset');
+    assert.match(body, /catch/);
+});
+
+test('the preset is applied when a label sheet is rendered', () => {
+    // Otherwise the geometry would only take effect on the next print.
+    const body = functionBody('renderLabelSheet');
+    assert.match(body, /applyLabelPreset\(getLabelPresetName\(\)/);
+});
+
+test('a settings panel exists and is reachable', () => {
+    assert.match(appSource, /function buildLabelSettingsHtml\(/);
+    assert.match(appSource, /function openLabelSettings\(/);
+    assert.match(appSource, /window\.openLabelSettings = openLabelSettings/);
+});
+
+test('the settings panel offers every preset', () => {
+    const body = functionBody('buildLabelSettingsHtml');
+    assert.match(body, /Object\.keys\(LABEL_SIZE_PRESETS\)/);
+    assert.match(body, /onchange="setLabelPreset\(this\.value\)"/);
+});
+
+test('the settings panel warns about the print dialog settings', () => {
+    // Margins:None and Scale:100% is the part people get wrong, and
+    // without it the labels miss the sticker positions.
+    const body = functionBody('buildLabelSettingsHtml');
+    assert.match(body, /Margins/);
+    assert.match(body, /100%/);
+});
+
+test('the project card offers Label Settings beside Print All Barcodes', () => {
+    const actions = appSource.match(/window-card-actions"[\s\S]*?<\/div>/);
+    assert.ok(actions, 'the card action row was not found');
+    assert.match(actions[0], /printProjectLabels/);
+    assert.match(actions[0], /openLabelSettings/);
+});
+
+test('the settings panel escapes what it prints', () => {
+    const body = functionBody('buildLabelSettingsHtml');
+    assert.match(body, /escapeHtml/);
 });

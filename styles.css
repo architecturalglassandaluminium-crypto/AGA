@@ -1223,6 +1223,70 @@ img {
     display: block;
 }
 
+/* Label printer settings panel, shown in the modal. */
+
+.label-settings {
+    padding: 4px 0;
+}
+
+.label-settings-title {
+    margin: 0 0 12px;
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--text);
+}
+
+.label-settings-field {
+    display: block;
+    margin-bottom: 12px;
+}
+
+.label-settings-field > span {
+    display: block;
+    font-size: 12px;
+    font-weight: 600;
+    margin-bottom: 4px;
+    color: var(--text-muted);
+}
+
+.label-settings-field select {
+    width: 100%;
+    max-width: 320px;
+    padding: 7px 8px;
+    font-size: 13px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    background: white;
+    color: var(--text);
+    cursor: pointer;
+}
+
+.label-settings-field select:hover {
+    border-color: var(--accent);
+}
+
+.label-settings-hint {
+    margin: 0 0 10px;
+    font-size: 12px;
+    color: var(--text);
+    line-height: 1.5;
+}
+
+/*
+   The print-dialog instruction is the thing people get wrong, so it
+   is set apart rather than buried in the hint text above.
+*/
+.label-settings-tip {
+    margin: 0;
+    padding: 10px 12px;
+    font-size: 12px;
+    line-height: 1.5;
+    color: var(--text);
+    background: var(--surface-light);
+    border-left: 3px solid var(--accent);
+    border-radius: var(--radius-sm);
+}
+
 /* The allocation picker in a project-list window row. */
 
 .row-allocation {
@@ -5864,11 +5928,32 @@ img {
        forced onto separate pages: a project with six windows should
        use one or two A4 sheets, not six. A sticker is not a page.
     */
+    /*
+       LABEL GEOMETRY comes from custom properties, so the size can be
+       changed from the app's Printer Settings without editing CSS.
+
+       The defaults are the 90 x 55mm the label was built around.
+       printLabelSheet() sets these on the sheet element from the saved
+       preset; anything not set falls back to these.
+
+       Every dimension is in mm because that is the unit label stock is
+       sold in, and CSS px would drift with the paper size.
+    */
+    .print-label-sheet {
+        --label-width: 90mm;
+        --label-height: 55mm;
+        --label-gap: 4mm;
+        --label-padding: 3mm;
+        --label-qr-size: 35mm;
+        --label-barcode-width: 80mm;
+        --label-across: 2;
+    }
+
     .print-label-sheet .print-label {
-        width: 90mm;
-        min-height: 55mm;
+        width: var(--label-width);
+        min-height: var(--label-height);
         margin: 0 auto 6mm;
-        padding: 3mm;
+        padding: var(--label-padding);
         border: 0.5pt solid #000;
         box-sizing: border-box;
         break-inside: avoid;
@@ -5883,7 +5968,7 @@ img {
     .print-label-sheet #printLabelStack {
         display: flex;
         flex-wrap: wrap;
-        gap: 4mm;
+        gap: var(--label-gap);
         justify-content: flex-start;
     }
 
@@ -5936,8 +6021,8 @@ img {
     .print-label-qr,
     .print-label-qr img,
     .print-label-qr canvas {
-        width: 35mm !important;
-        height: 35mm !important;
+        width: var(--label-qr-size) !important;
+        height: var(--label-qr-size) !important;
     }
 
     /*
@@ -5946,7 +6031,7 @@ img {
        would change what it says and break the checksum.
     */
     .print-label-barcode svg {
-        width: 80mm !important;
+        width: var(--label-barcode-width) !important;
         max-width: none;
         height: auto !important;
         display: block;
