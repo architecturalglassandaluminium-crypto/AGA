@@ -149,3 +149,82 @@ test('the shared detail grid carries the item-only markers', () => {
     assert.ok(html, 'the worksheet block was not found');
     assert.ok(html[0].includes('print-item-only'), 'the worksheet has no item-only markers');
 });
+// ---------------------------------------------------------------------------
+// The masthead: no solid fill.
+//
+// A header band is the largest solid ink area on the sheet, so it is the
+// first thing to band on a laser printer and the first thing to look wrong
+// on a low cartridge. The hierarchy is carried by weight and a rule instead.
+// ---------------------------------------------------------------------------
+
+function cssRule(selectorPattern) {
+    const match = cssSource.match(selectorPattern);
+    assert.ok(match, `rule not found: ${selectorPattern}`);
+    return match[1];
+}
+
+test('the worksheet header has no dark fill', () => {
+    const rule = cssRule(/\.print-masthead\s*\{([\s\S]*?)\n    \}/);
+
+    assert.match(rule, /background:\s*transparent/, 'the header still has a fill');
+    assert.doesNotMatch(
+        rule,
+        /background:\s*#1a1a1a/i,
+        'the near-black masthead band is still there'
+    );
+});
+
+test('the header text is black, not white', () => {
+    // White text was only legible because of the band. With the band gone
+    // it would print white-on-white.
+    const rule = cssRule(/\.print-masthead\s*\{([\s\S]*?)\n    \}/);
+    assert.match(rule, /color:\s*#000\b/);
+    assert.doesNotMatch(rule, /color:\s*#fff\b/);
+});
+
+test('the header keeps a rule so it still reads as a boundary', () => {
+    // Removing a band without adding anything leaves the header floating.
+    const rule = cssRule(/\.print-masthead\s*\{([\s\S]*?)\n    \}/);
+    assert.match(rule, /border-bottom:/);
+});
+
+test('the masthead title is black', () => {
+    const rule = cssRule(/\.print-masthead-title\s*\{([\s\S]*?)\}/);
+    assert.match(rule, /color:\s*#000\b/);
+});
+
+test('the masthead subtitle is grey, not near-white', () => {
+    // It was #d4d4d4 for the dark band; that is invisible on paper.
+    const rule = cssRule(/\.print-masthead-sub\s*\{([\s\S]*?)\}/);
+    assert.doesNotMatch(rule, /color:\s*#d4d4d4/i);
+    assert.match(rule, /color:\s*#444\b/);
+});
+
+test('the item ID box is outlined, not filled', () => {
+    const rule = cssRule(/\.print-masthead-id\s*\{([\s\S]*?)\n    \}/);
+    assert.match(rule, /background:\s*transparent/);
+    assert.match(rule, /border:/);
+});
+
+test('the status chip is outlined rather than filled', () => {
+    const rule = cssRule(/\.print-status-chip\s*\{([\s\S]*?)\}/);
+    assert.match(rule, /border:/);
+    assert.doesNotMatch(rule, /background:\s*#1a1a1a/i);
+});
+
+test('no print rule fills a block with near-black', () => {
+    // A blunt sweep, so a NEW dark fill anywhere in the print stylesheet
+    // fails here rather than being discovered on paper.
+    const printBlocks = cssSource.match(/@media print[\s\S]*/);
+    assert.ok(printBlocks, 'no @media print block found');
+
+    const darkFills = [...printBlocks[0].matchAll(/background:\s*(#(?:1[0-9a-f]{5}|[0-9a-f]{3,5})|black)\b/gi)]
+        .map(m => m[0])
+        .filter(text => !/#fff|#ffffff|white/i.test(text));
+
+    assert.deepEqual(
+        darkFills,
+        [],
+        `a solid dark fill was found in the print styles: ${darkFills.join(', ')}`
+    );
+});

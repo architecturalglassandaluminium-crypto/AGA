@@ -2664,13 +2664,18 @@ img {
     /* =====================================================
        MASTHEAD
        -----------------------------------------------------
-       Replaces the old title block. A solid dark band gives the
-       sheet an anchor at the top and a single obvious place for
-       the item ID, instead of two boxed elements competing.
+       A rule-bounded block rather than a filled band.
 
-       IMPORTANT: the dark fill is near-black (#1a1a1a), not a
-       colour. A mono laser renders it as a solid tone, so the
-       contrast survives the printer; an accent colour would not.
+       It used to be a solid near-black (#1a1a1a) bar with white
+       text. That looks strong on screen but drinks toner: a header
+       band is the largest solid area on the sheet, so it is the
+       first thing to show banding on a laser printer and the first
+       thing to look wrong when a cartridge is low.
+
+       Now it is black text on white with a rule under it. The
+       hierarchy is carried by weight and a horizontal rule instead
+       of by fill, so the item ID still leads the page without
+       anything to fill in.
     ===================================================== */
 
     .print-masthead {
@@ -2678,10 +2683,16 @@ img {
         justify-content: space-between;
         align-items: stretch;
         gap: 6mm;
-        background: #1a1a1a;
-        color: #fff;
-        padding: 3.5mm 4mm;
+        background: transparent;
+        color: #000;
+        padding: 0 0 2.5mm;
         margin-bottom: 4mm;
+        /*
+           The rule that replaces the band: a heavy black line under
+           the header. 1pt is enough to read as a boundary without
+           printing as an accidental thick bar.
+        */
+        border-bottom: 1pt solid #000;
         break-inside: avoid;
         page-break-inside: avoid;
     }
@@ -2705,12 +2716,14 @@ img {
         letter-spacing: -0.015em;
         line-height: 1.15;
         margin: 0 0 1mm;
-        color: #fff;
+        /* Black on white now that the band is gone. */
+        color: #000;
     }
 
     .print-masthead-sub {
         font-size: 9.5pt;
-        color: #d4d4d4;
+        /* Mid grey: a supporting line, not a second heading. */
+        color: #444;
         margin: 0;
         line-height: 1.3;
     }
@@ -2722,8 +2735,17 @@ img {
     */
     .print-masthead-id {
         flex: 0 0 auto;
-        background: #fff;
-        color: #1a1a1a;
+        /*
+           Was a white box punched out of the dark band. With the band
+           gone there is nothing to punch out of, so it becomes a
+           thin-ruled box instead - the item ID still needs to be
+           findable at a glance on a worksheet somebody is checking,
+           but a fill here would reintroduce the very thing the band
+           was removed for.
+        */
+        background: transparent;
+        color: #000;
+        border: 0.75pt solid #000;
         padding: 2.5mm 3.5mm;
         min-width: 48mm;
         text-align: right;
@@ -2753,9 +2775,11 @@ img {
     }
 
     /*
-       Status chip sits inside the white ID box, so it is outlined
-       in black rather than a fill - a filled pill inside a non-black
-       box would read as two competing blocks.
+       Status chip sits inside the ruled ID box, so it is outlined in
+       black rather than filled - a filled pill beside a thin border
+       would read as two competing blocks. It also stays unfilled for
+       the same reason the masthead band went: no solid areas on a
+       mono laser print.
     */
     .print-status-chip {
         display: inline-block;
