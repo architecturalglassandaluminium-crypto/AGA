@@ -1207,6 +1207,44 @@ img {
     display: block;
 }
 
+/*
+   Barcode on the printed schedule.
+
+   Wider than the QR on screen because a 1D barcode spends its
+   width on the stripes - squashing it is what stops a laser
+   scanner reading it. The SVG is drawn by JsBarcode; the text
+   under the stripes comes from displayValue.
+*/
+
+.print-row-barcode svg {
+    width: 100% !important;
+    max-width: 150px;
+    height: auto !important;
+    display: block;
+}
+
+/* The allocation picker in a project-list window row. */
+
+.row-allocation {
+    min-width: 130px;
+}
+
+.row-allocated-select {
+    width: 100%;
+    max-width: 180px;
+    padding: 4px 6px;
+    font-size: 12px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    background: white;
+    color: var(--text);
+    cursor: pointer;
+}
+
+.row-allocated-select:hover {
+    border-color: var(--accent);
+}
+
 .row-photo {
     display: flex;
     align-items: center;
@@ -3045,7 +3083,8 @@ img {
     }
 
     .print-schedule th.c-qc,
-    .print-schedule th.c-qr {
+    .print-schedule th.c-qr,
+    .print-schedule th.c-barcode {
         text-align: center;
     }
 
@@ -3114,7 +3153,7 @@ img {
        the values be set at 8.5pt and still not wrap.
     */
     .print-schedule .c-id {
-        width: 17%;
+        width: 13%;
         font-family: ui-monospace, Consolas, "Courier New", monospace;
         font-size: 6.5pt;
         font-weight: 700;
@@ -3122,17 +3161,16 @@ img {
     }
 
     .print-schedule .c-type {
-        width: 17%;
+        width: 14%;
     }
 
     /* Free text, so it gets the largest share of the table. */
-    /* Free text, so it gets the largest share of the table. */
     .print-schedule .c-desc {
-        width: 29%;
+        width: 22%;
     }
 
     .print-schedule .c-loc {
-        width: 18%;
+        width: 14%;
     }
 
     /*
@@ -3141,14 +3179,14 @@ img {
        makes a size column scannable.
     */
     .print-schedule .c-size {
-        width: 9%;
+        width: 8%;
         text-align: right;
         font-variant-numeric: tabular-nums;
         white-space: nowrap;
     }
 
     .print-schedule .c-frame {
-        width: 11%;
+        width: 9%;
     }
 
     /*
@@ -3158,14 +3196,14 @@ img {
        splits mid-word ("Obscu / re" on an earlier version).
     */
     .print-schedule .c-glass {
-        width: 13%;
+        width: 11%;
         font-size: 6.5pt;
         word-break: keep-all;
         overflow-wrap: normal;
     }
 
     .print-schedule .c-who {
-        width: 13%;
+        width: 11%;
         font-size: 6.5pt;
     }
 
@@ -3174,7 +3212,7 @@ img {
        gets the short form on paper - see PRINT_STATUS_SHORT.
     */
     .print-schedule .c-status {
-        width: 11%;
+        width: 10%;
         font-size: 6.5pt;
     }
 
@@ -3272,7 +3310,7 @@ img {
        from the border to keep the quiet zone a scanner needs.
     */
     .print-schedule .c-qr {
-        width: 21%;
+        width: 13%;
         text-align: center;
         vertical-align: middle;
         padding: 1.5mm;
@@ -3380,11 +3418,42 @@ img {
        on each side still leaves the cell's border clear, which is
        what keeps it scannable.
     */
+    /*
+       The QR is now one of two scannable marks per item, so it comes
+       down from 24mm to 18mm to leave the barcode its width. 18mm is
+       still comfortably above the ~10mm floor a phone camera needs.
+    */
     .print-row-qr,
     .print-row-qr img,
     .print-row-qr canvas {
-        width: 24mm !important;
-        height: 24mm !important;
+        width: 18mm !important;
+        height: 18mm !important;
+        display: block;
+        margin: 0 auto;
+    }
+
+    /*
+       The barcode column.
+
+       A 1D barcode scales in ONE axis: the stripe WIDTH must stay
+       proportional or a laser scanner misreads the module widths and
+       the symbol fails its checksum. So the width is fixed in mm and
+       the height follows, rather than stretching to fill the cell.
+
+       12mm high prints comfortably legible on a laser printer and
+       still fits inside the two-row item cell alongside the QR.
+    */
+    .print-schedule .c-barcode {
+        width: 15%;
+        text-align: center;
+        vertical-align: middle;
+        padding: 1mm 1.5mm;
+    }
+
+    .print-row-barcode svg {
+        width: 30mm !important;
+        max-width: none;
+        height: auto !important;
         display: block;
         margin: 0 auto;
     }

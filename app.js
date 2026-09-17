@@ -3406,20 +3406,59 @@ function buildProductionTrackerHtml(item) {
 */
 function saveAllocation(windowId) {
 
+    const select = $("trackerAllocatedSelect");
+
+    if (!select) {
+        return false;
+    }
+
+    return applyAllocation(windowId, safeText(select.value), { reopen: true });
+}
+
+/*
+   Allocate straight from a window row in the project list.
+
+   Same rules as the modal, but the employee is read from the row's
+   own select rather than "trackerAllocatedSelect". Allocating from
+   the list is the common case on the floor: a supervisor is looking
+   at every window at once and wants to hand them out without opening
+   each record and coming back.
+*/
+function saveRowAllocation(windowId, selectElement) {
+
+    const select = selectElement ||
+        document.querySelector(`[data-row-allocated="${windowId}"]`);
+
+    if (!select) {
+        return false;
+    }
+
+    /* reopen:false the user stays on the list they are working through. */
+    return applyAllocation(windowId, safeText(select.value), { reopen: false });
+}
+
+/*
+   The shared body of both allocation paths.
+
+   Deliberately takes the employee id rather than reading a control,
+   so the caller decides where the choice came from and this stays the
+   one place that writes the record, the queue entry and the toast.
+
+   `reopen` controls whether the window record is reopened afterwards:
+   the modal path wants that, the row path must NOT, or choosing a name
+   from a row's dropdown would throw the user into the modal. The row
+   just needs the list redrawn so the new owner shows.
+*/
+function applyAllocation(windowId, employeeId, options) {
+
+    const reopen = Boolean(options && options.reopen);
+
     try {
 
         if (!windowId) {
             showError("No window was selected.");
             return false;
         }
-
-        const select = $("trackerAllocatedSelect");
-
-        if (!select) {
-            return false;
-        }
-
-        const employeeId = safeText(select.value);
 
         const employeeName = employeeId
             ? getEmployeeName(employeeId)
@@ -3484,9 +3523,16 @@ function saveAllocation(windowId) {
                 : "Window allocation cleared."
         );
 
-        /* Redraw everything, then reopen the same window record. */
         renderAll();
-        viewWindow(windowId);
+
+        /*
+           Only the modal path reopens the record. From a list row the
+           user is working through many windows, so reopening would
+           interrupt them on every single change.
+        */
+        if (reopen) {
+            viewWindow(windowId);
+        }
 
         return true;
 
@@ -3501,6 +3547,12 @@ function saveAllocation(windowId) {
 }
 
 window.saveAllocation = saveAllocation;
+
+window.saveRowAllocation = saveRowAllocation;
+
+window.applyAllocation = applyAllocation;
+
+window.rowAllocationHtml = rowAllocationHtml;
 
 /*
    "Allocated To" as a badge, for tables and cards.
@@ -3532,6 +3584,51 @@ function allocatedBadgeHtml(allocatedTo) {
     }
 
     return `<span class="allocated-badge allocated-set" title="Allocated to ${escapeHtml(value)}">${escapeHtml(value)}</span>`;
+}
+
+/*
+   The "Allocated" cell of a window row: a picker, not just a badge.
+
+   Previously this cell only DISPLAYED who owned the window - changing
+   it meant opening the record and using the tracker. On a job with
+   thirty windows that is thirty open-and-close cycles to hand out the
+   work, so the choice is made directly in the row here.
+
+   The click handler stops the event from reaching the row, because the
+   row itself opens the window record - without this, picking a name
+   from the dropdown would also open the modal underneath it.
+*/
+function rowAllocationHtml(window) {
+
+    const employees = getEmployees();
+
+    /*
+       With no team added there is nothing to choose from, so fall back
+       to the plain badge rather than rendering an empty dropdown.
+    */
+    if (!employees.length) {
+        return allocatedBadgeHtml(window.allocatedTo);
+    }
+
+    const allocatedValue = safeText(window.allocatedToId);
+
+    const options = `<option value="">Unallocated</option>` +
+        employees.map(employee => {
+
+            const selected = employee.id === allocatedValue
+                ? " selected"
+                : "";
+
+            return `<option value="${escapeHtml(employee.id)}"${selected}>${escapeHtml(employee.name)}${employee.number ? ` (${escapeHtml(employee.number)})` : ""}</option>`;
+        }).join("");
+
+    const currentName = safeText(window.allocatedTo);
+
+    return `<div class="row-allocation" onclick="event.stopPropagation()">
+        <select class="row-allocated-select" data-row-allocated="${escapeHtml(window.id)}"
+            aria-label="Allocated to${currentName ? ` (currently ${escapeHtml(currentName)})` : ""}"
+            onchange="saveRowAllocation('${escapeHtml(window.id)}', this)">${options}</select>
+    </div>`;
 }
 
 function formatStatusForEmail(status) {
@@ -4032,7 +4129,7 @@ function windowRowTableHtml(windows) {
             <td class="col-glass">${escapeHtml(window.glassType || "-")}</td>
             <td class="col-qc">${qcStatusPillHtml(window.qcCheck)}</td>
             <td class="col-status">${statusPillHtml(window.status)}</td>
-            <td class="col-allocated">${allocatedBadgeHtml(window.allocatedTo)}</td>
+            <td class="col-allocated">${rowAllocationHtml(window)}</td>
             <td class="col-age">
                 <span class="age-stack">
                     ${ageBadgeHtml(window.createdAt)}
@@ -4699,6 +4796,7 @@ function printProject(projectId) {
                         <td class="c-size">${escapeHtml(window.length)}</td>
                         <td class="c-size">${escapeHtml(window.width)}</td>
                         <td class="c-frame">${escapeHtml(formatPrintFrame(window.frameColour) || "\u2014")}</td>
+                        <td class="c-barcode" rowspan="2"><span class="print-row-barcode" data-barcode-print="${escapeHtml(window.windowNumber || "")}"></span></td>
                         <td class="c-qr" rowspan="2"><span class="print-row-qr" data-qr-print="${escapeHtml(window.windowNumber || "")}"></span></td>
                     </tr>
                     <tr class="print-row-2">
@@ -4713,6 +4811,7 @@ function printProject(projectId) {
             `).join("") || `<tbody><tr><td colspan="${columnCount}" class="print-empty">No items captured on this project.</td></tr></tbody>`;
 
             renderPrintQRCodes(schedule);
+            renderPrintBarcodes(schedule);
         }
 
         setPrintText("printScheduleCount", `${windows.length} item${windows.length === 1 ? "" : "s"}`);
@@ -5458,6 +5557,124 @@ function renderWindowRowQRCodes(scope) {
         }
     });
 }
+
+/* =========================================================
+   1D BARCODE
+   ---------------------------------------------------------
+   A Code 128 barcode of the window number, printed beside the
+   QR code.
+
+   Why both: a phone camera reads the QR, but a handheld laser
+   scanner on the floor cannot read a QR at all - it only reads
+   the striped symbology. Carrying both means whichever reader
+   the workshop owns, the item can be identified.
+
+   Code 128 (not Code 39) because it is denser and the whole
+   alphanumeric window number fits in far less width, which
+   matters on a schedule where every item only gets one narrow
+   column.
+========================================================= */
+
+/*
+   The value encoded in the barcode.
+
+   Deliberately the SAME window number the QR carries, not the
+   internal uuid: the number is what is printed in the ID column
+   and written on the paperwork, so a scan can be matched to the
+   sheet by eye as well as by machine.
+*/
+function buildWindowBarcodeValue(windowNumber) {
+    return safeText(windowNumber);
+}
+
+/*
+   Draw one barcode into an element. Mirrors
+   generateQRCodeInElement so the row and print paths behave the
+   same way, including failing quietly when the library is absent.
+*/
+function generateBarcodeInElement(element, value, height = 40) {
+
+    try {
+
+        if (!value) {
+            return false;
+        }
+
+        const node = typeof element === "string"
+            ? document.querySelector(element)
+            : element;
+
+        if (!node) {
+            return false;
+        }
+
+        /*
+           If the CDN did not load, show nothing rather than a
+           broken image. The QR still identifies the item, so a
+           missing barcode must not break the worksheet.
+        */
+        if (typeof JsBarcode === "undefined") {
+            return false;
+        }
+
+        node.innerHTML = "";
+
+        const svg = document.createElementNS(
+            "http://www.w3.org/2000/svg",
+            "svg"
+        );
+
+        node.appendChild(svg);
+
+        JsBarcode(svg, value, {
+            format: "CODE128",
+            height,
+            width: 2,
+            displayValue: true,
+            fontSize: 14,
+            margin: 0
+        });
+
+        return true;
+
+    } catch (error) {
+
+        /*
+           JsBarcode throws on a value it cannot encode. A window
+           number should always encode, but a malformed one must
+           not take the whole worksheet down.
+        */
+        console.error("Row barcode generation error:", error);
+
+        return false;
+    }
+}
+
+/*
+   Barcodes for the printed window schedule, drawn after the
+   markup is in the DOM.
+*/
+function renderPrintBarcodes(scope) {
+
+    const root = scope || document;
+
+    root.querySelectorAll('[data-barcode-print]').forEach(node => {
+
+        const value = node.dataset.barcodePrint;
+
+        if (!value) {
+            return;
+        }
+
+        generateBarcodeInElement(node, value, 40);
+    });
+}
+
+window.buildWindowBarcodeValue = buildWindowBarcodeValue;
+
+window.generateBarcodeInElement = generateBarcodeInElement;
+
+window.renderPrintBarcodes = renderPrintBarcodes;
 
 /* =========================================================
    QR SCANNER
@@ -6237,6 +6454,7 @@ function printWindow(windowId) {
                     <td class="c-size">${escapeHtml(length || "\u2014")}</td>
                     <td class="c-size">${escapeHtml(width || "\u2014")}</td>
                     <td class="c-frame">${escapeHtml(formatPrintFrame(item.frameColour) || "\u2014")}</td>
+                    <td class="c-barcode" rowspan="2"><span class="print-row-barcode" data-barcode-print="${escapeHtml(item.windowNumber || "")}"></span></td>
                     <td class="c-qr" rowspan="2"><span class="print-row-qr" data-qr-print="${escapeHtml(item.windowNumber || "")}"></span></td>
                 </tr>
                 <tr class="print-row-2">
@@ -6250,6 +6468,7 @@ function printWindow(windowId) {
             `;
 
             renderPrintQRCodes(schedule);
+            renderPrintBarcodes(schedule);
         }
 
         setPrintText("printScheduleCount", "1 item");

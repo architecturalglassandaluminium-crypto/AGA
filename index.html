@@ -12,6 +12,14 @@
     <link rel="stylesheet" href="styles.css" />
     <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
     <script src="https://unpkg.com/html5-qrcode"></script>
+    <!--
+        JsBarcode draws the 1D Code 128 barcode printed beside each
+        window's QR code. The QR is for phone cameras; the barcode is
+        for a handheld laser scanner on the floor, which cannot read a
+        QR at all. Loaded from a CDN for the same reason as the two
+        above: this is a static site with no build step.
+    -->
+    <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.6/dist/JsBarcode.all.min.js"></script>
 </head>
 
 <body>
@@ -1089,6 +1097,14 @@
                         <th class="c-size">Length</th>
                         <th class="c-size">Width</th>
                         <th class="c-frame">Frame</th>
+                        <!--
+                           Two scannable marks per item, for two different
+                           readers: the QR is read by a phone camera, the
+                           barcode by a handheld laser scanner. Both carry
+                           the same window number, so either one identifies
+                           the item.
+                        -->
+                        <th class="c-barcode" rowspan="2">Barcode</th>
                         <th class="c-qr" rowspan="2">QR</th>
                     </tr>
                     <tr class="print-schedule-head-2">
