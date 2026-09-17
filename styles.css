@@ -2570,7 +2570,7 @@ img {
         box-sizing: border-box;
         background: white;
         color: #000;
-        font-family: "Segoe UI", Arial, Helvetica, sans-serif;
+        font-family: Arial, Helvetica, sans-serif;
         -webkit-print-color-adjust: exact;
         print-color-adjust: exact;
     }
@@ -2583,6 +2583,27 @@ img {
         padding-left: 1.5mm;
         padding-right: 1.5mm;
         box-sizing: border-box;
+    }
+
+    /*
+       ITEM-LEVEL ROWS on a PROJECT sheet.
+
+       A project cover shows project facts only: number, customer,
+       site, contact, dates. Size, type, location, frame and glass are
+       properties of each WINDOW, and the schedule below already
+       lists them per item.
+
+       Printing them here was actively misleading - the size row
+       showed a RANGE as though the project had one dimension, and
+       the frame row collapsed several colours into "Charcoal +1 more"
+       as though that were a project fact.
+
+       .print-project on the sheet marks a project cover, so the
+       single-item sheet keeps these rows - there they are correct,
+       because the sheet is about exactly one window.
+    */
+    .print-project .print-item-only {
+        display: none !important;
     }
 
     /* The letterhead already carries its own inset. */
@@ -5695,7 +5716,7 @@ img {
         box-sizing: border-box;
         background: white;
         color: #000;
-        font-family: "Segoe UI", Arial, Helvetica, sans-serif;
+        font-family: Arial, Helvetica, sans-serif;
         -webkit-print-color-adjust: exact;
         print-color-adjust: exact;
     }
@@ -5876,7 +5897,7 @@ img {
         box-sizing: border-box;
         background: white;
         color: #000;
-        font-family: "Segoe UI", Arial, Helvetica, sans-serif;
+        font-family: Arial, Helvetica, sans-serif;
         font-size: 10pt;
         -webkit-print-color-adjust: exact;
         print-color-adjust: exact;
@@ -5911,7 +5932,7 @@ img {
         box-sizing: border-box;
         background: white;
         color: #000;
-        font-family: "Segoe UI", Arial, Helvetica, sans-serif;
+        font-family: Arial, Helvetica, sans-serif;
         -webkit-print-color-adjust: exact;
         print-color-adjust: exact;
     }

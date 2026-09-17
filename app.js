@@ -4638,7 +4638,19 @@ function printProject(projectId) {
            project. The title block therefore carries the project
            number rather than an item number, and the detail grid
            describes the job rather than one item.
+
+           .print-project hides the item-level rows in the detail
+           grid. A project has no single size, type, location, frame
+           or glass; those belong to each window and are already
+           listed per item in the schedule below. See the markup
+           comment in index.html for what that used to print.
         */
+        const sheet = $("printWorksheet");
+
+        if (sheet) {
+            sheet.classList.add("print-project");
+        }
+
         setPrintText("printWindowId", project.projectNumber);
         setPrintText("printProjectName", project.projectName);
         setPrintText("printProjectNameSub", project.customerName);
@@ -4666,10 +4678,32 @@ function printProject(projectId) {
             windows.map(w => safeText(w.productType)).filter(Boolean)
         )];
 
-        setPrintText(
+        /*
+           TYPE, LOCATION, FRAME, GLASS and ALLOCATION are all
+           per-window facts, so a project cover does not print them.
+           The schedule below lists every one of them against the item
+           they belong to.
+
+           They used to be collapsed into project-wide claims - the
+           frame row printed "Charcoal +1 more", silently dropping the
+           rest, on a sheet that goes to the customer. Clearing them
+           rather than only hiding the rows means no misleading value
+           exists in the document at all.
+        */
+        [
             "printWindowType",
-            types.length ? types.join(", ") : "No items captured"
-        );
+            "printLocation",
+            "printFrameColour",
+            "printGlassType",
+            "printAllocatedTo"
+        ].forEach(id => setPrintText(id, ""));
+
+        /*
+           ITEM COUNT stays: "4 items" is a genuine project fact and
+           the one thing the cover is actually for. It is already
+           printed beside the schedule heading, so the block above is
+           cleared to avoid stating it twice.
+        */
 
         /*
            Summarise the specification instead of saying "See
@@ -4702,30 +4736,29 @@ function printProject(projectId) {
         };
 
         /*
-           "Location" describes where the items are installed, which
-           varies per item on a schedule. Putting an item COUNT in
-           that cell was simply the wrong label; the count already
-           appears next to the schedule heading.
+           Sizes, locations, frame colours and glass types were all
+           summarised here and are no longer written at all - see the
+           clear block above. The helpers that did it are kept off
+           this path deliberately, so there is nothing left that can
+           quietly reintroduce a project-wide claim.
         */
-        setPrintText(
-            "printLocation",
-            summarise(distinct("location"), "Not specified")
-        );
-
-        setPrintText(
-            "printFrameColour",
-            summarise(distinct("frameColour"), "Not specified")
-        );
-
-        setPrintText(
-            "printGlassType",
-            summarise(distinct("glassType"), "Not specified")
-        );
 
         /*
-           Sizes are per item, so the useful project-level fact is
-           the RANGE - it tells the workshop what it is dealing with
-           at a glance.
+           The DISTINCT helpers were removed with the rows that used
+           them. If a future cover needs a real project-level summary,
+           read it back from these:
+
+             types   distinct product types, computed above
+             windows the full item list, with length/width/frame/glass
+           Do NOT resurrect a "Size" row: a range across items under a
+           heading that says "Size (mm)" reads as the project having
+           one dimension, which is what this change removes.
+        */
+
+        /*
+           Lengths and widths are still gathered, because the schedule
+           below needs them per item and the item-count block uses the
+           list length. They are simply not printed as a project size.
         */
         const lengths = windows
             .map(w => Number(w.length))
@@ -4748,27 +4781,27 @@ function printProject(projectId) {
         };
 
         /*
-           A project has no single size, so this shows the RANGE of
-           each dimension rather than one pair of numbers.
+           A PROJECT HAS NO SIZE, so none is printed.
 
-           The ranges are LABELLED ("L 1800–2400 mm · W 900–2100 mm")
-           because two bare ranges beside each other - "1800–2400 mm
-           900–2100 mm" - give the workshop no way to tell which is
-           the length and which the width. The pair separator is for
-           a single item only, so it is hidden here.
+           This used to show the range across every window - "L 1200–
+           2100 mm | W 900 mm" - under a heading reading "Size (mm)",
+           which reads as the project having one dimension. It does
+           not; each window does, and the schedule below lists them
+           per item, which is the only place they belong.
+
+           The fields are CLEARED rather than merely hidden by the
+           .print-project rule, so no project size exists in the DOM
+           for a later stylesheet change to resurrect.
+
+           The same reasoning applies to type, location, frame, glass
+           and allocation - see the block below.
         */
-        const hasSizes = lengths.length || widths.length;
+        ["printWidth", "printHeight"].forEach(id => setPrintText(id, ""));
 
-        setPrintText(
-            "printWidth",
-            hasSizes ? `L ${range(lengths)}` : "\u2014"
-        );
-
-        setPrintText(
-            "printHeight",
-            hasSizes ? `W ${range(widths)}` : ""
-        );
-
+        /*
+           The pair separator belongs to a single item's "1200 \u00d7 900",
+           so it is not shown on a schedule.
+        */
         const dimSeparator = document.querySelector(".print-dim-sep");
 
         if (dimSeparator) {
@@ -4785,14 +4818,15 @@ function printProject(projectId) {
             dimCell.classList.add("print-dim-ranging");
         }
 
-        const allocated = [...new Set(
-            windows.map(w => safeText(w.allocatedTo)).filter(Boolean)
-        )];
+        /*
+           Allocation is per-window - "who is making this piece" - so
+           it is not printed on a project cover. An earlier version
+           listed every name against the project, which reads as the
+           whole job being one person's.
 
-        setPrintText(
-            "printAllocatedTo",
-            allocated.length ? allocated.join(", ") : "Unallocated"
-        );
+           The schedule below shows it per item, which is the only
+           place it means anything.
+        */
 
         const qcCount = windows.filter(
             w => safeText(w.qcCheck).toLowerCase() === "pass"
@@ -6845,8 +6879,15 @@ function printWindow(windowId) {
 
         /*
            This is the SINGLE ITEM worksheet, so every row in the
-           detail grid describes this one window or door.
+           detail grid describes this one window or door - including
+           the item-level rows, which printProject() hides.
         */
+        const sheet = $("printWorksheet");
+
+        if (sheet) {
+            sheet.classList.remove("print-project");
+        }
+
         const length = safeText(item.length) || safeText(item.finalWidth);
         const width = safeText(item.width) || safeText(item.finalHeight);
 

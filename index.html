@@ -1005,7 +1005,21 @@
                        correctly, so they get their own row set larger
                        than everything around them.
                     -->
-                    <tr class="print-row-strong">
+                    <!--
+                       ITEM-LEVEL ROW.
+
+                       A project has no single size, type, location,
+                       frame or glass - those belong to each window, and
+                       the schedule below lists them per item. Showing
+                       them here printed a RANGE as though the project
+                       had one size, and collapsed several frame colours
+                       into "Charcoal +1 more" as though that were a
+                       project fact. printProject() therefore HIDES this
+                       whole group; printWindow() shows it, because a
+                       single-item sheet is about one window and these
+                       rows are exactly right there.
+                    -->
+                    <tr class="print-row-strong print-item-only">
                         <th>Size (mm)</th>
                         <td class="print-dim-cell">
                             <span id="printWidth">-</span>
@@ -1021,23 +1035,23 @@
                             <span id="printHeight">-</span>
                         </td>
                     </tr>
-                    <tr>
+                    <tr class="print-item-only">
                         <th>Type</th>
                         <td id="printWindowType">-</td>
                     </tr>
-                    <tr>
+                    <tr class="print-item-only">
                         <th>Location</th>
                         <td id="printLocation">-</td>
                     </tr>
-                    <tr>
+                    <tr class="print-item-only">
                         <th>Frame</th>
                         <td id="printFrameColour">-</td>
                     </tr>
-                    <tr>
+                    <tr class="print-item-only">
                         <th>Glass</th>
                         <td id="printGlassType">-</td>
                     </tr>
-                    <tr>
+                    <tr class="print-item-only">
                         <th>Allocated</th>
                         <td id="printAllocatedTo">-</td>
                     </tr>
