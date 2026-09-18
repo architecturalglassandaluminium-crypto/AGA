@@ -93,6 +93,18 @@
             </span>
             <span class="nav-label">Quotes</span>
         </button>
+        <button type="button" class="nav-button" data-view="plumbing" aria-label="Plumbing">
+            <span class="nav-icon" aria-hidden="true">
+                <svg class="icon" viewBox="0 0 24 24"><path d="M4 20h16"/><path d="M7 20V9a3 3 0 0 1 3-3h1"/><path d="M11 6h4a2 2 0 0 1 2 2v3h3a1 1 0 0 1 1 1v3"/><path d="M21 15h-2v4h2z"/></svg>
+            </span>
+            <span class="nav-label">Plumbing</span>
+        </button>
+        <button type="button" class="nav-button" data-view="construction" aria-label="Construction">
+            <span class="nav-icon" aria-hidden="true">
+                <svg class="icon" viewBox="0 0 24 24"><path d="M2 20h20"/><path d="M4 20V9l8-5 8 5v11"/><path d="M9 20v-5h6v5"/><path d="M10 8h4"/></svg>
+            </span>
+            <span class="nav-label">Construction</span>
+        </button>
     </nav>
 
     <main class="app-container">
@@ -933,6 +945,22 @@
                         placeholder="Search by quote number, customer or project..." aria-label="Search quotes">
                 </div>
                 <div id="quotesList" class="quote-list"></div>
+            </div>
+        </section>
+
+        <!-- PLUMBING VIEW (APS app embedded) -->
+        <section id="plumbing-view" class="app-view">
+            <div class="embedded-app">
+                <iframe id="plumbingFrame" class="embedded-frame" title="APS Plumbing quote calculator"
+                    data-src="plumbing/index.html" loading="lazy"></iframe>
+            </div>
+        </section>
+
+        <!-- CONSTRUCTION VIEW (APC app embedded) -->
+        <section id="construction-view" class="app-view">
+            <div class="embedded-app">
+                <iframe id="constructionFrame" class="embedded-frame" title="APC Construction quote calculator"
+                    data-src="construction/index.html" loading="lazy"></iframe>
             </div>
         </section>
     </main>

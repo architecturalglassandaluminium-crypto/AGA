@@ -1,0 +1,10 @@
+{
+    "name": "APS Architectural Performance Coatings Quote Calculator",
+    "short_name": "APS Quotes",
+    "start_url": "/APS/",
+    "scope": "/APS/",
+    "display": "standalone",
+    "background_color": "#eef0f3",
+    "theme_color": "#0d1b2e",
+    "description": "Offline quote and pricing calculator for construction site works, coatings, handyman, building, electrical and plastering work"
+}

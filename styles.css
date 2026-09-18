@@ -6393,3 +6393,51 @@ img {
         color: #444;
     }
 }
+/* =========================
+   EMBEDDED APPS (PLUMBING / CONSTRUCTION)
+   -------------------------
+   The Plumbing (APS) and Construction (APC) tabs each host a
+   complete, separate app inside an iframe. The iframe keeps that
+   app's styles, scripts and element ids fully isolated from AGA,
+   so nothing here needs to know how those apps are built.
+   The frame is sized to fill the view so the hosted app scrolls
+   itself, exactly as it does on its own.
+   ========================= */
+
+.embedded-app {
+    /*
+       Fill the remaining viewport height below the sticky header and
+       navigation so the hosted app owns the scroll area.
+       The offsets (70px header + nav) are a safe default and are
+       overridden in the mobile block below where the nav moves to
+       the bottom of the screen.
+    */
+    height: calc(100vh - 150px);
+    min-height: 520px;
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    overflow: hidden;
+    background: #ffffff;
+    box-shadow: 0 10px 30px rgba(15, 30, 55, 0.08);
+}
+
+.embedded-frame {
+    width: 100%;
+    height: 100%;
+    border: 0;
+    display: block;
+    background: #ffffff;
+}
+
+@media (max-width: 860px) {
+
+    /*
+       On phones the navigation is fixed to the bottom of the screen,
+       so reserve room for it under the frame.
+    */
+    .embedded-app {
+        height: calc(100vh - 190px);
+        min-height: 420px;
+        border-radius: 10px;
+    }
+}

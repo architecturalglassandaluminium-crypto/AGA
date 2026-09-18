@@ -1,0 +1,10 @@
+{
+    "name": "APS Quote Calculator",
+    "short_name": "APS",
+    "start_url": "/APS/",
+    "display": "standalone",
+    "background_color": "#f7f9f6",
+    "theme_color": "#0757b8",
+    "description": "Offline plumbing quote and pricing calculator",
+    "icons": []
+}

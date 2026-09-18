@@ -1,0 +1,1329 @@
+<!doctype html>
+<html lang="en-ZA">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <meta name="theme-color" content="#0d1b2e">
+    <meta name="description" content="Offline quote and pricing calculator for APS Architectural Performance Coatings: construction site works, coatings, handyman, building, electrical and plastering work">
+
+    <link rel="manifest" href="manifest.json">
+    <link rel="icon" type="image/jpeg" href="APClogo.jpg">
+    <link rel="apple-touch-icon" href="APClogo.jpg">
+    <link rel="stylesheet" href="styles.css">
+
+    <title>APS Architectural Performance Coatings — Quote Calculator</title>
+</head>
+
+<body>
+
+    <div class="app-shell">
+
+        <!-- =====================================================
+             SIDEBAR
+             ===================================================== -->
+
+        <aside class="sidebar">
+
+            <div class="brand">
+                <img class="brand-logo" src="APClogo.jpg" alt="APS Architectural Performance Coatings">
+            </div>
+
+            <div class="sidebar-kicker">
+                FIELD QUOTING / 01
+            </div>
+
+            <nav class="nav" aria-label="Main navigation">
+
+                <button class="nav-item active" data-view="new-quote" type="button">
+                    <span class="nav-icon">+</span>
+                    Quote
+                </button>
+
+                <button class="nav-item" data-view="quotes" type="button">
+                    <span class="nav-icon">▤</span>
+                    Saved quotes
+                    <span class="nav-count" id="quote-count">0</span>
+                </button>
+
+                <button class="nav-item" data-view="settings" type="button">
+                    <span class="nav-icon">⌘</span>
+                    Company settings
+                </button>
+
+                <button class="nav-item" data-view="price-list" type="button">
+                    <span class="nav-icon">▥</span>
+                    Price list
+                </button>
+
+            </nav>
+
+            <div class="sidebar-footer">
+                <span class="status-dot"></span>
+                <span>Works offline</span>
+            </div>
+
+        </aside>
+
+
+        <!-- =====================================================
+             MAIN CONTENT
+             ===================================================== -->
+
+        <main class="main-content">
+
+            <!-- =================================================
+                 TOP BAR
+                 ================================================= -->
+
+            <header class="topbar">
+
+                <div>
+                    <div class="eyebrow">
+                        COATINGS &amp; TRADE OPERATIONS
+                    </div>
+
+                    <h1 id="page-title">
+                        Quote
+                    </h1>
+                </div>
+
+                <div class="top-actions">
+
+                    <span class="quote-status" id="quote-status">
+                        NEW
+                    </span>
+
+                    <span class="quote-id" id="quote-number">
+                        APC-2026-001
+                    </span>
+
+                    <button class="clear-quote-top" id="clear-quote-top" title="Clear quote" aria-label="Clear quote"
+                        type="button">
+                        Clear quote
+                    </button>
+
+                    <button class="icon-button" id="print-button" title="View quote as PDF"
+                        aria-label="View quote as PDF" type="button">
+                        ⤓
+                    </button>
+
+                </div>
+
+            </header>
+
+
+            <!-- =================================================
+                 NEW QUOTE VIEW
+                 ================================================= -->
+
+            <section id="new-quote-view" class="view active-view">
+
+                <div class="workspace-grid">
+
+                    <!-- =========================================
+                         FORM COLUMN
+                         ========================================= -->
+
+                    <div class="form-column">
+
+                        <!-- =====================================
+                             CUSTOMER DETAILS
+                             ===================================== -->
+
+                        <section class="section-block customer-section">
+
+                            <div class="section-heading">
+
+                                <div>
+                                    <span class="section-number">
+                                        01
+                                    </span>
+
+                                    <h2>
+                                        Customer details
+                                    </h2>
+                                </div>
+
+                                <span class="required-note">
+                                    Required
+                                </span>
+
+                            </div>
+
+
+                            <div class="field-grid">
+
+                                <label class="field field-wide">
+
+                                    <span>
+                                        Customer name
+                                    </span>
+
+                                    <input id="customer-name" type="text" placeholder="e.g. Thandi Mokoena">
+
+                                </label>
+
+
+                                <label class="field">
+
+                                    <span>
+                                        Phone number
+                                    </span>
+
+                                    <input id="customer-phone" type="tel" placeholder="082 000 0000">
+
+                                </label>
+
+
+                                <label class="field field-wide">
+
+                                    <span>
+                                        Service address
+                                    </span>
+
+                                    <textarea id="customer-address" rows="2"
+                                        placeholder="Street address, suburb, city"></textarea>
+
+                                </label>
+
+
+                                <label class="field field-wide">
+
+                                    <span>
+                                        Description of requested services
+                                    </span>
+
+                                    <textarea id="service-description" rows="3"
+                                        placeholder="Describe the work the customer requested"></textarea>
+
+                                </label>
+
+
+                                <!-- SITE PHOTOS -->
+
+                                <div class="field field-wide photo-field">
+
+                                    <span>
+                                        Site photos
+                                    </span>
+
+                                    <div class="photo-upload">
+
+                                        <label class="photo-upload-button" for="site-photo">
+                                            Upload photos
+                                        </label>
+
+                                        <input id="site-photo" type="file" accept="image/*" multiple
+                                            aria-label="Upload site photos">
+
+                                        <span id="site-photo-status">
+                                            No photos selected
+                                        </span>
+
+                                    </div>
+
+                                    <div class="site-photo-preview" id="site-photo-preview"></div>
+
+                                </div>
+
+                            </div>
+
+                        </section>
+
+
+                        <!-- =====================================
+                             LABOUR & CALL-OUT
+                             ===================================== -->
+
+                        <section class="section-block">
+
+                            <div class="section-heading">
+
+                                <div>
+                                    <span class="section-number">
+                                        02
+                                    </span>
+
+                                    <h2>
+                                        Labour &amp; call-out
+                                    </h2>
+                                </div>
+
+                                <span class="unit-label">
+                                    ZAR / RAND
+                                </span>
+
+                            </div>
+
+
+                            <div class="labour-headings" aria-hidden="true">
+                                <span>Line item</span>
+                                <span>Unit</span>
+                                <span>Qty</span>
+                                <span>Cost / day</span>
+                                <span>Total</span>
+                            </div>
+
+
+                            <div class="labour-list" id="labour-list"></div>
+
+
+                            <div class="inline-total">
+
+                                <span>
+                                    Labour &amp; call-out total
+                                </span>
+
+                                <strong id="labour-total">
+                                    R 2,150.00
+                                </strong>
+
+                            </div>
+
+                        </section>
+
+
+                        <!-- =====================================
+                             MATERIALS
+                             ===================================== -->
+
+                        <section class="section-block materials-block">
+
+                            <div class="section-heading">
+
+                                <div>
+                                    <span class="section-number">
+                                        03
+                                    </span>
+
+                                    <h2>
+                                        Materials
+                                    </h2>
+                                </div>
+
+                                <div class="material-actions">
+
+                                    <button class="text-button" id="add-material" type="button">
+                                        <span>+</span>
+                                        Add material
+                                    </button>
+
+                                </div>
+
+                            </div>
+
+
+                            <p class="material-note">
+                                Choose a category, material type, and size.
+                                Suppliers that list the item are shown.
+                            </p>
+
+
+                            <!-- SUPPLIER TABS -->
+
+                            <div class="supplier-tabs" role="tablist" aria-label="Supplier price source">
+
+                                <button class="supplier-tab active" data-supplier="builders" role="tab" type="button">
+                                    Builders
+                                </button>
+
+                                <button class="supplier-tab" data-supplier="chamberlains" role="tab" type="button">
+                                    Chamberlains
+                                </button>
+
+                                <button class="supplier-tab" data-supplier="buildit" role="tab" type="button">
+                                    Build it
+                                </button>
+
+                            </div>
+
+
+                            <div class="supplier-source" id="supplier-source">
+                                Reference prices from Builders catalogue ·
+
+                                <a href="https://www.builders.co.za/" target="_blank" rel="noopener noreferrer">
+                                    Open supplier ↗
+                                </a>
+                            </div>
+
+
+                            <!-- PRICE CHECK -->
+
+                            <div class="price-check-bar">
+
+                                <span id="price-check-status">
+                                    Morning price check not run
+                                </span>
+
+                                <button class="check-prices-button" id="check-prices-button" type="button">
+                                    Check prices now
+                                </button>
+
+                            </div>
+
+
+                            <!-- MATERIAL HEADINGS -->
+
+                            <div class="material-headings" aria-hidden="true">
+                                <span>Category</span>
+                                <span>Sub-group</span>
+                                <span>Material</span>
+                                <span>Size</span>
+                                <span>Qty</span>
+                                <span>Best price</span>
+                                <span>Markup</span>
+                                <span>Total</span>
+                                <span></span>
+                            </div>
+
+
+                            <div class="material-list" id="material-list"></div>
+
+
+                            <div class="material-empty" id="material-empty">
+                                No materials added yet.
+                                Add parts used for this job.
+                            </div>
+
+                        </section>
+
+
+                        <!-- =====================================
+                             JOB SCENARIOS
+                             ===================================== -->
+
+                        <section class="scenario-panel" aria-labelledby="scenario-title">
+
+                            <div>
+
+                                <span class="eyebrow">
+                                    QUICK START
+                                </span>
+
+                                <h2 id="scenario-title">
+                                    Job scenarios
+                                </h2>
+
+                                <p>
+                                    Start with a common job, then remove
+                                    anything you do not need.
+                                </p>
+
+                            </div>
+
+
+                            <div class="scenario-controls">
+
+                                <select id="scenario-select" aria-label="Job scenario">
+
+                                    <option value="">
+                                        Select a job scenario
+                                    </option>
+
+
+                                    <optgroup label="Quick start">
+
+                                        <option value="handyman-odd-jobs">
+                                            General odd jobs &amp; repairs
+                                        </option>
+
+                                        <option value="handyman-shelves">
+                                            Fit shelves &amp; furniture
+                                        </option>
+
+                                        <option value="handyman-door">
+                                            Hang or repair doors
+                                        </option>
+
+                                        <option value="handyman-tv-mount">
+                                            Mount TV or wall bracket
+                                        </option>
+
+                                        <option value="electric-plug">
+                                            Install plug point
+                                        </option>
+
+                                        <option value="electric-fault">
+                                            Trace &amp; repair electrical fault
+                                        </option>
+
+                                        <option value="building-wall">
+                                            Build new wall
+                                        </option>
+
+                                        <option value="building-slab">
+                                            Cast concrete slab
+                                        </option>
+
+                                        <option value="plaster-wall">
+                                            Plaster interior wall
+                                        </option>
+
+                                        <option value="coatings-waterproofing">
+                                            Waterproofing coating
+                                        </option>
+
+                                        <option value="excavation-only">
+                                            Excavation &amp; earthworks
+                                        </option>
+
+                                    </optgroup>
+                                </select>
+
+
+                                <button class="primary-button compact" id="add-scenario" type="button">
+                                    Add scenario
+                                </button>
+
+                            </div>
+
+                        </section>
+
+
+                        <!-- =====================================
+                             SERVICES & SITE WORK
+                             ===================================== -->
+
+                        <section class="section-block services-block">
+
+                            <div class="section-heading">
+
+                                <div>
+                                    <span class="section-number">
+                                        04
+                                    </span>
+
+                                    <h2>
+                                        Services &amp; site work
+                                    </h2>
+                                </div>
+
+                                <button class="text-button" id="add-service" type="button">
+                                    <span>+</span>
+                                    Add service
+                                </button>
+
+                            </div>
+
+
+                            <p class="material-note">
+                                Add physical work separately from materials,
+                                such as electrical, building, plastering, painting,
+                                coatings, excavation, cleaning, or equipment.
+                            </p>
+
+
+                            <div class="material-headings service-headings" aria-hidden="true">
+                                <span>Category</span>
+                                <span>Task</span>
+                                <span>Unit</span>
+                                <span>Qty</span>
+                                <span>Rate</span>
+                                <span>Total</span>
+                                <span></span>
+                            </div>
+
+
+                            <div class="service-list" id="service-list"></div>
+
+
+                            <div class="material-empty" id="service-empty">
+                                No additional services added yet.
+                            </div>
+
+                        </section>
+
+
+                        <!-- =====================================
+                             AMENDED QUOTE
+                             ===================================== -->
+
+                        <section class="section-block amendment-panel" id="amendment-panel" hidden>
+
+                            <div class="section-heading">
+
+                                <div>
+                                    <span class="section-number">
+                                        05
+                                    </span>
+
+                                    <h2>
+                                        Amended quote
+                                    </h2>
+                                </div>
+
+                                <span class="unit-label">
+                                    REQUIRED FOR REISSUE
+                                </span>
+
+                            </div>
+
+
+                            <label class="field">
+
+                                <span>
+                                    Reason for amended quote
+                                </span>
+
+                                <textarea id="amendment-reason" rows="2"
+                                    placeholder="Describe what changed in this quote"></textarea>
+
+                            </label>
+
+                        </section>
+
+                    </div>
+
+
+                    <!-- =========================================
+                         SUMMARY CARD
+                         ========================================= -->
+
+                    <aside class="summary-card">
+
+                        <!-- PRINT HEADER -->
+
+                        <div class="company-print-header">
+
+                            <img src="APClogo.jpg" alt="APS Architectural Performance Coatings">
+
+                            <span>
+                                ARCHITECTURAL PERFORMANCE COATINGS
+                            </span>
+
+                            <small>
+                                Reg No: 2025/816148/07<br>
+                                5 Louis Friedman Street, Central Lake Factory Park<br>
+                                Unit 7, Factoria, Krugersdorp
+                            </small>
+
+
+                            <div class="company-contact-print">
+
+                                <b>OFFICE</b><br>
+
+                                Prepared by:
+                                <span id="print-prepared-by">
+                                    Cheyenne
+                                </span>
+                                <br>
+
+                                Contact:
+                                <span id="print-contact">
+                                    010 597 6616
+                                </span>
+                                <br>
+
+                                Email:
+                                <span id="print-email">
+                                    info@agasouthafrica.co.za
+                                </span>
+                                <br>
+
+                                Tax reference:
+                                <span id="print-tax-number">
+                                    105 976 616
+                                </span>
+
+                            </div>
+
+                        </div>
+
+
+                        <!-- SUMMARY TOP -->
+
+                        <div class="summary-top">
+
+                            <span class="eyebrow">
+                                QUOTE SUMMARY
+                            </span>
+
+                            <span class="summary-date" id="quote-date"></span>
+
+                        </div>
+
+
+                        <div class="summary-customer" id="summary-customer">
+                            New customer
+                        </div>
+
+
+                        <div class="summary-address" id="summary-address">
+                            Add a service address
+                        </div>
+
+
+                        <div class="print-details" id="print-details"></div>
+
+
+                        <!-- SUMMARY LINES -->
+
+                        <div class="summary-lines">
+
+                            <div>
+                                <span>
+                                    Call-out
+                                </span>
+
+                                <strong id="summary-callout">
+                                    R 650.00
+                                </strong>
+                            </div>
+
+
+                            <div>
+                                <span>
+                                    Labour
+                                </span>
+
+                                <strong id="summary-labour">
+                                    R 1,500.00
+                                </strong>
+                            </div>
+
+
+                            <div>
+                                <span>
+                                    Materials
+                                </span>
+
+                                <strong id="summary-materials">
+                                    R 0.00
+                                </strong>
+                            </div>
+
+
+                            <div>
+                                <span>
+                                    Services &amp; site work
+                                </span>
+
+                                <strong id="summary-services">
+                                    R 0.00
+                                </strong>
+                            </div>
+
+                        </div>
+
+
+                        <!-- VAT -->
+
+                        <div class="vat-row">
+
+                            <label class="switch-label">
+
+                                <input id="vat-enabled" type="checkbox" checked>
+
+                                <span class="switch"></span>
+
+                                Include VAT
+
+                            </label>
+
+                            <span id="vat-rate-label">
+                                15%
+                            </span>
+
+                        </div>
+
+
+                        <!-- GRAND TOTAL -->
+
+                        <div class="grand-total">
+
+                            <span>
+                                Total incl. VAT
+                            </span>
+
+                            <strong id="grand-total">
+                                R 2,472.50
+                            </strong>
+
+                        </div>
+
+
+                        <!-- ACTION BUTTONS -->
+
+                        <button class="pdf-button" id="pdf-button" type="button">
+                            <span>
+                                View / save as PDF
+                            </span>
+
+                            <span>
+                                ⤓
+                            </span>
+                        </button>
+
+
+                        <button class="primary-button" id="save-quote" type="button">
+                            <span>
+                                Save quote
+                            </span>
+
+                            <span>
+                                →
+                            </span>
+                        </button>
+
+
+                        <button class="secondary-button" id="clear-quote" type="button">
+                            Clear form
+                        </button>
+
+
+                        <p class="summary-footnote">
+                            Prices are calculated in South African Rand.
+                            VAT is applied to the subtotal.
+                        </p>
+
+                    </aside>
+
+
+                    <!-- =========================================
+                         TERMS & CONDITIONS
+                         ========================================= -->
+
+                    <section class="quote-terms" aria-labelledby="terms-title">
+
+                        <header class="terms-header">
+
+                            <img src="APClogo.jpg" alt="APS Architectural Performance Coatings">
+
+                            <div>
+
+                                <span>
+                                    APS ARCHITECTURAL PERFORMANCE COATINGS
+                                </span>
+
+                                <h2 id="terms-title">
+                                    Terms &amp; Conditions
+                                </h2>
+
+                            </div>
+
+                        </header>
+
+
+                        <ol class="terms-list">
+
+                            <li>
+                                <strong>Scope of work</strong>
+                                <span>
+                                    This quotation covers only the work
+                                    specifically listed. Any additional work
+                                    requested will be treated as a variation
+                                    and quoted separately.
+                                </span>
+                            </li>
+
+
+                            <li>
+                                <strong>Validity of quote</strong>
+                                <span>
+                                    This quotation is valid for 30 days from
+                                    the date of issue. Prices may change
+                                    thereafter because of material or labour
+                                    cost fluctuations.
+                                </span>
+                            </li>
+
+
+                            <li>
+                                <strong>Payment terms</strong>
+                                <span>
+                                    80% deposit is payable on acceptance for
+                                    materials and scheduling. The remaining
+                                    20% is payable on practical completion,
+                                    before COC handover where applicable.
+                                    Late payments may incur interest charges.
+                                </span>
+                            </li>
+
+
+                            <li>
+                                <strong>Materials</strong>
+                                <span>
+                                    All materials are subject to availability.
+                                    Where a specified item is unavailable,
+                                    an alternative will be presented to the
+                                    client for acceptance. Price adjustments
+                                    may apply where material costs increase
+                                    after acceptance.
+                                </span>
+                            </li>
+
+
+                            <li>
+                                <strong>Variations and changes</strong>
+                                <span>
+                                    Any change to the agreed scope must be
+                                    requested in writing and approved at a
+                                    revised cost before work proceeds.
+                                </span>
+                            </li>
+
+
+                            <li>
+                                <strong>Project timeline</strong>
+                                <span>
+                                    Estimated timelines are provided in good
+                                    faith and may be affected by weather
+                                    conditions, material delays, or client
+                                    changes and delays.
+                                </span>
+                            </li>
+
+
+                            <li>
+                                <strong>Access to site</strong>
+                                <span>
+                                    The client must provide reasonable access
+                                    to the site and ensure water, electricity,
+                                    and necessary permissions are available.
+                                </span>
+                            </li>
+
+
+                            <li>
+                                <strong>Health and safety</strong>
+                                <span>
+                                    All work will comply with applicable safety
+                                    regulations. The contractor is not
+                                    responsible for pre-existing hazards that
+                                    were not disclosed.
+                                </span>
+                            </li>
+
+
+                            <li>
+                                <strong>Permits and approvals</strong>
+                                <span>
+                                    Unless stated otherwise, the client is
+                                    responsible for obtaining permits and
+                                    approvals. Any related costs are excluded
+                                    from this quotation.
+                                </span>
+                            </li>
+
+
+                            <li>
+                                <strong>Workmanship warranty</strong>
+                                <span>
+                                    Workmanship is guaranteed for 12 months
+                                    from site handover. Product and material
+                                    guarantees are available on request.
+                                    The warranty excludes normal wear and tear,
+                                    misuse, lack of maintenance, and third-party
+                                    alterations.
+                                </span>
+                            </li>
+
+
+                            <li>
+                                <strong>Damage and liability</strong>
+                                <span>
+                                    The contractor will take reasonable care
+                                    but is not liable for hidden defects or
+                                    structural issues not visible before work
+                                    begins. The client is advised to insure
+                                    the property.
+                                </span>
+                            </li>
+
+
+                            <li>
+                                <strong>Cancellation</strong>
+                                <span>
+                                    Deposits may be non-refundable once
+                                    materials have been purchased or work has
+                                    started. Cancellation must be made in
+                                    writing.
+                                </span>
+                            </li>
+
+
+                            <li>
+                                <strong>Cleanup</strong>
+                                <span>
+                                    Basic site cleanup is included. Full waste
+                                    removal may be quoted separately unless
+                                    specifically included in the scope of work.
+                                </span>
+                            </li>
+
+                        </ol>
+
+
+                        <!-- ACCEPTANCE -->
+
+                        <section class="quote-acceptance" aria-labelledby="acceptance-title">
+
+                            <h3 id="acceptance-title">
+                                Acceptance of quotation
+                            </h3>
+
+                            <p>
+                                I/We hereby accept this quotation and agree to
+                                the terms and conditions stated above. I/We
+                                authorise the contractor to proceed with the
+                                work as specified.
+                            </p>
+
+
+                            <div class="acceptance-fields">
+
+                                <span>
+                                    Client name
+                                </span>
+
+                                <span>
+                                    Company (if applicable)
+                                </span>
+
+                                <span>
+                                    Signature
+                                </span>
+
+                                <span>
+                                    Date
+                                </span>
+
+                                <span>
+                                    Contact number
+                                </span>
+
+                            </div>
+
+                        </section>
+
+                    </section>
+
+                </div>
+
+            </section>
+
+
+            <!-- =================================================
+                 SAVED QUOTES VIEW
+                 ================================================= -->
+
+            <section id="quotes-view" class="view">
+
+                <div class="view-intro">
+
+                    <div>
+
+                        <span class="eyebrow">
+                            YOUR LOCAL ARCHIVE
+                        </span>
+
+                        <h2>
+                            Saved quotes
+                        </h2>
+
+                    </div>
+
+
+                    <div class="view-intro-actions">
+
+                        <button class="primary-button compact" id="export-quotes-button" type="button">
+                            Save to file
+                        </button>
+
+                        <button class="primary-button compact" id="import-quotes-button" type="button">
+                            Load from file
+                        </button>
+
+                        <button class="primary-button compact" id="drive-save-button" type="button" hidden>
+                            Share to Drive
+                        </button>
+
+                        <button class="primary-button compact" id="drive-load-button" type="button" hidden>
+                            Sync from Drive
+                        </button>
+
+                        <button class="primary-button compact" id="new-quote-button" type="button">
+                            + New quote
+                        </button>
+
+                    </div>
+
+                </div>
+
+                <p class="drive-status" id="drive-status" style="margin: 0 0 12px; font-size: 13px; opacity: .7;"></p>
+
+                <input type="file" id="import-quotes-file" accept="application/json,.json" hidden>
+
+
+                <div id="saved-quotes" class="saved-quotes"></div>
+
+            </section>
+
+
+            <!-- =================================================
+                 COMPANY SETTINGS VIEW
+                 ================================================= -->
+
+            <section id="settings-view" class="view">
+
+                <div class="view-intro">
+
+                    <div>
+
+                        <span class="eyebrow">
+                            BUSINESS PROFILE
+                        </span>
+
+                        <h2>
+                            Company settings
+                        </h2>
+
+                    </div>
+
+
+                    <button class="primary-button compact" id="save-settings" type="button">
+                        Save settings
+                    </button>
+
+                </div>
+
+
+                <div class="settings-panel">
+
+                    <label class="field">
+
+                        <span>
+                            Company name
+                        </span>
+
+                        <input id="company-name" type="text" placeholder="Your business">
+
+                    </label>
+
+
+                    <label class="field">
+
+                        <span>
+                            Phone number
+                        </span>
+
+                        <input id="company-phone" type="tel" placeholder="011 000 0000">
+
+                    </label>
+
+
+                    <label class="field">
+
+                        <span>
+                            Email address
+                        </span>
+
+                        <input id="company-email" type="email" placeholder="hello@yourbusiness.co.za">
+
+                    </label>
+
+
+                    <label class="field">
+
+                        <span>
+                            VAT rate (%)
+                        </span>
+
+                        <input id="vat-rate" type="number" min="0" max="100" step="0.5" value="15">
+
+                    </label>
+
+
+                    <label class="field">
+
+                        <span>
+                            Prepared by
+                        </span>
+
+                        <input id="prepared-by" type="text" placeholder="Cheyenne">
+
+                    </label>
+
+
+                    <label class="field">
+
+                        <span>
+                            Tax reference
+                        </span>
+
+                        <input id="tax-number" type="text" placeholder="105 976 616">
+
+                    </label>
+
+                </div>
+
+            </section>
+
+
+            <!-- =================================================
+                 PRICE LIST VIEW
+                 ================================================= -->
+
+            <section id="price-list-view" class="view">
+
+                <div class="view-intro">
+
+                    <div>
+
+                        <span class="eyebrow">
+                            MASTER PRICING
+                        </span>
+
+                        <h2>
+                            Price list
+                        </h2>
+
+                        <p class="view-note">
+                            Update the contractor rates used by services
+                            and job scenarios.
+                        </p>
+
+                    </div>
+
+
+                    <div class="price-list-actions">
+
+                        <button class="secondary-button compact add-price-button" id="add-price" type="button">
+                            + Add price
+                        </button>
+
+
+                        <label class="import-price-button">
+
+                            Import Excel
+
+                            <input id="price-list-file-page" type="file" accept=".xlsx,.xls"
+                                aria-label="Import Excel price list">
+
+                        </label>
+
+
+                        <button class="primary-button compact" id="save-price-list" type="button">
+                            Save prices
+                        </button>
+
+                    </div>
+
+                </div>
+
+
+                <div class="price-list-toolbar">
+
+                    <input id="price-list-search" type="search" placeholder="Search items..."
+                        aria-label="Search price list">
+
+                    <span id="price-list-count"></span>
+
+                </div>
+
+
+                <div class="price-list-table-wrap">
+
+                    <table class="price-list-table">
+
+                        <thead>
+
+                            <tr>
+
+                                <th>
+                                    Category
+                                </th>
+
+                                <th>
+                                    Type / unit
+                                </th>
+
+                                <th>
+                                    Line item
+                                </th>
+
+                                <th>
+                                    Price (ZAR)
+                                </th>
+
+                                <th></th>
+
+                            </tr>
+
+                        </thead>
+
+
+                        <tbody id="price-list-body"></tbody>
+
+                    </table>
+
+                </div>
+
+            </section>
+
+
+            </main>
+
+    </div>
+
+
+    <!-- =========================================================
+         TOAST
+         ========================================================= -->
+
+    <div class="toast" id="toast" role="status"></div>
+
+
+    <!-- =========================================================
+         EXCEL / XLSX LIBRARY
+         ========================================================= -->
+
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+
+
+    <!-- =========================================================
+         APS APPLICATION
+         config.js loads first: it carries the backend URL the app
+         needs to reach the shared Drive. It contains no secrets.
+         The Google sign-in library is no longer needed - quotes are
+         shared through the backend, not through an individual's
+         Google account.
+         ========================================================= -->
+
+    <script src="config.js"></script>
+    <script src="app.js"></script>
+
+
+    <!-- =========================================================
+         SERVICE WORKER
+
+         The service worker is only registered when the application
+         is running through HTTP or HTTPS.
+
+         This prevents errors when index.html is opened directly
+         from Windows/File Explorer using file://
+         ========================================================= -->
+
+    <script>
+
+        if ('serviceWorker' in navigator && window.isSecureContext) {
+            window.addEventListener('load', async () => {
+                try {
+                    const registration = await navigator.serviceWorker.register('./service-worker.js');
+                    console.log('APS service worker registered:', registration.scope);
+                } catch (error) {
+                    console.error('APS service worker registration failed:', error);
+                }
+            });
+        } else {
+            console.log('APS service worker skipped: page is not running in a secure context.');
+        }
+
+
+    </script>
+
+</body>
+
+</html>

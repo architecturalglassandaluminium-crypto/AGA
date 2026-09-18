@@ -3433,8 +3433,8 @@ function buildProductionTrackerHtml(item) {
                 </div>
                 <p class="tracker-hint" id="trackerAllocatedHint">
                     ${allocatedName
-                        ? `Currently allocated to <strong>${escapeHtml(allocatedName)}</strong>.`
-                        : "Not allocated to anyone yet."}
+            ? `Currently allocated to <strong>${escapeHtml(allocatedName)}</strong>.`
+            : "Not allocated to anyone yet."}
                 </p>
             </div>
         </div>
@@ -4463,7 +4463,7 @@ function renderProjects(
                    Only offered when there is something to label.
                 -->
                 ${windows.length
-                    ? `<button type="button" class="secondary-button card-action"
+                ? `<button type="button" class="secondary-button card-action"
                         onclick="printProjectLabels('${project.id}')">
                         <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 5v14"/><path d="M8 5v14"/><path d="M12 5v14"/><path d="M17 5v14"/><path d="M21 5v14"/></svg>
                         Print All Barcodes
@@ -4475,7 +4475,7 @@ function renderProjects(
                         <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.6a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
                         Label Settings
                     </button>`
-                    : ""}
+                : ""}
 
                 <button type="button" class="secondary-button card-action"
                     onclick="deleteProject('${project.id}')">
@@ -6224,8 +6224,8 @@ function renderScanSearch() {
             <span class="scan-result-project">${escapeHtml(item.projectNumber || "")}</span>
         </button>
     `).join("") + (scanSearchMatches.length > MAX_SHOWN
-        ? `<p class="details-small scan-more-note">Showing the first ${MAX_SHOWN}. Narrow the search to see more.</p>`
-        : "");
+            ? `<p class="details-small scan-more-note">Showing the first ${MAX_SHOWN}. Narrow the search to see more.</p>`
+            : "");
 
     /*
        Attach handlers directly rather than inline onclick, so the
@@ -6962,10 +6962,10 @@ function buildPrintItemBlock(window) {
     const marks = `
         <div class="pf-marks">
             ${hasPhoto
-                ? `<div class="pf-photo">
+            ? `<div class="pf-photo">
                        <img src="${escapeHtml(window.photo)}" alt="Photo of ${escapeHtml(windowNumber)}">
                    </div>`
-                : `<div class="pf-photo pf-photo-none">
+            : `<div class="pf-photo pf-photo-none">
                        <span class="pf-label">Photo</span>
                        <span class="pf-value">\u2014</span>
                    </div>`}
@@ -7952,7 +7952,9 @@ const VIEW_NAMES = [
     "scanner",
     "employees",
     "productivity",
-    "quotes"
+    "quotes",
+    "plumbing",
+    "construction"
 ];
 
 /*
@@ -8015,6 +8017,23 @@ function switchView(viewName) {
         if (searchInput) {
             searchInput.value = "";
             renderScanSearch();
+        }
+    }
+
+    /*
+       The Plumbing and Construction tabs host the APS and APC apps
+       inside an iframe. Each is a complete app with its own scripts
+       and styles, so an iframe keeps them fully isolated from this
+       page rather than colliding with AGA's globals and element ids.
+       The frame's data-src is only copied to src the first time the
+       tab is opened, so a visitor who never leaves AGA never pays to
+       download the other two apps.
+    */
+    if (viewName === "plumbing" || viewName === "construction") {
+        const frame = $(`${viewName}Frame`);
+
+        if (frame && !frame.getAttribute("src")) {
+            frame.setAttribute("src", frame.dataset.src);
         }
     }
 
