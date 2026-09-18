@@ -485,14 +485,42 @@ function agaMergeProducts(existing, fetched) {
 STORAGE
 ========================================================= */
 
+/*
+   True only once the `let AGA_LIVE_PRODUCTS` above has finished
+   initialising. Reading the binding before that throws a
+   ReferenceError (the temporal dead zone), and `typeof` does
+   NOT guard against it - only a real assignment lifts it.
+*/
+let AGA_CATALOGUE_SEED = false;
+
 function agaCatalogueDefaultProducts() {
     /*
        The list compiled into quotes.js at the last manual
        capture. Used until the first successful pull.
+
+       Three steps, because this runs from a `let` initialiser
+       and quotes.js may legitimately not have run yet at that
+       point:
+
+       1. AGA_CATALOGUE_SEED - the live list is initialised,
+          so it is the current answer and a later call must not
+          overwrite it with the built-in list.
+       2. AGA_BUILT_IN_PRODUCTS - quotes.js has loaded.
+       3. [] - neither is ready, so the catalogue is empty until
+          a refresh succeeds.
+
+       Step 1 must test the flag rather than AGA_LIVE_PRODUCTS
+       itself: that read throws during the initialiser.
     */
-    return typeof AGA_STANDARD_PRODUCTS === "undefined"
-        ? []
-        : AGA_STANDARD_PRODUCTS;
+    if (AGA_CATALOGUE_SEED && AGA_LIVE_PRODUCTS.length) {
+        return AGA_LIVE_PRODUCTS;
+    }
+
+    if (typeof AGA_BUILT_IN_PRODUCTS !== "undefined") {
+        return AGA_BUILT_IN_PRODUCTS;
+    }
+
+    return [];
 }
 
 function agaCatalogueRead() {
@@ -553,12 +581,17 @@ function agaCatalogueWriteSyncStamp(stamp) {
 THE LIVE CATALOGUE
 =========================================================
 
-AGA_LIVE_PRODUCTS is the single list every quote screen
-reads. It starts as the saved catalogue, or the built-in
-list, and is replaced in place after each successful pull.
+   AGA_LIVE_PRODUCTS is the single list every quote screen
+   reads. It starts as the saved catalogue, or the built-in
+   list, and is replaced in place after each successful pull.
 */
 
-let AGA_LIVE_PRODUCTS = [];
+let AGA_LIVE_PRODUCTS = agaCatalogueDefaultProducts();
+
+/* The binding above is now initialised, so agaCatalogueDefaultProducts()
+   may safely read it from here on. */
+AGA_CATALOGUE_SEED = true;
+
 let AGA_CATALOGUE_SYNCED_AT = "";
 let AGA_CATALOGUE_IS_LIVE = false;
 

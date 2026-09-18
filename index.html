@@ -1266,8 +1266,10 @@
     <script src="sync.js"></script>
     <script src="signin.js"></script>
     <script src="app.js"></script>
-    <script src="catalogue.js"></script>
+    <!-- quotes.js must load first: it defines AGA_STANDARD_PRODUCTS,
+         the built-in price list catalogue.js falls back to. -->
     <script src="quotes.js"></script>
+    <script src="catalogue.js"></script>
     <script src="export.js"></script>
 </body>
 

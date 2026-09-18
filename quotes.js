@@ -219,7 +219,7 @@ const AGA_BUILT_IN_PRODUCTS = [
     { code: "PTT189", name: "1800 Series Top Hung (T) 1.8 x 0.9m", category: "Windows", system: "1800 Series Top Hung", widthMm: 1800, heightMm: 900, priceFrom: 2167.00, priceTo: 2469.94 }
 ];
 
-const AGA_PRODUCT_BY_CODE = AGA_STANDARD_PRODUCTS.reduce((map, product) => {
+const AGA_PRODUCT_BY_CODE = AGA_BUILT_IN_PRODUCTS.reduce((map, product) => {
     map[product.code] = product;
 
     return map;
@@ -243,7 +243,7 @@ function agaLiveProducts() {
         }
     }
 
-    return AGA_STANDARD_PRODUCTS;
+    return AGA_BUILT_IN_PRODUCTS;
 }
 
 function agaProductHint() {
@@ -783,6 +783,16 @@ function renderQuoteProductOptions() {
 
     select.innerHTML = html;
     select.value = previous;
+
+    /*
+       The note belongs to this list, so redraw it here too.
+       initQuotes() draws it once at startup, but that misses the
+       case where a refresh or a saved catalogue changes the count
+       afterwards - the note would keep describing the old list.
+    */
+    if (typeof agaRenderCatalogueNote === "function") {
+        agaRenderCatalogueNote();
+    }
 }
 
 /* =========================================================
@@ -1787,8 +1797,8 @@ function renderQuotes() {
 }
 
 function initQuotes() {
+    /* renderQuoteProductOptions() redraws the catalogue note itself. */
     renderQuoteProductOptions();
-    agaRenderCatalogueNote();
     renderQuoteProjectOptions();
     renderQuoteLines();
     renderQuoteSummary();
@@ -1799,7 +1809,13 @@ function initQuotes() {
 /* Expose the few things other modules may need. */
 window.renderQuotes = renderQuotes;
 window.initQuotes = initQuotes;
-window.AGA_STANDARD_PRODUCTS = AGA_STANDARD_PRODUCTS;
+
+/*
+   Deliberately not assigned on load. catalogue.js runs after
+   this file and sets window.AGA_STANDARD_PRODUCTS to the list
+   actually in use, so writing the built-in list here would be
+   overwritten a moment later anyway.
+*/
 /* =========================================================
    ROOF QUOTATION CALCULATION
    =========================================================
