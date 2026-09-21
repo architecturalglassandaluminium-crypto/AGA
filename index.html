@@ -674,7 +674,7 @@
             <div class="page-header">
                 <div>
                     <h2>Production Planning</h2>
-                    <p>Plan a project and every window on it. The planner works out how long each stage takes and schedules it automatically, so you can see what is due when.</p>
+                    <p>Plan a project. The planner works out how long each stage takes for the whole job and schedules the stages automatically, so you can see what is due when.</p>
                 </div>
                 <div class="page-header-actions">
                     <button type="button" class="secondary-button" id="planningSettingsButton">
@@ -700,9 +700,9 @@
                         <input type="date" id="planningStart">
                     </div>
                     <div class="form-group">
-                        <label for="planningParallel">Windows in Parallel</label>
+                        <label for="planningParallel">Workstations per Stage</label>
                         <input type="number" id="planningParallel" min="1" max="20" step="1" value="1">
-                        <small class="field-hint">How many windows the workshop works on at once.</small>
+                        <small class="field-hint">How many benches run a stage at once for the whole job.</small>
                     </div>
                     <div class="form-group">
                         <label for="planningHoursPerDay">Workshop Hours / Day</label>
@@ -719,7 +719,7 @@
                         <svg class="icon" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="1.5"/><path d="M12 3v18M3 12h9"/></svg>
                     </span>
                     <strong id="planWindows" class="dashboard-card-value">0</strong>
-                    <span class="dashboard-card-label">Windows Planned</span>
+                    <span class="dashboard-card-label">Windows on Job</span>
                 </div>
                 <div class="dashboard-card card-production">
                     <span class="dashboard-card-icon" aria-hidden="true">
@@ -751,7 +751,7 @@
                         <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 3v18h18"/><path d="M7 16v-5M11.5 16V7M16 16v-3M20.5 16V9"/></svg>
                         Time by Stage
                     </h3>
-                    <span class="measurement-note">Estimated from the AGA process model</span>
+                    <span class="measurement-note">Whole-project batch time per stage</span>
                 </div>
                 <div id="planningStages"></div>
             </div>
@@ -761,9 +761,9 @@
                 <div class="section-card-header">
                     <h3>
                         <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 3v18h18"/><path d="M7 16v-5M11.5 16V7M16 16v-3M20.5 16V9"/></svg>
-                        Window Schedule
+                        Project Schedule
                     </h3>
-                    <span class="measurement-note">Newest plan first per window</span>
+                    <span class="measurement-note">Stages run in order across the whole job</span>
                 </div>
                 <div id="planningSchedule"></div>
             </div>
@@ -773,7 +773,7 @@
                 <div class="section-card-header">
                     <h3>
                         <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.6a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
-                        Minutes per Stage (per window)
+                        Minutes per Stage (one window)
                     </h3>
                     <button type="button" class="secondary-button" id="planningSettingsCloseButton">Close</button>
                 </div>

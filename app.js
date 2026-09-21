@@ -7970,20 +7970,33 @@ function updateScanGateState() {
    PRODUCTION PLANNING
    =========================================================
 
-   A project is planned by working out how long each STAGE of
-   making a window takes, then scheduling those stages against
-   the workshop's available hours. Two things drive the plan:
+   A PROJECT is the unit of planning, not a window. This matches
+   how the shop actually works: the whole job is cut, then the
+   whole job is welded, then glazed, and so on - stages are
+   BATCHES that sweep across every window on the project, not a
+   separate nine-step journey per window.
+
+   So a plan is a single timeline for the project:
+
+       Cutting        days 1-3   (all 12 windows)
+       Welding        days 4-5
+       Glazing        days 6-7
+       Installation   days 8-10
+   Two things drive it:
 
      1. A process model - the stages an AGA aluminium window
-        goes through, in order, and a base time for each. The
-        base times come from published fabrication and glazing
-        guides (see PLANNING_STAGE_NOTES) and are deliberately
-        editable, because every workshop is a little different.
+        goes through, in order, and a base time for each. A
+        stage's cost is its per-window time multiplied by the
+        number of windows on the project, so a 12-window job
+        takes twelve times as long to cut as a single window.
+        The base times come from published fabrication and
+        glazing guides (see PLANNING_STAGE_NOTES) and are
+        deliberately editable, because every workshop differs.
 
-     2. A scheduler - lays those stage times out on a working
-        calendar, respecting holidays-free working days, the
-        number of windows worked on at once, and how many hours
-        a day the shop runs.
+     2. A scheduler - lays those batch times end to end on a
+        working calendar, respecting weekends, how many
+        workstations run a stage at once, and how many hours a
+        day the shop runs.
 
    Stage order mirrors the AGA production STATUSES so a plan
    reads the same left-to-right as the shop floor does.
@@ -7992,10 +8005,14 @@ function updateScanGateState() {
 const PLAN_KEY = "aga_plan_settings";
 
 /*
-   The AGA window builds as a sequence of stages. `base` is
-   minutes of one person's time for ONE window, and `perSqm`
-   lets a larger window cost more on the stages that scale with
-   size (cutting, glazing).
+   The AGA window builds as a sequence of stages that the whole
+   project passes through in order.
+
+   `base` is minutes of one person's time for ONE window and
+   `perSqm` lets a larger window cost more on the stages that
+   scale with size (cutting, glazing). A project's stage time is
+   per-window time x the number of windows, so the model stays
+   honest whether the job is one shopfront or forty windows.
 
    Times are a starting point, not a stopwatch: a fabricator's
    own numbers replace them through Planner Settings.
@@ -8036,10 +8053,15 @@ const PLANNING_STAGE_NOTES = {
 
 /*
    Default planning settings: a normal workshop day and one
-   window on the bench at a time. Kept in localStorage so a
-   workshop's tuning survives a reload.
+   workstation per stage. Kept in localStorage so a workshop's
+   tuning survives a reload.
 */
 const PLANNING_DEFAULTS = {
+    /*
+       How many workstations can run a stage at once. Two benches
+       cutting halves the cutting time for a batch; the key stays
+       named `parallel` so existing saved settings keep working.
+    */
     parallel: 1,
     hoursPerDay: 8,
     /* A day never starts mid-stage in reality, so stages are
@@ -8143,9 +8165,10 @@ function windowAreaSqm(window) {
 }
 
 /*
-   Minutes for one stage on one window: base plus a size term.
-   Only the stages that genuinely scale add the per-square-metre
-   cost, so a big window does not inflate QC and wrapping.
+   Minutes of ONE PERSON'S time for one stage on ONE window:
+   the base plus a size term. Only the stages that genuinely
+   scale add the per-square-metre cost, so a big window does not
+   inflate QC and wrapping.
 */
 function stageMinutesForWindow(stage, window, settings) {
 
@@ -8163,20 +8186,64 @@ function stageMinutesForWindow(stage, window, settings) {
 }
 
 /*
-   Build a full plan for one project.
+   Minutes for one stage across the WHOLE PROJECT.
 
-   Returns, per window:
-     windowNumber, label, areaSqm, totalMinutes, and `stages` -
-     an array of { key, label, minutes, startDay, endDay } laid
-     on a working-day timeline.
+   A stage is a batch: cutting every window, then welding every
+   window. So the project cost of a stage is what that stage
+   costs on each window, added up.
 
-   Scheduling rule: the workshop runs `hoursPerDay` a day and can
-   work on `parallel` windows at once. Windows are queued in
-   order; each stage runs after the previous stage on that same
-   window and after whatever was already booked on the bench.
-   Stages are whole-day-agnostic: minutes accumulate into working
-   days of `hoursPerDay * 60` minutes, and a stage that crosses a
-   day boundary is shown ending on the later day.
+   `workstations` then divides that batch time: two saws cutting
+   the same batch finish in half the time. It is clamped to at
+   least 1 so a bad setting can never divide by zero, and it
+   never reduces the work below the time the slowest single
+   station needs.
+*/
+function stageMinutesForProject(stage, windows, settings) {
+
+    const base = settings.stageMinutes[stage.key];
+
+    if (!Number.isFinite(base)) {
+        return 0;
+    }
+
+    const perWindow = windows.map(window =>
+        stageMinutesForWindow(stage, window, settings)
+    );
+
+    if (!perWindow.length) {
+        return 0;
+    }
+
+    /*
+       Batch time is the sum of the per-window times, split across
+       the workstations running that stage.
+    */
+    const batchMinutes = perWindow.reduce((sum, value) => sum + value, 0);
+
+    const stations = Math.max(1, Number(settings.parallel) || 1);
+
+    return batchMinutes / stations;
+}
+
+/*
+   Build a full plan for one PROJECT.
+
+   The project is a single job that moves through the stages in
+   order. Each stage is a batch across every window, and the
+   batch time is the per-window cost summed over the project and
+   split across the workstations running that stage.
+
+   Returns `stages` - one entry per stage, each with:
+
+       key, label        which stage
+       minutes           the batch time for the whole project
+       perWindow         minutes for one window, for reference
+       windows           how many windows the batch covers
+       startDay, endDay  1-based working days when it runs
+   Stages are laid end to end: welding cannot start until the
+   cutting batch has finished, which is the whole point of a
+   project plan. Working days are `hoursPerDay * 60` minutes and
+   a stage that crosses a day boundary ends on the later day.
 */
 function buildProjectPlan(project, options) {
 
@@ -8188,60 +8255,70 @@ function buildProjectPlan(project, options) {
 
     const minutesPerDay = Math.max(1, settings.hoursPerDay) * 60;
 
-    /*
-       Each "lane" is one slot on the bench. A window occupies the
-       earliest lane free for the next stage; with parallel = 1
-       this degenerates to a strict one-after-another queue.
-    */
-    const laneFreeMinutes = new Array(Math.max(1, settings.parallel)).fill(0);
+    let cursor = 0;
 
+    const stages = PLANNING_STAGES.map(stage => {
+
+        const perWindow = windows.length
+            ? windows.reduce(
+                (sum, window) => sum + stageMinutesForWindow(stage, window, settings),
+                0
+            ) / windows.length
+            : 0;
+
+        const minutes = Math.round(
+            stageMinutesForProject(stage, windows, settings)
+        );
+
+        const startMinutes = cursor;
+
+        cursor += minutes;
+
+        /*
+           A zero-minute stage (an empty project, or everything
+           turned off) still sits on the timeline; startDay and
+           endDay are clamped so it does not report day 0.
+        */
+        const startDay = Math.floor(startMinutes / minutesPerDay) + 1;
+
+        const endDay = Math.max(
+            startDay,
+            Math.ceil(cursor / minutesPerDay) || 1
+        );
+
+        return {
+            key: stage.key,
+            label: stage.label,
+            minutes,
+            perWindow: Math.round(perWindow),
+            windows: windows.length,
+            startDay,
+            endDay
+        };
+    });
+
+    const totalMinutes = stages.reduce((sum, stage) => sum + stage.minutes, 0);
+
+    /*
+       The project span is the working day the last stage ends on.
+    */
+    const spanDays = stages.reduce(
+        (max, stage) => Math.max(max, stage.endDay),
+        0
+    );
+
+    /*
+       Per-window reference rows are kept so the planner can still
+       show what each window costs, but they are derived from the
+       per-window model rather than scheduled separately.
+    */
     const rows = windows.map(window => {
 
-        const stages = PLANNING_STAGES.map(stage => ({
+        const windowStages = PLANNING_STAGES.map(stage => ({
             key: stage.key,
             label: stage.label,
             minutes: Math.round(stageMinutesForWindow(stage, window, settings))
         }));
-
-        let cursor = 0;
-
-        let totalMinutes = 0;
-
-        /*
-           Pick the lane that can start this window soonest, so a
-           small job is not stuck behind a long one in another lane.
-        */
-        let lane = 0;
-
-        for (let i = 1; i < laneFreeMinutes.length; i += 1) {
-            if (laneFreeMinutes[i] < laneFreeMinutes[lane]) {
-                lane = i;
-            }
-        }
-
-        cursor = laneFreeMinutes[lane];
-
-        const startMinutes = cursor;
-
-        const scheduled = stages.map(stage => {
-
-            const start = cursor;
-
-            cursor += stage.minutes;
-
-            totalMinutes += stage.minutes;
-
-            return {
-                ...stage,
-                startDay: Math.floor(start / minutesPerDay) + 1,
-                endDay: Math.max(
-                    Math.floor(start / minutesPerDay) + 1,
-                    Math.ceil(cursor / minutesPerDay)
-                )
-            };
-        });
-
-        laneFreeMinutes[lane] = cursor;
 
         return {
             id: window.id,
@@ -8249,39 +8326,32 @@ function buildProjectPlan(project, options) {
             description: safeText(window.description),
             productType: safeText(window.productType) || "Window",
             areaSqm: windowAreaSqm(window),
-            totalMinutes,
-            startDay: Math.floor(startMinutes / minutesPerDay) + 1,
-            endDay: Math.ceil(cursor / minutesPerDay) || 1,
-            stages: scheduled
+            totalMinutes: windowStages.reduce((sum, stage) => sum + stage.minutes, 0),
+            stages: windowStages
         };
     });
 
     /*
-       Project totals: the sum of every stage's minutes, and the
-       span from the first start to the last finish measured in
-       working days.
+       The stage breakdown is now simply the project stages, in
+       order - there is no per-window stage to aggregate.
     */
-    const totalMinutes = rows.reduce((sum, row) => sum + row.totalMinutes, 0);
-
-    const spanDays = rows.reduce(
-        (max, row) => Math.max(max, row.endDay),
-        0
-    );
-
-    const stageTotals = PLANNING_STAGES.map(stage => ({
+    const stageTotals = stages.map(stage => ({
         key: stage.key,
         label: stage.label,
-        minutes: rows.reduce((sum, row) => {
-            const match = row.stages.find(item => item.key === stage.key);
-            return sum + (match ? match.minutes : 0);
-        }, 0)
+        minutes: stage.minutes,
+        startDay: stage.startDay,
+        endDay: stage.endDay,
+        perWindow: stage.perWindow,
+        windows: stage.windows
     }));
 
     return {
         rows,
+        stages,
         stageTotals,
         totalMinutes,
         spanDays,
+        windowCount: windows.length,
         settings
     };
 }
@@ -8448,14 +8518,23 @@ function renderPlanning() {
 
         const finishDate = addWorkingDays(startDate, plan.spanDays);
 
-        setTextIfExists("planWindows", plan.rows.length);
+        setTextIfExists("planWindows", plan.windowCount);
         setTextIfExists("planHours", Math.round((plan.totalMinutes / 60) * 10) / 10);
         setTextIfExists("planDays", plan.spanDays);
         setTextIfExists("planFinish", finishDate ? formatShortDate(finishDate) : "-");
 
+        /*
+           The summary speaks for the job as a whole: how many
+           windows, how much labour across every stage, and when
+           the last stage lands.
+        */
+        const windowsLabel = `${plan.windowCount} window${plan.windowCount === 1 ? "" : "s"}`;
+
+        const overdue = project.dueDate && finishDate && finishDate > project.dueDate;
+
         setTextIfExists(
             "planningSummary",
-            `${escapeHtml(project.projectName)} \u00b7 ${plan.rows.length} window${plan.rows.length === 1 ? "" : "s"} \u00b7 ${formatMinutes(plan.totalMinutes)} of labour \u00b7 finishes ${finishDate ? formatShortDate(finishDate) : "-"}${project.dueDate ? ` \u00b7 due ${formatShortDate(project.dueDate)}` : ""}.`
+            `${project.projectName} \u00b7 ${windowsLabel} \u00b7 ${formatMinutes(plan.totalMinutes)} of labour \u00b7 finishes ${finishDate ? formatShortDate(finishDate) : "-"}${project.dueDate ? ` \u00b7 due ${formatShortDate(project.dueDate)}${overdue ? " \u2014 LATE" : ""}` : ""}.`
         );
 
         renderPlanningStages(plan.stageTotals, plan.totalMinutes);
@@ -8591,6 +8670,12 @@ function renderPlanningStages(stageTotals, totalMinutes = 0) {
         return;
     }
 
+    /*
+       A stage bar shows the batch time for the whole project and
+       its share of the job. The per-window figure is shown too,
+       because that is what the workshop sets in Planner Settings
+       and what a single window on the bench actually costs.
+    */
     stageTotals.forEach(stage => {
 
         const share = totalMinutes ? Math.round((stage.minutes / totalMinutes) * 100) : 0;
@@ -8598,6 +8683,10 @@ function renderPlanningStages(stageTotals, totalMinutes = 0) {
         const row = document.createElement("div");
 
         row.className = "planning-stage-row";
+
+        const batchLabel = stage.windows
+            ? `${stage.windows} window${stage.windows === 1 ? "" : "s"} \u00d7 ${formatMinutes(stage.perWindow || 0)}`
+            : "no windows";
 
         row.innerHTML = `
             <div class="planning-stage-head">
@@ -8607,6 +8696,7 @@ function renderPlanningStages(stageTotals, totalMinutes = 0) {
             <div class="planning-bar" role="presentation">
                 <span class="planning-bar-fill" style="width:${share}%"></span>
             </div>
+            <span class="planning-stage-batch">${escapeHtml(batchLabel)}</span>
         `;
 
         container.appendChild(row);
@@ -8614,8 +8704,12 @@ function renderPlanningStages(stageTotals, totalMinutes = 0) {
 }
 
 /*
-   The per-window schedule: one card per window, listing every
-   stage with its own start and end working day.
+   The project schedule: ONE timeline for the whole job.
+
+   Each row is a stage - a batch that sweeps across every window
+   on the project - with its batch time and the dates it runs.
+   That is the plan a workshop runs to: cut everything, then
+   weld everything, and so on.
 */
 function renderPlanningSchedule(plan, startDate = "") {
 
@@ -8627,7 +8721,7 @@ function renderPlanningSchedule(plan, startDate = "") {
 
     container.innerHTML = "";
 
-    if (!plan || !plan.rows.length) {
+    if (!plan || !plan.stages.length || !plan.windowCount) {
 
         container.innerHTML = `
             <div class="empty-state">
@@ -8642,44 +8736,72 @@ function renderPlanningSchedule(plan, startDate = "") {
         return;
     }
 
-    plan.rows.forEach(row => {
+    const list = document.createElement("ol");
 
-        const card = document.createElement("div");
+    list.className = "planning-timeline";
 
-        card.className = "planning-window-card";
+    plan.stages.forEach((stage, index) => {
 
-        const sizeText = row.areaSqm
-            ? `${row.areaSqm.toFixed(2)} m\u00b2`
-            : "size not set";
+        const dayLabel = startDate
+            ? `${formatShortDate(addWorkingDays(startDate, stage.startDay))} \u2192 ${formatShortDate(addWorkingDays(startDate, stage.endDay))}`
+            : `Day ${stage.startDay}\u2013${stage.endDay}`;
 
-        const stagesHtml = row.stages.map(stage => {
+        const batchLabel = stage.windows
+            ? `${stage.windows} window${stage.windows === 1 ? "" : "s"} \u00d7 ${formatMinutes(stage.perWindow)}`
+            : "no windows";
 
-            const dayLabel = startDate
-                ? `${formatShortDate(addWorkingDays(startDate, stage.startDay))} \u2192 ${formatShortDate(addWorkingDays(startDate, stage.endDay))}`
-                : `Day ${stage.startDay}\u2013${stage.endDay}`;
+        const item = document.createElement("li");
 
-            return `
-                <li class="planning-stage-item">
-                    <span class="planning-stage-name">${escapeHtml(stage.label)}</span>
-                    <span class="planning-stage-time">${escapeHtml(formatMinutes(stage.minutes))}</span>
-                    <span class="planning-stage-day">${escapeHtml(dayLabel)}</span>
-                </li>
-            `;
-        }).join("");
+        item.className = "planning-timeline-item";
 
-        card.innerHTML = `
-            <div class="planning-window-head">
-                <div>
-                    <strong>${escapeHtml(row.windowNumber)}</strong>
-                    <span class="planning-window-meta">${escapeHtml(row.productType)} \u00b7 ${escapeHtml(sizeText)}${row.description ? ` \u00b7 ${escapeHtml(row.description)}` : ""}</span>
+        item.innerHTML = `
+            <span class="planning-timeline-index" aria-hidden="true">${index + 1}</span>
+            <div class="planning-timeline-body">
+                <div class="planning-timeline-head">
+                    <strong>${escapeHtml(stage.label)}</strong>
+                    <span class="planning-timeline-time">${escapeHtml(formatMinutes(stage.minutes))}</span>
                 </div>
-                <span class="planning-window-total">${escapeHtml(formatMinutes(row.totalMinutes))}</span>
+                <span class="planning-timeline-meta">${escapeHtml(batchLabel)}</span>
             </div>
-            <ol class="planning-stage-list">${stagesHtml}</ol>
+            <span class="planning-timeline-day">${escapeHtml(dayLabel)}</span>
         `;
 
-        container.appendChild(card);
+        list.appendChild(item);
     });
+
+    container.appendChild(list);
+
+    /*
+       The per-window cost stays available as a reference list, but
+       it is not the plan - the project timeline above is.
+    */
+    if (plan.rows.length) {
+
+        const detail = document.createElement("details");
+
+        detail.className = "planning-window-detail";
+
+        detail.innerHTML = `
+            <summary>Cost per window (${plan.rows.length})</summary>
+            <ul class="planning-window-list">
+                ${plan.rows.map(row => {
+                    const sizeText = row.areaSqm
+                        ? `${row.areaSqm.toFixed(2)} m\u00b2`
+                        : "size not set";
+
+                    return `
+                        <li class="planning-window-item">
+                            <span class="planning-window-id">${escapeHtml(row.windowNumber)}</span>
+                            <span class="planning-window-meta">${escapeHtml(row.productType)} \u00b7 ${escapeHtml(sizeText)}${row.description ? ` \u00b7 ${escapeHtml(row.description)}` : ""}</span>
+                            <span class="planning-window-total">${escapeHtml(formatMinutes(row.totalMinutes))}</span>
+                        </li>
+                    `;
+                }).join("")}
+            </ul>
+        `;
+
+        container.appendChild(detail);
+    }
 }
 
 /*
@@ -8711,7 +8833,7 @@ function renderPlanningSettings() {
             <input type="number" id="planStage_${escapeHtml(stage.key)}"
                 data-stage="${escapeHtml(stage.key)}"
                 min="0" max="600" step="1" value="${escapeHtml(value)}">
-            <small class="field-hint">${escapeHtml(PLANNING_STAGE_NOTES[stage.key] || "")}${stage.scales ? " Adds time for larger windows." : ""}</small>
+            <small class="field-hint">Minutes for ONE window. ${escapeHtml(PLANNING_STAGE_NOTES[stage.key] || "")}${stage.scales ? " Adds time for larger windows." : ""}</small>
         `;
 
         container.appendChild(group);

@@ -6464,91 +6464,143 @@ img {
     transition: width 0.25s ease;
 }
 
-/* --- Per-window schedule --- */
+/* The per-window figure under a stage bar: "12 windows x 25m". */
 
-.planning-window-card {
-    border: 1px solid var(--border);
-    border-radius: var(--radius-sm);
-    background: var(--surface);
-    padding: 14px 16px;
-    margin-bottom: 12px;
-    box-shadow: var(--shadow-xs);
+.planning-stage-batch {
+    display: block;
+    margin-top: 4px;
+    font-size: 11.5px;
+    color: var(--text-muted);
 }
 
-.planning-window-card:last-child {
-    margin-bottom: 0;
+/* --- Project schedule (one timeline for the job) --- */
+
+.planning-timeline {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    counter-reset: planning-stage;
 }
 
-.planning-window-head {
-    display: flex;
-    justify-content: space-between;
-    align-items: flex-start;
+.planning-timeline-item {
+    display: grid;
+    grid-template-columns: 34px 1fr auto;
     gap: 14px;
-    flex-wrap: wrap;
-    padding-bottom: 10px;
-    margin-bottom: 10px;
+    align-items: center;
+    padding: 12px 4px;
     border-bottom: 1px solid var(--border);
 }
 
-.planning-window-head strong {
-    display: block;
-    font-size: 15px;
+.planning-timeline-item:last-child {
+    border-bottom: none;
+}
+
+/* The stage number, so the run order is obvious at a glance. */
+.planning-timeline-index {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    background: var(--primary);
+    color: white;
+    font-size: 12.5px;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+}
+
+.planning-timeline-body {
+    min-width: 0;
+}
+
+.planning-timeline-head {
+    display: flex;
+    align-items: baseline;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+.planning-timeline-head strong {
+    font-size: 14.5px;
     color: var(--text);
 }
 
-.planning-window-meta {
+.planning-timeline-time {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--primary);
+    font-variant-numeric: tabular-nums;
+}
+
+.planning-timeline-meta {
     display: block;
     margin-top: 2px;
     font-size: 12px;
     color: var(--text-light);
 }
 
-.planning-window-total {
-    font-weight: 700;
-    font-size: 14px;
-    color: var(--primary);
+.planning-timeline-day {
+    font-size: 12.5px;
+    color: var(--text-muted);
     font-variant-numeric: tabular-nums;
+    text-align: right;
     white-space: nowrap;
-    background: var(--surface-light);
-    border: 1px solid var(--border);
-    border-radius: 999px;
-    padding: 4px 12px;
 }
 
-.planning-stage-list {
+/* --- Per-window reference list (collapsed by default) --- */
+
+.planning-window-detail {
+    margin-top: 16px;
+    border-top: 1px solid var(--border);
+    padding-top: 12px;
+}
+
+.planning-window-detail summary {
+    cursor: pointer;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--primary);
+}
+
+.planning-window-list {
     list-style: none;
-    margin: 0;
+    margin: 12px 0 0;
     padding: 0;
 }
 
-.planning-stage-item {
+.planning-window-item {
     display: grid;
-    grid-template-columns: minmax(140px, 1.4fr) 90px 1fr;
-    gap: 10px;
+    grid-template-columns: minmax(120px, 1fr) 2fr auto;
+    gap: 12px;
     align-items: baseline;
-    padding: 6px 0;
+    padding: 7px 0;
     font-size: 13px;
     border-bottom: 1px dashed var(--border);
 }
 
-.planning-stage-item:last-child {
+.planning-window-item:last-child {
     border-bottom: none;
 }
 
-.planning-stage-name {
-    color: var(--text);
+.planning-window-id {
     font-weight: 600;
+    color: var(--text);
+    font-variant-numeric: tabular-nums;
 }
 
-.planning-stage-time {
+.planning-window-meta {
+    font-size: 12px;
     color: var(--text-light);
-    font-variant-numeric: tabular-nums;
 }
 
-.planning-stage-day {
-    color: var(--text-muted);
-    text-align: right;
+.planning-window-total {
+    font-weight: 700;
+    font-size: 13px;
+    color: var(--primary);
     font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+    text-align: right;
 }
 
 /* --- Settings panel --- */
@@ -6592,14 +6644,23 @@ img {
         grid-template-columns: repeat(2, 1fr);
     }
 
-    .planning-stage-item {
+    .planning-timeline-item {
+        grid-template-columns: 30px 1fr;
+        row-gap: 4px;
+    }
+
+    .planning-timeline-day {
+        grid-column: 2;
+        text-align: left;
+    }
+
+    .planning-window-item {
         grid-template-columns: 1fr auto;
         row-gap: 2px;
     }
 
-    .planning-stage-day {
+    .planning-window-meta {
         grid-column: 1 / -1;
-        text-align: left;
     }
 }
 
