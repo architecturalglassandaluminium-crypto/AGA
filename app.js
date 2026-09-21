@@ -4312,7 +4312,12 @@ function projectStatusSummaryHtml(windows) {
        cares about when a project is running late.
     */
     const notStarted = counts["Measured"] || 0;
-    const completed = (counts["Completed"] || 0) + (counts["Installed"] || 0);
+    /*
+       "Project Completed" is the real terminal status; there is no
+       plain "Completed", so looking it up by that name silently
+       reported every finished job as still in progress.
+    */
+    const completed = (counts["Project Completed"] || 0) + (counts["Installed"] || 0);
 
     const chips = [];
 
@@ -5148,6 +5153,22 @@ function renderDashboard() {
     });
 
     /*
+       Read a status count, defaulting to 0 when the status is not
+       one we track.
+
+       This used to be a bare counts[...] lookup, which returned
+       undefined for a status missing from STATUSES - and
+       undefined added to any number is NaN. That is what made the
+       Production and Ready cards and the pipeline read "NaN".
+       Going through a helper means an unknown or renamed status
+       contributes 0 rather than poisoning the whole total.
+    */
+    const countOf = (...statuses) => statuses.reduce(
+        (total, status) => total + (counts[status] || 0),
+        0
+    );
+
+    /*
        Only update elements that actually exist.
     */
 
@@ -5172,17 +5193,22 @@ function renderDashboard() {
 
     setTextIfExists(
         "productionWindows",
-        counts["In Production"] +
-        counts["Frame Manufactured"] +
-        counts["Glazed"] +
-        counts["Quality Checked"]
+        countOf(
+            "In Production",
+            "Frame Manufactured",
+            "Manufacturing Completed",
+            "Quality Checked",
+            "Wrapped"
+        )
     );
 
     setTextIfExists(
         "readyWindows",
-        counts["Ready for Installation"] +
-        counts["Installed"] +
-        counts["Completed"]
+        countOf(
+            "Ready for Installation",
+            "Installed",
+            "Project Completed"
+        )
     );
 
     /*
@@ -5196,10 +5222,13 @@ function renderDashboard() {
 
     setTextIfExists(
         "pipelineProduction",
-        counts["In Production"] +
-        counts["Frame Manufactured"] +
-        counts["Glazed"] +
-        counts["Quality Checked"]
+        countOf(
+            "In Production",
+            "Frame Manufactured",
+            "Manufacturing Completed",
+            "Quality Checked",
+            "Wrapped"
+        )
     );
 
     setTextIfExists(
@@ -5214,7 +5243,7 @@ function renderDashboard() {
 
     setTextIfExists(
         "pipelineCompleted",
-        counts["Completed"]
+        countOf("Project Completed")
     );
 }
 
@@ -5648,6 +5677,7 @@ function renderAll() {
         renderScanEmployeeOptions();
         renderAllocatedFilterOptions();
         renderProductivity();
+        renderPlanning();
 
         /*
            The quote builder lives in its own module and may
@@ -7937,6 +7967,820 @@ function updateScanGateState() {
 }
 
 /* =========================================================
+   PRODUCTION PLANNING
+   =========================================================
+
+   A project is planned by working out how long each STAGE of
+   making a window takes, then scheduling those stages against
+   the workshop's available hours. Two things drive the plan:
+
+     1. A process model - the stages an AGA aluminium window
+        goes through, in order, and a base time for each. The
+        base times come from published fabrication and glazing
+        guides (see PLANNING_STAGE_NOTES) and are deliberately
+        editable, because every workshop is a little different.
+
+     2. A scheduler - lays those stage times out on a working
+        calendar, respecting holidays-free working days, the
+        number of windows worked on at once, and how many hours
+        a day the shop runs.
+
+   Stage order mirrors the AGA production STATUSES so a plan
+   reads the same left-to-right as the shop floor does.
+   ========================================================= */
+
+const PLAN_KEY = "aga_plan_settings";
+
+/*
+   The AGA window builds as a sequence of stages. `base` is
+   minutes of one person's time for ONE window, and `perSqm`
+   lets a larger window cost more on the stages that scale with
+   size (cutting, glazing).
+
+   Times are a starting point, not a stopwatch: a fabricator's
+   own numbers replace them through Planner Settings.
+
+   Source anchors for the defaults:
+     - cutting / machining / assembly and glazing are the
+       documented fabrication steps, in that order
+     - an accessible aluminium window takes roughly 45 minutes
+       to install; we plan on that as the bare minimum and let
+       size push it up
+     - glass replacement for a normal-sized unit runs a few
+       hours for four windows, so glazing is a per-unit step
+       that stacks across a batch
+*/
+const PLANNING_STAGES = [
+    { key: "measure", label: "Measure & Check", base: 20, perSqm: 0, scales: false },
+    { key: "cut", label: "Cutting", base: 25, perSqm: 1.5, scales: true },
+    { key: "weld", label: "Welding & Crimping", base: 30, perSqm: 1.0, scales: true },
+    { key: "machine", label: "Machining & Drilling", base: 20, perSqm: 0.8, scales: true },
+    { key: "assemble", label: "Frame Assembly", base: 35, perSqm: 1.2, scales: true },
+    { key: "glaze", label: "Glazing", base: 25, perSqm: 1.5, scales: true },
+    { key: "qc", label: "Quality Check", base: 15, perSqm: 0, scales: false },
+    { key: "wrap", label: "Wrapping", base: 10, perSqm: 0, scales: false },
+    { key: "install", label: "Installation", base: 45, perSqm: 2.0, scales: true }
+];
+
+const PLANNING_STAGE_NOTES = {
+    measure: "On-site or re-check before the frame is cut.",
+    cut: "Mitre-saw cutting of the profile to length - scales with window size.",
+    weld: "Corner joining. Welded systems weld; crimped/mechanically-jointed systems crimp.",
+    machine: "Drilling, routing and drainage slots for hardware and glass beads.",
+    assemble: "Frame and sash assembly, hardware and bead fitting.",
+    glaze: "Setting the glazed unit, packers and gaskets.",
+    qc: "Inspection before it leaves the bench.",
+    wrap: "Protective wrapping and labelling.",
+    install: "Fitting on site - roughly 45 min for a standard accessible window, more when large."
+};
+
+/*
+   Default planning settings: a normal workshop day and one
+   window on the bench at a time. Kept in localStorage so a
+   workshop's tuning survives a reload.
+*/
+const PLANNING_DEFAULTS = {
+    parallel: 1,
+    hoursPerDay: 8,
+    /* A day never starts mid-stage in reality, so stages are
+       planned back-to-back within the available hours. */
+    stageMinutes: PLANNING_STAGES.reduce((acc, stage) => {
+        acc[stage.key] = stage.base;
+        return acc;
+    }, {})
+};
+
+function getPlanSettings() {
+
+    const fallback = {
+        parallel: PLANNING_DEFAULTS.parallel,
+        hoursPerDay: PLANNING_DEFAULTS.hoursPerDay,
+        stageMinutes: { ...PLANNING_DEFAULTS.stageMinutes }
+    };
+
+    try {
+
+        const stored = localStorage.getItem(PLAN_KEY);
+
+        if (!stored) {
+            return fallback;
+        }
+
+        const parsed = JSON.parse(stored);
+
+        if (!parsed || typeof parsed !== "object") {
+            return fallback;
+        }
+
+        const stageMinutes = { ...fallback.stageMinutes };
+
+        if (parsed.stageMinutes && typeof parsed.stageMinutes === "object") {
+            Object.keys(stageMinutes).forEach(key => {
+                const value = Number(parsed.stageMinutes[key]);
+                if (Number.isFinite(value) && value >= 0) {
+                    stageMinutes[key] = value;
+                }
+            });
+        }
+
+        const parallel = Number(parsed.parallel);
+        const hours = Number(parsed.hoursPerDay);
+
+        return {
+            parallel: Number.isFinite(parallel) && parallel >= 1
+                ? Math.min(Math.round(parallel), 20)
+                : fallback.parallel,
+            hoursPerDay: Number.isFinite(hours) && hours >= 1 && hours <= 24
+                ? hours
+                : fallback.hoursPerDay,
+            stageMinutes
+        };
+
+    } catch (error) {
+
+        console.error("Could not read planning settings:", error);
+
+        return fallback;
+    }
+}
+
+function savePlanSettings(settings) {
+
+    try {
+
+        localStorage.setItem(PLAN_KEY, JSON.stringify(settings));
+
+        return true;
+
+    } catch (error) {
+
+        console.error("Could not save planning settings:", error);
+
+        showError("The planner settings could not be saved on this device.");
+
+        return false;
+    }
+}
+
+/*
+   Area of a window in square metres.
+
+   Length and width are stored in mm; a window is a rectangle,
+   so area is l*w / 1,000,000. A window with no measurements yet
+   contributes zero extra, so it still gets the flat base time
+   rather than dropping out of the plan.
+*/
+function windowAreaSqm(window) {
+
+    const length = Number(window.length) || 0;
+    const width = Number(window.width) || 0;
+
+    if (length <= 0 || width <= 0) {
+        return 0;
+    }
+
+    return (length * width) / 1000000;
+}
+
+/*
+   Minutes for one stage on one window: base plus a size term.
+   Only the stages that genuinely scale add the per-square-metre
+   cost, so a big window does not inflate QC and wrapping.
+*/
+function stageMinutesForWindow(stage, window, settings) {
+
+    const base = settings.stageMinutes[stage.key];
+
+    if (!Number.isFinite(base)) {
+        return 0;
+    }
+
+    if (!stage.scales) {
+        return base;
+    }
+
+    return base + (stage.perSqm * windowAreaSqm(window));
+}
+
+/*
+   Build a full plan for one project.
+
+   Returns, per window:
+     windowNumber, label, areaSqm, totalMinutes, and `stages` -
+     an array of { key, label, minutes, startDay, endDay } laid
+     on a working-day timeline.
+
+   Scheduling rule: the workshop runs `hoursPerDay` a day and can
+   work on `parallel` windows at once. Windows are queued in
+   order; each stage runs after the previous stage on that same
+   window and after whatever was already booked on the bench.
+   Stages are whole-day-agnostic: minutes accumulate into working
+   days of `hoursPerDay * 60` minutes, and a stage that crosses a
+   day boundary is shown ending on the later day.
+*/
+function buildProjectPlan(project, options) {
+
+    const settings = options?.settings || getPlanSettings();
+
+    const windows = Array.isArray(project.windows)
+        ? project.windows
+        : [];
+
+    const minutesPerDay = Math.max(1, settings.hoursPerDay) * 60;
+
+    /*
+       Each "lane" is one slot on the bench. A window occupies the
+       earliest lane free for the next stage; with parallel = 1
+       this degenerates to a strict one-after-another queue.
+    */
+    const laneFreeMinutes = new Array(Math.max(1, settings.parallel)).fill(0);
+
+    const rows = windows.map(window => {
+
+        const stages = PLANNING_STAGES.map(stage => ({
+            key: stage.key,
+            label: stage.label,
+            minutes: Math.round(stageMinutesForWindow(stage, window, settings))
+        }));
+
+        let cursor = 0;
+
+        let totalMinutes = 0;
+
+        /*
+           Pick the lane that can start this window soonest, so a
+           small job is not stuck behind a long one in another lane.
+        */
+        let lane = 0;
+
+        for (let i = 1; i < laneFreeMinutes.length; i += 1) {
+            if (laneFreeMinutes[i] < laneFreeMinutes[lane]) {
+                lane = i;
+            }
+        }
+
+        cursor = laneFreeMinutes[lane];
+
+        const startMinutes = cursor;
+
+        const scheduled = stages.map(stage => {
+
+            const start = cursor;
+
+            cursor += stage.minutes;
+
+            totalMinutes += stage.minutes;
+
+            return {
+                ...stage,
+                startDay: Math.floor(start / minutesPerDay) + 1,
+                endDay: Math.max(
+                    Math.floor(start / minutesPerDay) + 1,
+                    Math.ceil(cursor / minutesPerDay)
+                )
+            };
+        });
+
+        laneFreeMinutes[lane] = cursor;
+
+        return {
+            id: window.id,
+            windowNumber: safeText(window.windowNumber) || safeText(window.windowId) || "Unnumbered",
+            description: safeText(window.description),
+            productType: safeText(window.productType) || "Window",
+            areaSqm: windowAreaSqm(window),
+            totalMinutes,
+            startDay: Math.floor(startMinutes / minutesPerDay) + 1,
+            endDay: Math.ceil(cursor / minutesPerDay) || 1,
+            stages: scheduled
+        };
+    });
+
+    /*
+       Project totals: the sum of every stage's minutes, and the
+       span from the first start to the last finish measured in
+       working days.
+    */
+    const totalMinutes = rows.reduce((sum, row) => sum + row.totalMinutes, 0);
+
+    const spanDays = rows.reduce(
+        (max, row) => Math.max(max, row.endDay),
+        0
+    );
+
+    const stageTotals = PLANNING_STAGES.map(stage => ({
+        key: stage.key,
+        label: stage.label,
+        minutes: rows.reduce((sum, row) => {
+            const match = row.stages.find(item => item.key === stage.key);
+            return sum + (match ? match.minutes : 0);
+        }, 0)
+    }));
+
+    return {
+        rows,
+        stageTotals,
+        totalMinutes,
+        spanDays,
+        settings
+    };
+}
+
+/*
+   Add whole working days to a yyyy-mm-dd start date, skipping
+   weekends. Working a Saturday is a real thing in this trade but
+   not universal, so the planner keeps to Mon-Fri and a workshop
+   that works weekends simply finishes early.
+*/
+function addWorkingDays(startDate, days) {
+
+    const date = new Date(`${startDate}T00:00:00`);
+
+    if (isNaN(date.getTime())) {
+        return "";
+    }
+
+    let remaining = Math.max(0, days - 1);
+
+    while (remaining > 0) {
+
+        date.setDate(date.getDate() + 1);
+
+        const day = date.getDay();
+
+        if (day !== 0 && day !== 6) {
+            remaining -= 1;
+        }
+    }
+
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, "0");
+    const day = String(date.getDate()).padStart(2, "0");
+
+    return `${year}-${month}-${day}`;
+}
+
+/*
+   Today as yyyy-mm-dd, built from local parts so the day does
+   not shift for anyone ahead of UTC.
+*/
+function todayIsoDate() {
+
+    const now = new Date();
+
+    const year = now.getFullYear();
+    const month = String(now.getMonth() + 1).padStart(2, "0");
+    const day = String(now.getDate()).padStart(2, "0");
+
+    return `${year}-${month}-${day}`;
+}
+
+/*
+   Human-readable hours from minutes, e.g. 90 -> "1h 30m".
+*/
+function formatMinutes(minutes) {
+
+    const total = Math.max(0, Math.round(Number(minutes) || 0));
+
+    const hours = Math.floor(total / 60);
+    const mins = total % 60;
+
+    if (hours && mins) {
+        return `${hours}h ${mins}m`;
+    }
+
+    if (hours) {
+        return `${hours}h`;
+    }
+
+    return `${mins}m`;
+}
+
+/*
+   Which project the Planning tab is currently showing, or null
+   for "the first project with windows".
+*/
+let planningProjectId = null;
+
+function planningSelectedProject() {
+
+    const projects = getProjects();
+
+    if (!projects.length) {
+        return null;
+    }
+
+    if (planningProjectId) {
+        const chosen = projects.find(project => project.id === planningProjectId);
+        if (chosen) {
+            return chosen;
+        }
+    }
+
+    /* Default to the first project that actually has windows. */
+    return projects.find(
+        project => Array.isArray(project.windows) && project.windows.length
+    ) || projects[0];
+}
+
+/*
+   Render the Planning view: KPIs, stage breakdown and the full
+   per-window schedule.
+*/
+function renderPlanning() {
+
+    try {
+
+        if (!$("planning-view")) {
+            return;
+        }
+
+        renderPlanningProjectOptions();
+
+        const settings = getPlanSettings();
+
+        /*
+           Reflect the saved settings in the controls, but never
+           overwrite what the planner is part-way through typing.
+        */
+        const parallelInput = $("planningParallel");
+        const hoursInput = $("planningHoursPerDay");
+        const startInput = $("planningStart");
+
+        if (parallelInput && !parallelInput.dataset.touched) {
+            parallelInput.value = settings.parallel;
+        }
+
+        if (hoursInput && !hoursInput.dataset.touched) {
+            hoursInput.value = settings.hoursPerDay;
+        }
+
+        if (startInput && !startInput.value) {
+            startInput.value = todayIsoDate();
+        }
+
+        const project = planningSelectedProject();
+
+        if (!project) {
+            setTextIfExists("planningSummary", "Create a project first, then come back to plan it.");
+            setTextIfExists("planWindows", 0);
+            setTextIfExists("planHours", 0);
+            setTextIfExists("planDays", 0);
+            setTextIfExists("planFinish", "-");
+            renderPlanningStages([]);
+            renderPlanningSchedule(null);
+            return;
+        }
+
+        /*
+           Use the live control values so the plan updates as the
+           planner changes parallel/hours, without forcing a save.
+        */
+        const liveSettings = {
+            parallel: clampInt(parallelInput?.value, 1, 20, settings.parallel),
+            hoursPerDay: clampNumber(hoursInput?.value, 1, 24, settings.hoursPerDay),
+            stageMinutes: { ...settings.stageMinutes }
+        };
+
+        const plan = buildProjectPlan(project, { settings: liveSettings });
+
+        const startDate = normaliseDueDate($("planningStart")?.value) || todayIsoDate();
+
+        const finishDate = addWorkingDays(startDate, plan.spanDays);
+
+        setTextIfExists("planWindows", plan.rows.length);
+        setTextIfExists("planHours", Math.round((plan.totalMinutes / 60) * 10) / 10);
+        setTextIfExists("planDays", plan.spanDays);
+        setTextIfExists("planFinish", finishDate ? formatShortDate(finishDate) : "-");
+
+        setTextIfExists(
+            "planningSummary",
+            `${escapeHtml(project.projectName)} \u00b7 ${plan.rows.length} window${plan.rows.length === 1 ? "" : "s"} \u00b7 ${formatMinutes(plan.totalMinutes)} of labour \u00b7 finishes ${finishDate ? formatShortDate(finishDate) : "-"}${project.dueDate ? ` \u00b7 due ${formatShortDate(project.dueDate)}` : ""}.`
+        );
+
+        renderPlanningStages(plan.stageTotals, plan.totalMinutes);
+        renderPlanningSchedule(plan, startDate);
+
+    } catch (error) {
+
+        console.error("Planning render error:", error);
+
+        showError("The production plan could not be displayed.");
+    }
+}
+
+function clampInt(value, min, max, fallback) {
+
+    const number = parseInt(value, 10);
+
+    if (!Number.isFinite(number)) {
+        return fallback;
+    }
+
+    return Math.min(max, Math.max(min, number));
+}
+
+function clampNumber(value, min, max, fallback) {
+
+    const number = Number(value);
+
+    if (!Number.isFinite(number)) {
+        return fallback;
+    }
+
+    return Math.min(max, Math.max(min, number));
+}
+
+/* yyyy-mm-dd -> "12 Jun" for compact display. */
+function formatShortDate(value) {
+
+    const iso = normaliseDueDate(value);
+
+    if (!iso) {
+        return "";
+    }
+
+    const date = new Date(`${iso}T00:00:00`);
+
+    if (isNaN(date.getTime())) {
+        return "";
+    }
+
+    return date.toLocaleDateString("en-ZA", {
+        day: "numeric",
+        month: "short"
+    });
+}
+
+/*
+   Fill the project dropdown, preserving the current selection.
+*/
+function renderPlanningProjectOptions() {
+
+    const select = $("planningProject");
+
+    if (!select) {
+        return;
+    }
+
+    const projects = getProjects();
+
+    const current = planningSelectedProject();
+
+    select.innerHTML = "";
+
+    if (!projects.length) {
+
+        const option = document.createElement("option");
+        option.value = "";
+        option.textContent = "No projects yet";
+        select.appendChild(option);
+        select.disabled = true;
+
+        return;
+    }
+
+    select.disabled = false;
+
+    projects.forEach(project => {
+
+        const option = document.createElement("option");
+
+        option.value = project.id;
+
+        const count = Array.isArray(project.windows) ? project.windows.length : 0;
+
+        option.textContent = `${safeText(project.projectName)} (${count})`;
+
+        /*
+           select.value must be set via the property, not the
+           attribute, or the browser may ignore it.
+        */
+        option.selected = current ? project.id === current.id : false;
+
+        select.appendChild(option);
+    });
+}
+
+/*
+   Time-by-stage bar list: each stage shows its total and its
+   share of the whole job, so the bottleneck is obvious.
+*/
+function renderPlanningStages(stageTotals, totalMinutes = 0) {
+
+    const container = $("planningStages");
+
+    if (!container) {
+        return;
+    }
+
+    container.innerHTML = "";
+
+    if (!stageTotals.length || !totalMinutes) {
+
+        container.innerHTML = `
+            <div class="empty-state">
+                <span class="empty-state-icon" aria-hidden="true">
+                    <svg class="icon" viewBox="0 0 24 24"><path d="M3 3v18h18"/><path d="M7 16v-5M11.5 16V7M16 16v-3M20.5 16V9"/></svg>
+                </span>
+                <h4>No plan to show</h4>
+                <p>Add windows to a project and the planner will break the work down by stage.</p>
+            </div>
+        `;
+
+        return;
+    }
+
+    stageTotals.forEach(stage => {
+
+        const share = totalMinutes ? Math.round((stage.minutes / totalMinutes) * 100) : 0;
+
+        const row = document.createElement("div");
+
+        row.className = "planning-stage-row";
+
+        row.innerHTML = `
+            <div class="planning-stage-head">
+                <strong>${escapeHtml(stage.label)}</strong>
+                <span>${escapeHtml(formatMinutes(stage.minutes))} \u00b7 ${share}%</span>
+            </div>
+            <div class="planning-bar" role="presentation">
+                <span class="planning-bar-fill" style="width:${share}%"></span>
+            </div>
+        `;
+
+        container.appendChild(row);
+    });
+}
+
+/*
+   The per-window schedule: one card per window, listing every
+   stage with its own start and end working day.
+*/
+function renderPlanningSchedule(plan, startDate = "") {
+
+    const container = $("planningSchedule");
+
+    if (!container) {
+        return;
+    }
+
+    container.innerHTML = "";
+
+    if (!plan || !plan.rows.length) {
+
+        container.innerHTML = `
+            <div class="empty-state">
+                <span class="empty-state-icon" aria-hidden="true">
+                    <svg class="icon" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="1.5"/><path d="M12 3v18M3 12h9"/></svg>
+                </span>
+                <h4>Nothing scheduled yet</h4>
+                <p>This project has no windows. Add windows to the project to plan the work.</p>
+            </div>
+        `;
+
+        return;
+    }
+
+    plan.rows.forEach(row => {
+
+        const card = document.createElement("div");
+
+        card.className = "planning-window-card";
+
+        const sizeText = row.areaSqm
+            ? `${row.areaSqm.toFixed(2)} m\u00b2`
+            : "size not set";
+
+        const stagesHtml = row.stages.map(stage => {
+
+            const dayLabel = startDate
+                ? `${formatShortDate(addWorkingDays(startDate, stage.startDay))} \u2192 ${formatShortDate(addWorkingDays(startDate, stage.endDay))}`
+                : `Day ${stage.startDay}\u2013${stage.endDay}`;
+
+            return `
+                <li class="planning-stage-item">
+                    <span class="planning-stage-name">${escapeHtml(stage.label)}</span>
+                    <span class="planning-stage-time">${escapeHtml(formatMinutes(stage.minutes))}</span>
+                    <span class="planning-stage-day">${escapeHtml(dayLabel)}</span>
+                </li>
+            `;
+        }).join("");
+
+        card.innerHTML = `
+            <div class="planning-window-head">
+                <div>
+                    <strong>${escapeHtml(row.windowNumber)}</strong>
+                    <span class="planning-window-meta">${escapeHtml(row.productType)} \u00b7 ${escapeHtml(sizeText)}${row.description ? ` \u00b7 ${escapeHtml(row.description)}` : ""}</span>
+                </div>
+                <span class="planning-window-total">${escapeHtml(formatMinutes(row.totalMinutes))}</span>
+            </div>
+            <ol class="planning-stage-list">${stagesHtml}</ol>
+        `;
+
+        container.appendChild(card);
+    });
+}
+
+/*
+   Draw the editable minutes-per-stage settings. Rendered on
+   demand from the settings panel rather than on every render.
+*/
+function renderPlanningSettings() {
+
+    const container = $("planningStageSettings");
+
+    if (!container) {
+        return;
+    }
+
+    const settings = getPlanSettings();
+
+    container.innerHTML = "";
+
+    PLANNING_STAGES.forEach(stage => {
+
+        const value = settings.stageMinutes[stage.key];
+
+        const group = document.createElement("div");
+
+        group.className = "planning-setting-group";
+
+        group.innerHTML = `
+            <label for="planStage_${escapeHtml(stage.key)}">${escapeHtml(stage.label)}</label>
+            <input type="number" id="planStage_${escapeHtml(stage.key)}"
+                data-stage="${escapeHtml(stage.key)}"
+                min="0" max="600" step="1" value="${escapeHtml(value)}">
+            <small class="field-hint">${escapeHtml(PLANNING_STAGE_NOTES[stage.key] || "")}${stage.scales ? " Adds time for larger windows." : ""}</small>
+        `;
+
+        container.appendChild(group);
+    });
+}
+
+/*
+   Read the settings panel back into a settings object. A blank
+   or nonsense box falls back to the default rather than zeroing
+   a stage, which would silently under-plan the job.
+*/
+function collectPlanningSettings() {
+
+    const settings = getPlanSettings();
+
+    const inputs = document.querySelectorAll("#planningStageSettings input[data-stage]");
+
+    inputs.forEach(input => {
+
+        const key = input.dataset.stage;
+
+        const value = Number(input.value);
+
+        if (Number.isFinite(value) && value >= 0) {
+            settings.stageMinutes[key] = value;
+        }
+    });
+
+    settings.parallel = clampInt($("planningParallel")?.value, 1, 20, settings.parallel);
+    settings.hoursPerDay = clampNumber($("planningHoursPerDay")?.value, 1, 24, settings.hoursPerDay);
+
+    return settings;
+}
+
+function savePlanningSettings() {
+
+    const settings = collectPlanningSettings();
+
+    if (!savePlanSettings(settings)) {
+        return;
+    }
+
+    showSuccess("Planner settings saved.");
+
+    renderPlanning();
+}
+
+function resetPlanningSettings() {
+
+    const settings = getPlanSettings();
+
+    settings.stageMinutes = { ...PLANNING_DEFAULTS.stageMinutes };
+    settings.parallel = PLANNING_DEFAULTS.parallel;
+    settings.hoursPerDay = PLANNING_DEFAULTS.hoursPerDay;
+
+    savePlanSettings(settings);
+
+    renderPlanningSettings();
+
+    showSuccess("Planner settings reset to defaults.");
+}
+
+window.renderPlanning = renderPlanning;
+window.buildProjectPlan = buildProjectPlan;
+window.getPlanSettings = getPlanSettings;
+window.addWorkingDays = addWorkingDays;
+window.formatMinutes = formatMinutes;
+
+/* =========================================================
    VIEW SWITCHING
    ========================================================= */
 
@@ -7952,9 +8796,8 @@ const VIEW_NAMES = [
     "scanner",
     "employees",
     "productivity",
-    "quotes",
-    "plumbing",
-    "construction"
+    "planning",
+    "quotes"
 ];
 
 /*
@@ -8017,23 +8860,6 @@ function switchView(viewName) {
         if (searchInput) {
             searchInput.value = "";
             renderScanSearch();
-        }
-    }
-
-    /*
-       The Plumbing and Construction tabs host the APS and APC apps
-       inside an iframe. Each is a complete app with its own scripts
-       and styles, so an iframe keeps them fully isolated from this
-       page rather than colliding with AGA's globals and element ids.
-       The frame's data-src is only copied to src the first time the
-       tab is opened, so a visitor who never leaves AGA never pays to
-       download the other two apps.
-    */
-    if (viewName === "plumbing" || viewName === "construction") {
-        const frame = $(`${viewName}Frame`);
-
-        if (frame && !frame.getAttribute("src")) {
-            frame.setAttribute("src", frame.dataset.src);
         }
     }
 
@@ -8116,6 +8942,103 @@ function initialiseEventListeners() {
                 "input",
                 filterProjects
             );
+        }
+
+        /*
+           Planning controls. Changing the project, the start date,
+           the parallel count or the hours a day rebuilds the plan
+           immediately - a planner expects to see the effect of a
+           change without hunting for an Apply button.
+        */
+        const planningProject = $("planningProject");
+
+        if (planningProject) {
+            planningProject.addEventListener("change", () => {
+                planningProjectId = planningProject.value || null;
+                renderPlanning();
+            });
+        }
+
+        ["planningStart", "planningHoursPerDay"].forEach(id => {
+
+            const input = $(id);
+
+            if (input) {
+                input.addEventListener("change", renderPlanning);
+            }
+        });
+
+        const planningParallel = $("planningParallel");
+
+        if (planningParallel) {
+
+            planningParallel.addEventListener("input", () => {
+                planningParallel.dataset.touched = "1";
+                renderPlanning();
+            });
+
+            planningParallel.addEventListener("change", renderPlanning);
+        }
+
+        const planningHours = $("planningHoursPerDay");
+
+        if (planningHours) {
+            planningHours.addEventListener("input", () => {
+                planningHours.dataset.touched = "1";
+            });
+        }
+
+        const planningRefreshButton = $("planningRefreshButton");
+
+        if (planningRefreshButton) {
+            planningRefreshButton.addEventListener("click", () => {
+                renderPlanning();
+                showSuccess("Plan rebuilt.");
+            });
+        }
+
+        const planningSettingsButton = $("planningSettingsButton");
+
+        if (planningSettingsButton) {
+
+            planningSettingsButton.addEventListener("click", () => {
+
+                const card = $("planningSettingsCard");
+
+                if (!card) {
+                    return;
+                }
+
+                card.hidden = !card.hidden;
+
+                if (!card.hidden) {
+                    renderPlanningSettings();
+                    card.scrollIntoView({ behavior: "smooth", block: "start" });
+                }
+            });
+        }
+
+        const planningSettingsCloseButton = $("planningSettingsCloseButton");
+
+        if (planningSettingsCloseButton) {
+            planningSettingsCloseButton.addEventListener("click", () => {
+                const card = $("planningSettingsCard");
+                if (card) {
+                    card.hidden = true;
+                }
+            });
+        }
+
+        const planningSettingsSaveButton = $("planningSettingsSaveButton");
+
+        if (planningSettingsSaveButton) {
+            planningSettingsSaveButton.addEventListener("click", savePlanningSettings);
+        }
+
+        const planningSettingsResetButton = $("planningSettingsResetButton");
+
+        if (planningSettingsResetButton) {
+            planningSettingsResetButton.addEventListener("click", resetPlanningSettings);
         }
 
         const photoInput =

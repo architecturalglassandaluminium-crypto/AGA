@@ -87,23 +87,17 @@
             </span>
             <span class="nav-label">Productivity</span>
         </button>
+        <button type="button" class="nav-button" data-view="planning" aria-label="Planning">
+            <span class="nav-icon" aria-hidden="true">
+                <svg class="icon" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="17" rx="2"/><path d="M8 2v4M16 2v4M3 10h18"/><path d="M8 15h3M8 18h6"/></svg>
+            </span>
+            <span class="nav-label">Planning</span>
+        </button>
         <button type="button" class="nav-button" data-view="quotes" aria-label="Quotes">
             <span class="nav-icon" aria-hidden="true">
                 <svg class="icon" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><path d="M9 13h6M9 17h4"/></svg>
             </span>
             <span class="nav-label">Quotes</span>
-        </button>
-        <button type="button" class="nav-button" data-view="plumbing" aria-label="Plumbing">
-            <span class="nav-icon" aria-hidden="true">
-                <svg class="icon" viewBox="0 0 24 24"><path d="M4 20h16"/><path d="M7 20V9a3 3 0 0 1 3-3h1"/><path d="M11 6h4a2 2 0 0 1 2 2v3h3a1 1 0 0 1 1 1v3"/><path d="M21 15h-2v4h2z"/></svg>
-            </span>
-            <span class="nav-label">Plumbing</span>
-        </button>
-        <button type="button" class="nav-button" data-view="construction" aria-label="Construction">
-            <span class="nav-icon" aria-hidden="true">
-                <svg class="icon" viewBox="0 0 24 24"><path d="M2 20h20"/><path d="M4 20V9l8-5 8 5v11"/><path d="M9 20v-5h6v5"/><path d="M10 8h4"/></svg>
-            </span>
-            <span class="nav-label">Construction</span>
         </button>
     </nav>
 
@@ -675,6 +669,122 @@
             </div>
         </section>
 
+        <!-- PLANNING VIEW -->
+        <section id="planning-view" class="app-view">
+            <div class="page-header">
+                <div>
+                    <h2>Production Planning</h2>
+                    <p>Plan a project and every window on it. The planner works out how long each stage takes and schedules it automatically, so you can see what is due when.</p>
+                </div>
+                <div class="page-header-actions">
+                    <button type="button" class="secondary-button" id="planningSettingsButton">
+                        <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.6a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+                        Planner Settings
+                    </button>
+                    <button type="button" class="primary-button" id="planningRefreshButton">
+                        <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M21 12a9 9 0 1 1-3-6.7L21 8"/><path d="M21 3v5h-5"/></svg>
+                        Rebuild Plan
+                    </button>
+                </div>
+            </div>
+
+            <!-- CAPACITY / SETTINGS SUMMARY -->
+            <div class="section-card period-card">
+                <div class="planning-controls">
+                    <div class="form-group">
+                        <label for="planningProject">Project</label>
+                        <select id="planningProject"></select>
+                    </div>
+                    <div class="form-group">
+                        <label for="planningStart">Plan Start</label>
+                        <input type="date" id="planningStart">
+                    </div>
+                    <div class="form-group">
+                        <label for="planningParallel">Windows in Parallel</label>
+                        <input type="number" id="planningParallel" min="1" max="20" step="1" value="1">
+                        <small class="field-hint">How many windows the workshop works on at once.</small>
+                    </div>
+                    <div class="form-group">
+                        <label for="planningHoursPerDay">Workshop Hours / Day</label>
+                        <input type="number" id="planningHoursPerDay" min="1" max="24" step="0.5" value="8">
+                    </div>
+                </div>
+                <p id="planningSummary" class="period-summary">Select a project to build a plan.</p>
+            </div>
+
+            <!-- PLAN KPIs -->
+            <div class="dashboard-cards planning-cards">
+                <div class="dashboard-card card-total">
+                    <span class="dashboard-card-icon" aria-hidden="true">
+                        <svg class="icon" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="1.5"/><path d="M12 3v18M3 12h9"/></svg>
+                    </span>
+                    <strong id="planWindows" class="dashboard-card-value">0</strong>
+                    <span class="dashboard-card-label">Windows Planned</span>
+                </div>
+                <div class="dashboard-card card-production">
+                    <span class="dashboard-card-icon" aria-hidden="true">
+                        <svg class="icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>
+                    </span>
+                    <strong id="planHours" class="dashboard-card-value">0</strong>
+                    <span class="dashboard-card-label">Total Labour Hours</span>
+                </div>
+                <div class="dashboard-card card-ready">
+                    <span class="dashboard-card-icon" aria-hidden="true">
+                        <svg class="icon" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="17" rx="2"/><path d="M8 2v4M16 2v4M3 10h18"/></svg>
+                    </span>
+                    <strong id="planDays" class="dashboard-card-value">0</strong>
+                    <span class="dashboard-card-label">Workshop Days</span>
+                </div>
+                <div class="dashboard-card card-measured">
+                    <span class="dashboard-card-icon" aria-hidden="true">
+                        <svg class="icon" viewBox="0 0 24 24"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+                    </span>
+                    <strong id="planFinish" class="dashboard-card-value">-</strong>
+                    <span class="dashboard-card-label">Planned Finish</span>
+                </div>
+            </div>
+
+            <!-- STAGE BREAKDOWN -->
+            <div class="section-card">
+                <div class="section-card-header">
+                    <h3>
+                        <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 3v18h18"/><path d="M7 16v-5M11.5 16V7M16 16v-3M20.5 16V9"/></svg>
+                        Time by Stage
+                    </h3>
+                    <span class="measurement-note">Estimated from the AGA process model</span>
+                </div>
+                <div id="planningStages"></div>
+            </div>
+
+            <!-- PER-WINDOW SCHEDULE -->
+            <div class="section-card">
+                <div class="section-card-header">
+                    <h3>
+                        <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 3v18h18"/><path d="M7 16v-5M11.5 16V7M16 16v-3M20.5 16V9"/></svg>
+                        Window Schedule
+                    </h3>
+                    <span class="measurement-note">Newest plan first per window</span>
+                </div>
+                <div id="planningSchedule"></div>
+            </div>
+
+            <!-- PLANNER SETTINGS -->
+            <div class="section-card planning-settings-card" id="planningSettingsCard" hidden>
+                <div class="section-card-header">
+                    <h3>
+                        <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.6a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+                        Minutes per Stage (per window)
+                    </h3>
+                    <button type="button" class="secondary-button" id="planningSettingsCloseButton">Close</button>
+                </div>
+                <div id="planningStageSettings" class="planning-stage-settings"></div>
+                <div class="form-actions">
+                    <button type="button" class="secondary-button" id="planningSettingsResetButton">Reset to Defaults</button>
+                    <button type="button" class="primary-button" id="planningSettingsSaveButton">Save Settings</button>
+                </div>
+            </div>
+        </section>
+
         <!-- QUOTES VIEW -->
         <section id="quotes-view" class="app-view">
             <div class="page-header">
@@ -945,22 +1055,6 @@
                         placeholder="Search by quote number, customer or project..." aria-label="Search quotes">
                 </div>
                 <div id="quotesList" class="quote-list"></div>
-            </div>
-        </section>
-
-        <!-- PLUMBING VIEW (APS app embedded) -->
-        <section id="plumbing-view" class="app-view">
-            <div class="embedded-app">
-                <iframe id="plumbingFrame" class="embedded-frame" title="APS Plumbing quote calculator"
-                    data-src="plumbing/index.html" loading="lazy"></iframe>
-            </div>
-        </section>
-
-        <!-- CONSTRUCTION VIEW (APC app embedded) -->
-        <section id="construction-view" class="app-view">
-            <div class="embedded-app">
-                <iframe id="constructionFrame" class="embedded-frame" title="APC Construction quote calculator"
-                    data-src="construction/index.html" loading="lazy"></iframe>
             </div>
         </section>
     </main>
