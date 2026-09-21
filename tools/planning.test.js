@@ -1,14 +1,17 @@
-// Unit tests for the project-level production planner.
+// Unit tests for the project-level, day-based production planner.
 //
 // Run with the Node.js built-in test runner (no dependencies required):
 //     node --test tools/planning.test.js
 //
-// The planner plans a PROJECT, not a window. The whole job is cut,
-// then the whole job is welded, and so on - each stage is a batch
-// that sweeps across every window. The failure this guards against
-// is a planner that quietly schedules windows independently again,
-// which produces a plan that looks plausible but tells the shop to
-// weld one window at a time instead of running a batch.
+// The planner plans a PROJECT in DAYS, from measurement to
+// installation. Each stage takes a whole number of working days and
+// the next stage starts the day after the previous one ends - the
+// whole job is cut, then the whole job is welded, and so on.
+//
+// The failure this guards against is a planner that quietly goes
+// back to scheduling per window, or that lets a stage start before
+// the one it depends on has finished - both produce a plan that
+// looks plausible on screen but is wrong to build to.
 //
 // The engine functions are pure, so they are lifted out of app.js and
 // exercised directly rather than only pattern-matched.
@@ -60,20 +63,32 @@ function extractFunction(name) {
     throw new Error(`could not find the end of ${name}`);
 }
 
-const PLANNING_STAGES = [
-    { key: 'measure', label: 'Measure & Check', base: 20, perSqm: 0, scales: false },
-    { key: 'cut', label: 'Cutting', base: 25, perSqm: 1.5, scales: true },
-    { key: 'weld', label: 'Welding & Crimping', base: 30, perSqm: 1.0, scales: true },
-    { key: 'machine', label: 'Machining & Drilling', base: 20, perSqm: 0.8, scales: true },
-    { key: 'assemble', label: 'Frame Assembly', base: 35, perSqm: 1.2, scales: true },
-    { key: 'glaze', label: 'Glazing', base: 25, perSqm: 1.5, scales: true },
-    { key: 'qc', label: 'Quality Check', base: 15, perSqm: 0, scales: false },
-    { key: 'wrap', label: 'Wrapping', base: 10, perSqm: 0, scales: false },
-    { key: 'install', label: 'Installation', base: 45, perSqm: 2.0, scales: true }
-];
+/*
+   The stage list is read back out of app.js, not hard-coded here, so
+   the test breaks if someone renames a stage key without the tests
+   following. Only the numeric defaults are duplicated.
+*/
+const stagesMatch = appSource.match(/const PLANNING_STAGES = \[([\s\S]*?)\n\];/);
+assert.ok(stagesMatch, 'PLANNING_STAGES was not found in app.js');
 
-const stageDefaults = PLANNING_STAGES.reduce((acc, stage) => {
-    acc[stage.key] = stage.base;
+const PLANNING_STAGES = [...stagesMatch[1].matchAll(/\{([^}]*)\}/g)].map(match => {
+    const row = match[1];
+    const key = row.match(/key:\s*"([^"]+)"/)[1];
+    const label = row.match(/label:\s*"([^"]+)"/)[1];
+    const days = Number(row.match(/days:\s*(\d+)/)[1]);
+    const base = Number(row.match(/base:\s*(\d+)/)[1]);
+    return { key, label, days, base };
+});
+
+assert.ok(PLANNING_STAGES.length, 'no stages were parsed out of PLANNING_STAGES');
+
+const daysDefaults = PLANNING_STAGES.reduce((acc, s) => {
+    acc[s.key] = s.days;
+    return acc;
+}, {});
+
+const minutesDefaults = PLANNING_STAGES.reduce((acc, s) => {
+    acc[s.key] = s.base;
     return acc;
 }, {});
 
@@ -85,14 +100,14 @@ function loadEngine() {
     const source = [
         'const PLANNING_STAGES = ' + JSON.stringify(PLANNING_STAGES) + ';',
         'const safeText = (v) => (v === null || v === undefined) ? "" : String(v).trim();',
-        'let localStorage = { getItem: () => null, setItem: () => {} };',
         'const console = { error: () => {}, warn: () => {} };',
         'const showError = () => {};',
         extractFunction('windowAreaSqm'),
         extractFunction('stageMinutesForWindow'),
         extractFunction('stageMinutesForProject'),
+        extractFunction('stageDaysForProject'),
         extractFunction('buildProjectPlan'),
-        'return { windowAreaSqm, stageMinutesForWindow, stageMinutesForProject, buildProjectPlan };'
+        'return { windowAreaSqm, stageMinutesForWindow, stageMinutesForProject, stageDaysForProject, buildProjectPlan };'
     ].join('\n');
 
     return new Function(source)();
@@ -104,9 +119,23 @@ function settings(overrides = {}) {
     return {
         parallel: 1,
         hoursPerDay: 8,
-        stageMinutes: { ...stageDefaults },
+        stageDays: { ...daysDefaults },
+        stageMinutes: { ...minutesDefaults },
         ...overrides
     };
+}
+
+/* Settings with every stage day set to 0, so days must be derived. */
+function derived(overrides = {}) {
+    return settings({
+        stageDays: Object.fromEntries(PLANNING_STAGES.map(s => [s.key, 0])),
+        ...overrides
+    });
+}
+
+/* Settings with explicit day counts, overriding the defaults. */
+function withDays(map) {
+    return settings({ stageDays: { ...daysDefaults, ...map } });
 }
 
 function window_(length, width, id = 'w') {
@@ -120,63 +149,74 @@ function project(windows) {
     return { id: 'p1', projectName: 'Test Job', projectNumber: 'AGA-PRJ-0001', windows };
 }
 
+const byKey = key => PLANNING_STAGES.find(s => s.key === key);
+
 // ---------------------------------------------------------------------------
-// A stage is a batch across the whole project
+// Stages are planned in whole days
 // ---------------------------------------------------------------------------
 
-test('a stage costs its per-window time multiplied by the window count', () => {
-    const single = engine.stageMinutesForProject(
-        PLANNING_STAGES.find(s => s.key === 'cut'),
-        [ONE_SQM],
-        settings()
-    );
+test('a planned day count is used as-is', () => {
+    const result = engine.stageDaysForProject(byKey('cut'), [ONE_SQM], withDays({ cut: 4 }));
 
-    const four = engine.stageMinutesForProject(
-        PLANNING_STAGES.find(s => s.key === 'cut'),
-        [ONE_SQM, ONE_SQM, ONE_SQM, ONE_SQM],
-        settings()
-    );
-
-    // The flat (non-scaling) part must scale with the number of windows.
-    assert.ok(four > single, 'cutting four windows must cost more than cutting one');
-
-    const measure = PLANNING_STAGES.find(s => s.key === 'measure');
-
-    const measureSingle = engine.stageMinutesForProject(measure, [ONE_SQM], settings());
-    const measureFour = engine.stageMinutesForProject(measure, [ONE_SQM, ONE_SQM, ONE_SQM, ONE_SQM], settings());
-
-    assert.equal(Math.round(measureSingle), 20);
-    assert.equal(Math.round(measureFour), 80, 'measuring four windows is four times one');
+    assert.equal(result.days, 4);
+    assert.equal(result.source, 'planned');
 });
 
-test('workstations divide the batch time, never below one station', () => {
-    const stage = PLANNING_STAGES.find(s => s.key === 'cut');
+test('a fractional day count rounds up to a whole day', () => {
+    // You cannot schedule half a day of cutting on a one-day calendar.
+    const result = engine.stageDaysForProject(byKey('cut'), [ONE_SQM], withDays({ cut: 1.2 }));
 
-    const one = engine.stageMinutesForProject(stage, [ONE_SQM, ONE_SQM], settings({ parallel: 1 }));
-    const two = engine.stageMinutesForProject(stage, [ONE_SQM, ONE_SQM], settings({ parallel: 2 }));
-
-    assert.equal(Math.round(two), Math.round(one / 2), 'two stations halve the batch');
-
-    // A nonsense parallel setting must not divide by zero or invert the plan.
-    const zero = engine.stageMinutesForProject(stage, [ONE_SQM, ONE_SQM], settings({ parallel: 0 }));
-    assert.equal(Math.round(zero), Math.round(one), 'parallel 0 is treated as 1');
+    assert.equal(result.days, 2);
 });
 
-test('an empty project costs nothing for any stage', () => {
+test('a stage on 0 days is estimated from the minutes model', () => {
+    const result = engine.stageDaysForProject(byKey('cut'), [ONE_SQM], derived());
+
+    assert.ok(result.days >= 1, 'a stage with work must take at least a day');
+    assert.equal(result.source, 'derived');
+});
+
+test('a derived stage still takes at least one full day', () => {
+    // A single tiny window is minutes of work, but it is still a day
+    // on the plan - you cannot do it in zero days.
+    const result = engine.stageDaysForProject(byKey('cut'), [ONE_SQM], derived());
+
+    assert.equal(result.days, 1);
+    assert.equal(result.source, 'derived');
+});
+
+test('a bigger batch of windows pushes a derived stage past one day', () => {
+    const many = Array.from({ length: 40 }, (_, i) => window_(2000, 2000, String(i)));
+
+    const result = engine.stageDaysForProject(byKey('cut'), many, derived());
+
+    assert.ok(result.days > 1, '40 large windows cannot be cut in a single day');
+});
+
+test('an empty project plans no days for any stage', () => {
     PLANNING_STAGES.forEach(stage => {
-        assert.equal(
-            engine.stageMinutesForProject(stage, [], settings()),
-            0,
-            `${stage.label} must cost 0 with no windows`
-        );
+        const result = engine.stageDaysForProject(stage, [], derived());
+
+        assert.equal(result.days, 0, `${stage.label} must take 0 days with no windows`);
     });
 });
 
 // ---------------------------------------------------------------------------
-// The stage order is sequential, not parallel
+// Stages run end to end, measurement through to installation
 // ---------------------------------------------------------------------------
 
-test('stages run one after another, not on top of each other', () => {
+test('the plan runs from measurement to installation', () => {
+    const plan = engine.buildProjectPlan(project([ONE_SQM, ONE_SQM]), { settings: settings() });
+
+    assert.equal(plan.stages[0].key, 'measure', 'the plan must start at measurement');
+    assert.equal(
+        plan.stages[plan.stages.length - 1].key,
+        'install',
+        'the plan must end at installation'
+    );
+});
+
+test('stages run one after another, never overlapping', () => {
     const plan = engine.buildProjectPlan(
         project([ONE_SQM, ONE_SQM, ONE_SQM]),
         { settings: settings() }
@@ -187,29 +227,69 @@ test('stages run one after another, not on top of each other', () => {
         const current = plan.stages[i];
 
         assert.ok(
-            current.startDay >= previous.endDay,
+            current.startDay > previous.endDay,
             `${current.label} starts on day ${current.startDay} but ` +
-            `${previous.label} does not finish until day ${previous.endDay}`
+            `${previous.label} ends on day ${previous.endDay}; they overlap`
         );
     }
 });
 
-test('the first stage starts on day 1', () => {
+test('the first stage starts on working day 1', () => {
     const plan = engine.buildProjectPlan(project([ONE_SQM]), { settings: settings() });
 
     assert.equal(plan.stages[0].startDay, 1);
 });
 
-test('welding cannot begin before the cutting batch finishes', () => {
+test('each stage ends the day its day count implies', () => {
+    const plan = engine.buildProjectPlan(project([ONE_SQM]), { settings: withDays({ measure: 2, cut: 3 }) });
+
+    const measure = plan.stages.find(s => s.key === 'measure');
+    const cut = plan.stages.find(s => s.key === 'cut');
+
+    assert.equal(measure.startDay, 1);
+    assert.equal(measure.endDay, 2);
+
+    assert.equal(cut.startDay, 3, 'cutting starts the day after measuring ends');
+    assert.equal(cut.endDay, 5);
+});
+
+test('a longer stage pushes everything after it later', () => {
+    const quick = engine.buildProjectPlan(project([ONE_SQM]), { settings: withDays({ cut: 1 }) });
+    const slow = engine.buildProjectPlan(project([ONE_SQM]), { settings: withDays({ cut: 5 }) });
+
+    const quickInstall = quick.stages.find(s => s.key === 'install');
+    const slowInstall = slow.stages.find(s => s.key === 'install');
+
+    assert.ok(
+        slowInstall.startDay > quickInstall.startDay,
+        'five days of cutting must delay installation against one day'
+    );
+});
+
+test('the project span is the total of every stage day', () => {
     const plan = engine.buildProjectPlan(
-        project([ONE_SQM, ONE_SQM, ONE_SQM, ONE_SQM, ONE_SQM]),
-        { settings: settings() }
+        project([ONE_SQM, ONE_SQM]),
+        { settings: withDays({ measure: 1, cut: 2, weld: 2 }) }
     );
 
-    const cut = plan.stages.find(s => s.key === 'cut');
-    const weld = plan.stages.find(s => s.key === 'weld');
+    const totalDays = plan.stages.reduce((sum, stage) => sum + stage.days, 0);
 
-    assert.ok(weld.startDay >= cut.endDay, 'welding must wait for cutting to finish');
+    assert.equal(plan.spanDays, totalDays, 'the span is the sum of the stage days');
+    assert.equal(plan.spanDays, plan.stages[plan.stages.length - 1].endDay);
+});
+
+test('the span breaks down into whole weeks and a remainder', () => {
+    const forced = engine.buildProjectPlan(
+        project([ONE_SQM]),
+        { settings: withDays({ measure: 12 }) }
+    );
+
+    assert.equal(forced.spanWeeks, Math.floor(forced.spanDays / 5));
+    assert.equal(forced.spanRemainderDays, forced.spanDays % 5);
+
+    // The split must always reassemble to the whole span.
+    assert.equal(forced.spanWeeks * 5 + forced.spanRemainderDays, forced.spanDays);
+    assert.ok(forced.spanDays > 0);
 });
 
 // ---------------------------------------------------------------------------
@@ -226,28 +306,55 @@ test('the plan exposes one timeline, with one entry per stage', () => {
         assert.ok(typeof stage.label === 'string' && stage.label.length);
         assert.ok(Number.isFinite(stage.startDay));
         assert.ok(Number.isFinite(stage.endDay));
+        assert.ok(Number.isFinite(stage.days) && stage.days >= 0);
     });
 
-    // The timeline must not double in length just because there are
-    // two windows - that is the whole point of batching.
+    // The timeline must not lengthen just because there are two
+    // windows - there is one stage per step, not per window.
     const single = engine.buildProjectPlan(project([ONE_SQM]), { settings: settings() });
     assert.equal(plan.stages.length, single.stages.length);
 });
 
-test('the project span is the day the last stage ends', () => {
-    const plan = engine.buildProjectPlan(project([ONE_SQM, ONE_SQM]), { settings: settings() });
+test('the stage breakdown carries the day counts through', () => {
+    // stageTotals is what the view renders from. When it dropped the
+    // day fields, every stage showed "0 days" against the real total
+    // and the share maths divided by undefined - the panel read NaN
+    // while the timeline beside it was perfectly correct.
+    const plan = engine.buildProjectPlan(
+        project([ONE_SQM, ONE_SQM]),
+        { settings: withDays({ cut: 3 }) }
+    );
 
-    const lastEnd = plan.stages[plan.stages.length - 1].endDay;
+    assert.equal(plan.stageTotals.length, plan.stages.length);
 
-    assert.equal(plan.spanDays, lastEnd, 'spanDays must be the last stage end');
+    plan.stageTotals.forEach((total, index) => {
+        const stage = plan.stages[index];
+
+        assert.equal(total.key, stage.key);
+        assert.equal(
+            total.days,
+            stage.days,
+            `${total.label} lost its day count in the breakdown`
+        );
+        assert.equal(
+            total.daySource,
+            stage.daySource,
+            `${total.label} lost its day source in the breakdown`
+        );
+    });
 });
 
-test('total minutes is the sum of the stage times', () => {
-    const plan = engine.buildProjectPlan(project([ONE_SQM, ONE_SQM]), { settings: settings() });
+test('the stage breakdown day counts are real numbers', () => {
+    // A NaN here renders as "NaN%" and "0 days" - the exact symptom
+    // of the breakdown losing its day data.
+    const plan = engine.buildProjectPlan(project([ONE_SQM]), { settings: settings() });
 
-    const sum = plan.stages.reduce((total, stage) => total + stage.minutes, 0);
-
-    assert.equal(plan.totalMinutes, sum);
+    plan.stageTotals.forEach(total => {
+        assert.ok(
+            Number.isFinite(total.days),
+            `${total.label} has a non-finite day count: ${total.days}`
+        );
+    });
 });
 
 test('windowCount reports the windows on the job', () => {
@@ -262,22 +369,39 @@ test('windowCount reports the windows on the job', () => {
     });
 });
 
-test('per-window rows are reference only, and never drive the span', () => {
+test('each stage records whether its days were planned or derived', () => {
+    const plan = engine.buildProjectPlan(
+        project([ONE_SQM]),
+        { settings: withDays({ measure: 2 }) }
+    );
+
+    plan.stages.forEach(stage => {
+        assert.ok(
+            stage.daySource === 'planned' || stage.daySource === 'derived',
+            `${stage.label} has an unexpected source "${stage.daySource}"`
+        );
+    });
+
+    assert.equal(plan.stages.find(s => s.key === 'measure').daySource, 'planned');
+});
+
+test('per-window rows are reference only, and never scheduled', () => {
     const plan = engine.buildProjectPlan(project([ONE_SQM, ONE_SQM]), { settings: settings() });
 
     assert.equal(plan.rows.length, 2, 'there is still a per-window reference list');
 
-    // The rows no longer carry start/end days, because they are not scheduled.
     plan.rows.forEach(row => {
         assert.equal(row.startDay, undefined, 'a reference row must not be scheduled');
         assert.equal(row.endDay, undefined, 'a reference row must not be scheduled');
     });
 });
 
-test('a zero-minute stage still lands on a real day', () => {
-    const zeroed = settings({ stageMinutes: Object.fromEntries(PLANNING_STAGES.map(s => [s.key, 0])) });
+test('a zero-day stage still lands on a real day', () => {
+    const zeroed = settings({
+        stageDays: Object.fromEntries(PLANNING_STAGES.map(s => [s.key, 0]))
+    });
 
-    const plan = engine.buildProjectPlan(project([ONE_SQM]), { settings: zeroed });
+    const plan = engine.buildProjectPlan(project([]), { settings: zeroed });
 
     plan.stages.forEach(stage => {
         assert.ok(stage.startDay >= 1, `${stage.label} must not start on day ${stage.startDay}`);
@@ -285,35 +409,73 @@ test('a zero-minute stage still lands on a real day', () => {
     });
 });
 
-test('more windows means more time, never less', () => {
-    const one = engine.buildProjectPlan(project([ONE_SQM]), { settings: settings() });
+test('more windows never shortens a derived plan', () => {
+    const one = engine.buildProjectPlan(project([ONE_SQM]), { settings: derived() });
     const many = engine.buildProjectPlan(
-        project([ONE_SQM, ONE_SQM, ONE_SQM, ONE_SQM, ONE_SQM, ONE_SQM]),
-        { settings: settings() }
+        project(Array.from({ length: 30 }, (_, i) => window_(2000, 2000, String(i)))),
+        { settings: derived() }
     );
 
     assert.ok(
-        many.totalMinutes > one.totalMinutes,
-        'a six-window job must take longer than a one-window job'
+        many.spanDays >= one.spanDays,
+        'a thirty-window job must not plan shorter than a one-window job'
     );
 });
 
+test('a deliberate day plan ignores the window count', () => {
+    // If every stage is planned in days, adding windows must not move
+    // the dates - the workshop has said how long it takes.
+    const dayPlan = withDays(Object.fromEntries(PLANNING_STAGES.map(s => [s.key, 1])));
+
+    const one = engine.buildProjectPlan(project([ONE_SQM]), { settings: dayPlan });
+    const many = engine.buildProjectPlan(
+        project(Array.from({ length: 20 }, (_, i) => window_(2000, 2000, String(i)))),
+        { settings: dayPlan }
+    );
+
+    assert.equal(many.spanDays, one.spanDays);
+    assert.equal(many.spanDays, PLANNING_STAGES.length, 'one day per stage');
+});
+
 // ---------------------------------------------------------------------------
-// The view is project-first
+// The view and settings are day-first
 // ---------------------------------------------------------------------------
 
-test('the schedule section is titled as a project schedule', () => {
+test('the view titles the stage breakdown by days', () => {
+    assert.match(htmlSource, /Days by Stage/);
+    assert.doesNotMatch(htmlSource, /Time by Stage/);
+});
+
+test('the view titles the schedule as a project schedule', () => {
     assert.match(htmlSource, /Project Schedule/);
     assert.doesNotMatch(htmlSource, /Window Schedule/);
 });
 
-test('the planner schedules stages through the project helper', () => {
+test('the settings panel edits days and minutes per stage', () => {
+    assert.match(htmlSource, /Plan Days per Stage/);
+
+    assert.match(
+        appSource,
+        /data-stage-days=/,
+        'the settings panel must offer a days input'
+    );
+    assert.match(
+        appSource,
+        /data-stage-minutes=/,
+        'the settings panel must keep the minutes fallback input'
+    );
+
+    const collect = extractFunction('collectPlanningSettings');
+    assert.match(collect, /settings\.stageDays\[key\]/, 'days must be read back from the panel');
+});
+
+test('the planner schedules whole days through the project helper', () => {
     const body = extractFunction('buildProjectPlan');
 
     assert.match(
         body,
-        /stageMinutesForProject\(/,
-        'the plan must cost stages per project'
+        /stageDaysForProject\(/,
+        'the plan must take its day counts from the project helper'
     );
     assert.doesNotMatch(
         body,
@@ -332,6 +494,84 @@ test('renderPlanningSchedule draws the project timeline', () => {
         /planning-window-card/,
         'the per-window card renderer is back; the schedule is project-level'
     );
+});
+
+// -------------------------------------------------------------------------
+// Working days skip weekends, including at the start
+// -------------------------------------------------------------------------
+
+/*
+   addWorkingDays is pure, so it is built on its own and asked
+   directly. Dates are chosen so the weekday is unambiguous:
+   2025-09-20 is a Saturday.
+*/
+function loadWorkingDays() {
+    return new Function(`${extractFunction('addWorkingDays')}; return addWorkingDays;`)();
+}
+
+const addWorkingDays = loadWorkingDays();
+
+const weekdayOf = iso => new Date(`${iso}T00:00:00`).getDay();
+
+function assertNoWeekend(iso, note) {
+    const day = weekdayOf(iso);
+    assert.ok(
+        day !== 0 && day !== 6,
+        `${note}: ${iso} falls on a weekend`
+    );
+}
+
+test('a plan starting on a Saturday begins on the Monday', () => {
+    // 2025-09-20 is a Saturday. A plan cannot start on a weekend.
+    const first = addWorkingDays('2025-09-20', 1);
+
+    assert.equal(first, '2025-09-22', 'the first working day after Saturday is Monday');
+    assertNoWeekend(first, 'weekend start');
+});
+
+test('a plan starting on a Sunday begins on the Monday', () => {
+    assert.equal(addWorkingDays('2025-09-21', 1), '2025-09-22');
+});
+
+test('a weekday start is left where it is', () => {
+    // 2025-09-19 is a Friday; day 1 is that Friday, not the Monday.
+    assert.equal(addWorkingDays('2025-09-19', 1), '2025-09-19');
+});
+
+test('working days step over the weekend', () => {
+    // From Friday: day 2 is the Monday, and it is still Monday-ward.
+    assert.equal(addWorkingDays('2025-09-19', 2), '2025-09-22');
+    assert.equal(addWorkingDays('2025-09-19', 3), '2025-09-23');
+});
+
+test('no working day ever lands on a weekend', () => {
+    // The whole span of a long plan is checked, from a weekend start,
+    // so a mis-step anywhere in the sequence is caught.
+    for (let days = 1; days <= 30; days += 1) {
+        assertNoWeekend(addWorkingDays('2025-09-20', days), `day ${days}`);
+    }
+});
+
+test('adding no days returns the first working day', () => {
+    assert.equal(addWorkingDays('2025-09-20', 0), '2025-09-22');
+});
+
+test('an unreadable start date returns an empty string', () => {
+    assert.equal(addWorkingDays('not-a-date', 3), '');
+    assert.equal(addWorkingDays('', 3), '');
+});
+
+test('the day formatter is exposed and reads naturally', () => {
+    const source = extractFunction('formatDays');
+
+    assert.match(source, /day/, 'formatDays must label its output in days');
+
+    // Evaluated on its own so the wording is asserted, not just its shape.
+    const formatDays = new Function(`${source}; return formatDays;`)();
+
+    assert.equal(formatDays(1), '1 day');
+    assert.equal(formatDays(2), '2 days');
+    assert.equal(formatDays(0), '0 days');
 });
 
 // ---------------------------------------------------------------------------

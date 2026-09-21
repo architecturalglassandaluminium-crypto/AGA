@@ -8005,19 +8005,27 @@ function updateScanGateState() {
 const PLAN_KEY = "aga_plan_settings";
 
 /*
-   The AGA window builds as a sequence of stages that the whole
-   project passes through in order.
+   The AGA job runs from measurement to installation as a sequence
+   of stages the whole project passes through in order.
 
-   `base` is minutes of one person's time for ONE window and
-   `perSqm` lets a larger window cost more on the stages that
-   scale with size (cutting, glazing). A project's stage time is
-   per-window time x the number of windows, so the model stays
-   honest whether the job is one shopfront or forty windows.
+   Each stage carries TWO figures:
 
-   Times are a starting point, not a stopwatch: a fabricator's
-   own numbers replace them through Planner Settings.
+     days   the working days you plan for the stage. This is what
+            the plan is built on, because a workshop plans in
+            days, not minutes. 0 means "work it out from the
+            minutes below".
 
-   Source anchors for the defaults:
+     base   minutes of one person's time for ONE window, used
+            when `days` is 0. `perSqm` lets a larger window cost
+            more on the stages that scale with size (cutting,
+            glazing), and the batch is per-window time x the
+            number of windows.
+
+   So you can either own the estimate outright - "installation is
+   2 days" - or leave it on 0 and let the minutes model work the
+   days out for the number of windows on the job.
+
+   Source anchors for the minute defaults:
      - cutting / machining / assembly and glazing are the
        documented fabrication steps, in that order
      - an accessible aluminium window takes roughly 45 minutes
@@ -8028,19 +8036,19 @@ const PLAN_KEY = "aga_plan_settings";
        that stacks across a batch
 */
 const PLANNING_STAGES = [
-    { key: "measure", label: "Measure & Check", base: 20, perSqm: 0, scales: false },
-    { key: "cut", label: "Cutting", base: 25, perSqm: 1.5, scales: true },
-    { key: "weld", label: "Welding & Crimping", base: 30, perSqm: 1.0, scales: true },
-    { key: "machine", label: "Machining & Drilling", base: 20, perSqm: 0.8, scales: true },
-    { key: "assemble", label: "Frame Assembly", base: 35, perSqm: 1.2, scales: true },
-    { key: "glaze", label: "Glazing", base: 25, perSqm: 1.5, scales: true },
-    { key: "qc", label: "Quality Check", base: 15, perSqm: 0, scales: false },
-    { key: "wrap", label: "Wrapping", base: 10, perSqm: 0, scales: false },
-    { key: "install", label: "Installation", base: 45, perSqm: 2.0, scales: true }
+    { key: "measure", label: "Measurement", days: 1, base: 20, perSqm: 0, scales: false },
+    { key: "cut", label: "Cutting", days: 0, base: 25, perSqm: 1.5, scales: true },
+    { key: "weld", label: "Welding & Crimping", days: 0, base: 30, perSqm: 1.0, scales: true },
+    { key: "machine", label: "Machining & Drilling", days: 0, base: 20, perSqm: 0.8, scales: true },
+    { key: "assemble", label: "Frame Assembly", days: 1, base: 35, perSqm: 1.2, scales: true },
+    { key: "glaze", label: "Glazing", days: 0, base: 25, perSqm: 1.5, scales: true },
+    { key: "qc", label: "Quality Check", days: 0, base: 15, perSqm: 0, scales: false },
+    { key: "wrap", label: "Wrapping", days: 0, base: 10, perSqm: 0, scales: false },
+    { key: "install", label: "Installation", days: 2, base: 45, perSqm: 2.0, scales: true }
 ];
 
 const PLANNING_STAGE_NOTES = {
-    measure: "On-site or re-check before the frame is cut.",
+    measure: "On-site measure-up before anything is cut.",
     cut: "Mitre-saw cutting of the profile to length - scales with window size.",
     weld: "Corner joining. Welded systems weld; crimped/mechanically-jointed systems crimp.",
     machine: "Drilling, routing and drainage slots for hardware and glass beads.",
@@ -8064,8 +8072,19 @@ const PLANNING_DEFAULTS = {
     */
     parallel: 1,
     hoursPerDay: 8,
-    /* A day never starts mid-stage in reality, so stages are
-       planned back-to-back within the available hours. */
+    /*
+       Working days planned per stage. 0 means "derive it from the
+       minutes model" - see PLANNING_STAGES.
+    */
+    stageDays: PLANNING_STAGES.reduce((acc, stage) => {
+        acc[stage.key] = stage.days;
+        return acc;
+    }, {}),
+    /*
+       Per-window minutes, used only for a stage left on 0 days.
+       Kept in settings so a workshop can tune both the day plan
+       and the fallback maths.
+    */
     stageMinutes: PLANNING_STAGES.reduce((acc, stage) => {
         acc[stage.key] = stage.base;
         return acc;
@@ -8077,7 +8096,29 @@ function getPlanSettings() {
     const fallback = {
         parallel: PLANNING_DEFAULTS.parallel,
         hoursPerDay: PLANNING_DEFAULTS.hoursPerDay,
+        stageDays: { ...PLANNING_DEFAULTS.stageDays },
         stageMinutes: { ...PLANNING_DEFAULTS.stageMinutes }
+    };
+
+    /*
+       Overlay a stored { key: number } map onto a defaults map,
+       ignoring anything that is not a usable number. Used for both
+       the days and the minutes maps.
+    */
+    const mergeNumbers = (base, stored) => {
+
+        const merged = { ...base };
+
+        if (stored && typeof stored === "object") {
+            Object.keys(merged).forEach(key => {
+                const value = Number(stored[key]);
+                if (Number.isFinite(value) && value >= 0) {
+                    merged[key] = value;
+                }
+            });
+        }
+
+        return merged;
     };
 
     try {
@@ -8094,17 +8135,6 @@ function getPlanSettings() {
             return fallback;
         }
 
-        const stageMinutes = { ...fallback.stageMinutes };
-
-        if (parsed.stageMinutes && typeof parsed.stageMinutes === "object") {
-            Object.keys(stageMinutes).forEach(key => {
-                const value = Number(parsed.stageMinutes[key]);
-                if (Number.isFinite(value) && value >= 0) {
-                    stageMinutes[key] = value;
-                }
-            });
-        }
-
         const parallel = Number(parsed.parallel);
         const hours = Number(parsed.hoursPerDay);
 
@@ -8115,7 +8145,8 @@ function getPlanSettings() {
             hoursPerDay: Number.isFinite(hours) && hours >= 1 && hours <= 24
                 ? hours
                 : fallback.hoursPerDay,
-            stageMinutes
+            stageDays: mergeNumbers(fallback.stageDays, parsed.stageDays),
+            stageMinutes: mergeNumbers(fallback.stageMinutes, parsed.stageMinutes)
         };
 
     } catch (error) {
@@ -8226,24 +8257,63 @@ function stageMinutesForProject(stage, windows, settings) {
 }
 
 /*
-   Build a full plan for one PROJECT.
+   How many WORKING DAYS one stage takes on the whole project.
 
-   The project is a single job that moves through the stages in
-   order. Each stage is a batch across every window, and the
-   batch time is the per-window cost summed over the project and
-   split across the workstations running that stage.
+   A day count you set yourself wins outright - the workshop
+   knows its own timings. When the day count is 0 the stage is
+   derived instead: the batch minutes (per-window time x windows,
+   split across workstations) converted to days at the workshop's
+   hours a day. Either way the result is at least 1 day for a
+   stage that does any work at all, because you cannot do half a
+   day's job in no days.
+
+   Returns { days, source } where source is "planned" (you set
+   it) or "derived" (worked out from minutes), so the view can
+   show which figures are the workshop's own.
+*/
+function stageDaysForProject(stage, windows, settings) {
+
+    const planned = Number(settings.stageDays?.[stage.key]);
+
+    if (Number.isFinite(planned) && planned > 0) {
+        return { days: Math.ceil(planned), source: "planned" };
+    }
+
+    /*
+       No planned days: derive them from the minutes model. An
+       empty project has no work to schedule.
+    */
+    if (!windows.length) {
+        return { days: 0, source: "derived" };
+    }
+
+    const minutes = stageMinutesForProject(stage, windows, settings);
+
+    const minutesPerDay = Math.max(1, settings.hoursPerDay) * 60;
+
+    const days = Math.ceil(minutes / minutesPerDay);
+
+    return { days: Math.max(1, days), source: "derived" };
+}
+
+/*
+   Build a full plan for one PROJECT, in DAYS.
+
+   The project runs from measurement to installation as a single
+   chain of stages. Each stage takes a whole number of working
+   days and the next stage starts the day after the previous one
+   ends - welding cannot begin until the cutting batch is done,
+   which is the whole point of a project plan.
 
    Returns `stages` - one entry per stage, each with:
 
        key, label        which stage
-       minutes           the batch time for the whole project
+       days              working days the stage takes
+       daySource         "planned" or "derived" (see above)
+       minutes           the batch minutes behind a derived day
        perWindow         minutes for one window, for reference
        windows           how many windows the batch covers
        startDay, endDay  1-based working days when it runs
-   Stages are laid end to end: welding cannot start until the
-   cutting batch has finished, which is the whole point of a
-   project plan. Working days are `hoursPerDay * 60` minutes and
-   a stage that crosses a day boundary ends on the later day.
 */
 function buildProjectPlan(project, options) {
 
@@ -8253,11 +8323,16 @@ function buildProjectPlan(project, options) {
         ? project.windows
         : [];
 
-    const minutesPerDay = Math.max(1, settings.hoursPerDay) * 60;
-
+    /*
+       `cursor` counts working days consumed so far. Day 1 is the
+       first working day of the plan; a stage of N days occupies
+       days start..start+N-1, so the next one begins at start+N.
+    */
     let cursor = 0;
 
     const stages = PLANNING_STAGES.map(stage => {
+
+        const { days, source } = stageDaysForProject(stage, windows, settings);
 
         const perWindow = windows.length
             ? windows.reduce(
@@ -8266,29 +8341,31 @@ function buildProjectPlan(project, options) {
             ) / windows.length
             : 0;
 
-        const minutes = Math.round(
-            stageMinutesForProject(stage, windows, settings)
-        );
+        const minutes = windows.length
+            ? Math.round(stageMinutesForProject(stage, windows, settings))
+            : 0;
 
-        const startMinutes = cursor;
+        const startIndex = cursor;
 
-        cursor += minutes;
+        cursor += days;
 
         /*
-           A zero-minute stage (an empty project, or everything
-           turned off) still sits on the timeline; startDay and
-           endDay are clamped so it does not report day 0.
+           A zero-day stage (an empty project, or a stage with no
+           work) still sits on the timeline. It is a marker, not a
+           gap, so it reports the day it would have started rather
+           than day 0.
         */
-        const startDay = Math.floor(startMinutes / minutesPerDay) + 1;
+        const startDay = startIndex + 1;
 
-        const endDay = Math.max(
-            startDay,
-            Math.ceil(cursor / minutesPerDay) || 1
-        );
+        const endDay = days
+            ? startIndex + days
+            : startDay;
 
         return {
             key: stage.key,
             label: stage.label,
+            days,
+            daySource: source,
             minutes,
             perWindow: Math.round(perWindow),
             windows: windows.length,
@@ -8300,12 +8377,17 @@ function buildProjectPlan(project, options) {
     const totalMinutes = stages.reduce((sum, stage) => sum + stage.minutes, 0);
 
     /*
-       The project span is the working day the last stage ends on.
+       The project span is the total working days of the whole
+       chain, which is where the cursor ended up.
     */
-    const spanDays = stages.reduce(
-        (max, stage) => Math.max(max, stage.endDay),
-        0
-    );
+    const spanDays = cursor;
+
+    /*
+       Working days in a calendar week, so a caller can render a
+       five-day week as "1 week" rather than "5 days".
+    */
+    const spanWeeks = Math.floor(spanDays / 5);
+    const spanRemainderDays = spanDays % 5;
 
     /*
        Per-window reference rows are kept so the planner can still
@@ -8338,6 +8420,8 @@ function buildProjectPlan(project, options) {
     const stageTotals = stages.map(stage => ({
         key: stage.key,
         label: stage.label,
+        days: stage.days,
+        daySource: stage.daySource,
         minutes: stage.minutes,
         startDay: stage.startDay,
         endDay: stage.endDay,
@@ -8351,6 +8435,8 @@ function buildProjectPlan(project, options) {
         stageTotals,
         totalMinutes,
         spanDays,
+        spanWeeks,
+        spanRemainderDays,
         windowCount: windows.length,
         settings
     };
@@ -8361,6 +8447,12 @@ function buildProjectPlan(project, options) {
    weekends. Working a Saturday is a real thing in this trade but
    not universal, so the planner keeps to Mon-Fri and a workshop
    that works weekends simply finishes early.
+
+   Day 1 is the first WORKING day on or after the start date: a
+   plan that begins on a Saturday really begins on the Monday. The
+   old version stepped forward only while days remained, so a
+   weekend start date stayed on the weekend and shifted the whole
+   timeline by one.
 */
 function addWorkingDays(startDate, days) {
 
@@ -8368,6 +8460,11 @@ function addWorkingDays(startDate, days) {
 
     if (isNaN(date.getTime())) {
         return "";
+    }
+
+    /* Push a weekend start forward to the next Monday. */
+    while (date.getDay() === 0 || date.getDay() === 6) {
+        date.setDate(date.getDate() + 1);
     }
 
     let remaining = Math.max(0, days - 1);
@@ -8403,6 +8500,16 @@ function todayIsoDate() {
     const day = String(now.getDate()).padStart(2, "0");
 
     return `${year}-${month}-${day}`;
+}
+
+/*
+   Human-readable working days, e.g. 1 -> "1 day", 5 -> "5 days".
+*/
+function formatDays(days) {
+
+    const total = Math.max(0, Math.round(Number(days) || 0));
+
+    return `${total} day${total === 1 ? "" : "s"}`;
 }
 
 /*
@@ -8509,6 +8616,7 @@ function renderPlanning() {
         const liveSettings = {
             parallel: clampInt(parallelInput?.value, 1, 20, settings.parallel),
             hoursPerDay: clampNumber(hoursInput?.value, 1, 24, settings.hoursPerDay),
+            stageDays: { ...settings.stageDays },
             stageMinutes: { ...settings.stageMinutes }
         };
 
@@ -8524,20 +8632,28 @@ function renderPlanning() {
         setTextIfExists("planFinish", finishDate ? formatShortDate(finishDate) : "-");
 
         /*
-           The summary speaks for the job as a whole: how many
-           windows, how much labour across every stage, and when
-           the last stage lands.
+           The summary speaks for the job as a whole, in days: how
+           many windows, how long measurement-to-installation runs,
+           and when the last stage lands.
         */
         const windowsLabel = `${plan.windowCount} window${plan.windowCount === 1 ? "" : "s"}`;
 
         const overdue = project.dueDate && finishDate && finishDate > project.dueDate;
 
+        /*
+           Spell the span out in weeks where it helps: 10 working
+           days reads better as "2 weeks" than as a bare 10.
+        */
+        const weeksPart = plan.spanWeeks
+            ? ` (${plan.spanWeeks} week${plan.spanWeeks === 1 ? "" : "s"}${plan.spanRemainderDays ? ` ${plan.spanRemainderDays} day${plan.spanRemainderDays === 1 ? "" : "s"}` : ""})`
+            : "";
+
         setTextIfExists(
             "planningSummary",
-            `${project.projectName} \u00b7 ${windowsLabel} \u00b7 ${formatMinutes(plan.totalMinutes)} of labour \u00b7 finishes ${finishDate ? formatShortDate(finishDate) : "-"}${project.dueDate ? ` \u00b7 due ${formatShortDate(project.dueDate)}${overdue ? " \u2014 LATE" : ""}` : ""}.`
+            `${project.projectName} \u00b7 ${windowsLabel} \u00b7 ${formatDays(plan.spanDays)}${weeksPart} from measurement to installation \u00b7 finishes ${finishDate ? formatShortDate(finishDate) : "-"}${project.dueDate ? ` \u00b7 due ${formatShortDate(project.dueDate)}${overdue ? " \u2014 LATE" : ""}` : ""}.`
         );
 
-        renderPlanningStages(plan.stageTotals, plan.totalMinutes);
+        renderPlanningStages(plan.stageTotals, plan.spanDays);
         renderPlanningSchedule(plan, startDate);
 
     } catch (error) {
@@ -8642,10 +8758,11 @@ function renderPlanningProjectOptions() {
 }
 
 /*
-   Time-by-stage bar list: each stage shows its total and its
-   share of the whole job, so the bottleneck is obvious.
+   Days-by-stage bar list: each stage shows how many working days
+   it takes and its share of the project, so the longest stage -
+   the one that really sets the delivery date - stands out.
 */
-function renderPlanningStages(stageTotals, totalMinutes = 0) {
+function renderPlanningStages(stageTotals, spanDays = 0) {
 
     const container = $("planningStages");
 
@@ -8655,7 +8772,7 @@ function renderPlanningStages(stageTotals, totalMinutes = 0) {
 
     container.innerHTML = "";
 
-    if (!stageTotals.length || !totalMinutes) {
+    if (!stageTotals.length || !spanDays) {
 
         container.innerHTML = `
             <div class="empty-state">
@@ -8670,28 +8787,40 @@ function renderPlanningStages(stageTotals, totalMinutes = 0) {
         return;
     }
 
-    /*
-       A stage bar shows the batch time for the whole project and
-       its share of the job. The per-window figure is shown too,
-       because that is what the workshop sets in Planner Settings
-       and what a single window on the bench actually costs.
-    */
     stageTotals.forEach(stage => {
 
-        const share = totalMinutes ? Math.round((stage.minutes / totalMinutes) * 100) : 0;
+        /*
+           Share is of the project's DAYS, because days are what
+           the plan is made of - not of the minutes behind them.
+
+           Guarded against a zero span: an empty project has no
+           days, and 0 / 0 would render as "NaN%" rather than 0.
+        */
+        const share = spanDays
+            ? Math.round((stage.days / spanDays) * 100)
+            : 0;
 
         const row = document.createElement("div");
 
         row.className = "planning-stage-row";
 
+        /*
+           A derived stage says so: it flags the figure as the
+           planner's own estimate rather than a number the
+           workshop set deliberately.
+        */
+        const sourceNote = stage.daySource === "planned"
+            ? "planned"
+            : "estimated";
+
         const batchLabel = stage.windows
-            ? `${stage.windows} window${stage.windows === 1 ? "" : "s"} \u00d7 ${formatMinutes(stage.perWindow || 0)}`
+            ? `${stage.windows} window${stage.windows === 1 ? "" : "s"} \u00b7 ${sourceNote}`
             : "no windows";
 
         row.innerHTML = `
             <div class="planning-stage-head">
                 <strong>${escapeHtml(stage.label)}</strong>
-                <span>${escapeHtml(formatMinutes(stage.minutes))} \u00b7 ${share}%</span>
+                <span>${escapeHtml(formatDays(stage.days))} \u00b7 ${share}%</span>
             </div>
             <div class="planning-bar" role="presentation">
                 <span class="planning-bar-fill" style="width:${share}%"></span>
@@ -8742,12 +8871,18 @@ function renderPlanningSchedule(plan, startDate = "") {
 
     plan.stages.forEach((stage, index) => {
 
+        /*
+           Date range first, then the working-day numbers in
+           brackets, so the plan reads as a calendar to anyone
+           who wants dates and as a day count to anyone who does
+           not have the calendar in front of them.
+        */
         const dayLabel = startDate
             ? `${formatShortDate(addWorkingDays(startDate, stage.startDay))} \u2192 ${formatShortDate(addWorkingDays(startDate, stage.endDay))}`
             : `Day ${stage.startDay}\u2013${stage.endDay}`;
 
         const batchLabel = stage.windows
-            ? `${stage.windows} window${stage.windows === 1 ? "" : "s"} \u00d7 ${formatMinutes(stage.perWindow)}`
+            ? `${stage.windows} window${stage.windows === 1 ? "" : "s"} \u00b7 ${stage.daySource === "planned" ? "planned" : "estimated"}`
             : "no windows";
 
         const item = document.createElement("li");
@@ -8759,7 +8894,7 @@ function renderPlanningSchedule(plan, startDate = "") {
             <div class="planning-timeline-body">
                 <div class="planning-timeline-head">
                     <strong>${escapeHtml(stage.label)}</strong>
-                    <span class="planning-timeline-time">${escapeHtml(formatMinutes(stage.minutes))}</span>
+                    <span class="planning-timeline-time">${escapeHtml(formatDays(stage.days))}</span>
                 </div>
                 <span class="planning-timeline-meta">${escapeHtml(batchLabel)}</span>
             </div>
@@ -8805,8 +8940,9 @@ function renderPlanningSchedule(plan, startDate = "") {
 }
 
 /*
-   Draw the editable minutes-per-stage settings. Rendered on
-   demand from the settings panel rather than on every render.
+   Draw the per-stage settings: working DAYS for each stage, with
+   the per-window minutes shown underneath as the fallback used
+   when the day count is 0.
 */
 function renderPlanningSettings() {
 
@@ -8822,18 +8958,32 @@ function renderPlanningSettings() {
 
     PLANNING_STAGES.forEach(stage => {
 
-        const value = settings.stageMinutes[stage.key];
+        const days = settings.stageDays[stage.key];
+        const minutes = settings.stageMinutes[stage.key];
 
         const group = document.createElement("div");
 
         group.className = "planning-setting-group";
 
         group.innerHTML = `
-            <label for="planStage_${escapeHtml(stage.key)}">${escapeHtml(stage.label)}</label>
-            <input type="number" id="planStage_${escapeHtml(stage.key)}"
-                data-stage="${escapeHtml(stage.key)}"
-                min="0" max="600" step="1" value="${escapeHtml(value)}">
-            <small class="field-hint">Minutes for ONE window. ${escapeHtml(PLANNING_STAGE_NOTES[stage.key] || "")}${stage.scales ? " Adds time for larger windows." : ""}</small>
+            <label for="planStageDays_${escapeHtml(stage.key)}">${escapeHtml(stage.label)}</label>
+            <div class="planning-setting-pair">
+                <span class="planning-setting-unit">
+                    <input type="number" id="planStageDays_${escapeHtml(stage.key)}"
+                        data-stage-days="${escapeHtml(stage.key)}"
+                        min="0" max="60" step="1" value="${escapeHtml(days)}"
+                        aria-label="${escapeHtml(stage.label)} days">
+                    <small>days</small>
+                </span>
+                <span class="planning-setting-unit">
+                    <input type="number" id="planStageMin_${escapeHtml(stage.key)}"
+                        data-stage-minutes="${escapeHtml(stage.key)}"
+                        min="0" max="600" step="1" value="${escapeHtml(minutes)}"
+                        aria-label="${escapeHtml(stage.label)} minutes per window">
+                    <small>min/window</small>
+                </span>
+            </div>
+            <small class="field-hint">${escapeHtml(PLANNING_STAGE_NOTES[stage.key] || "")} Set 0 days to estimate from the minutes.</small>
         `;
 
         container.appendChild(group);
@@ -8842,25 +8992,36 @@ function renderPlanningSettings() {
 
 /*
    Read the settings panel back into a settings object. A blank
-   or nonsense box falls back to the default rather than zeroing
-   a stage, which would silently under-plan the job.
+   or nonsense box falls back to the stored value rather than
+   zeroing a stage, which would silently under-plan the job.
 */
 function collectPlanningSettings() {
 
     const settings = getPlanSettings();
 
-    const inputs = document.querySelectorAll("#planningStageSettings input[data-stage]");
+    document.querySelectorAll("#planningStageSettings input[data-stage-days]")
+        .forEach(input => {
 
-    inputs.forEach(input => {
+            const key = input.dataset.stageDays;
 
-        const key = input.dataset.stage;
+            const value = Number(input.value);
 
-        const value = Number(input.value);
+            if (Number.isFinite(value) && value >= 0) {
+                settings.stageDays[key] = value;
+            }
+        });
 
-        if (Number.isFinite(value) && value >= 0) {
-            settings.stageMinutes[key] = value;
-        }
-    });
+    document.querySelectorAll("#planningStageSettings input[data-stage-minutes]")
+        .forEach(input => {
+
+            const key = input.dataset.stageMinutes;
+
+            const value = Number(input.value);
+
+            if (Number.isFinite(value) && value >= 0) {
+                settings.stageMinutes[key] = value;
+            }
+        });
 
     settings.parallel = clampInt($("planningParallel")?.value, 1, 20, settings.parallel);
     settings.hoursPerDay = clampNumber($("planningHoursPerDay")?.value, 1, 24, settings.hoursPerDay);
@@ -8885,6 +9046,7 @@ function resetPlanningSettings() {
 
     const settings = getPlanSettings();
 
+    settings.stageDays = { ...PLANNING_DEFAULTS.stageDays };
     settings.stageMinutes = { ...PLANNING_DEFAULTS.stageMinutes };
     settings.parallel = PLANNING_DEFAULTS.parallel;
     settings.hoursPerDay = PLANNING_DEFAULTS.hoursPerDay;
@@ -8901,6 +9063,8 @@ window.buildProjectPlan = buildProjectPlan;
 window.getPlanSettings = getPlanSettings;
 window.addWorkingDays = addWorkingDays;
 window.formatMinutes = formatMinutes;
+window.formatDays = formatDays;
+window.stageDaysForProject = stageDaysForProject;
 
 /* =========================================================
    VIEW SWITCHING

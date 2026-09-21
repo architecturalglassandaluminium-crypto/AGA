@@ -6632,6 +6632,28 @@ img {
     width: 100%;
 }
 
+/* The days / minutes pair sitting side by side under a stage. */
+
+.planning-setting-pair {
+    display: flex;
+    gap: 8px;
+    align-items: flex-end;
+}
+
+.planning-setting-unit {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    flex: 1 1 0;
+    min-width: 0;
+}
+
+.planning-setting-unit small {
+    font-size: 11px;
+    color: var(--text-muted);
+    text-align: center;
+}
+
 /* --- Responsive --- */
 
 @media (max-width: 860px) {
