@@ -76,8 +76,23 @@ textarea {
     font: inherit
 }
 
+/*
+   Every button reads left-to-right on a single line; labels are
+   never stacked above their icons.
+*/
 button {
-    cursor: pointer
+    cursor: pointer;
+    white-space: nowrap
+}
+
+/*
+   Every text field wraps its content instead of clipping it.
+*/
+input:not([type="checkbox"]):not([type="radio"]),
+textarea {
+    white-space: normal;
+    overflow-wrap: anywhere;
+    word-break: break-word
 }
 
 .app-shell {

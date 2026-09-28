@@ -78,9 +78,31 @@ textarea {
     font: inherit;
 }
 
+/*
+   Every button reads left-to-right on a single line. Buttons never
+   stack their label above their icon, whatever class they carry.
+*/
 button {
     cursor: pointer;
     font-weight: 600;
+    white-space: nowrap;
+}
+
+/*
+   Every text field wraps its content instead of hiding it. A long
+   description in a narrow input scrolls sideways by default, which
+   hides the end of it; wrapping keeps the whole value readable.
+*/
+input:not([type="checkbox"]):not([type="radio"]),
+select,
+textarea {
+    white-space: normal;
+    overflow-wrap: anywhere;
+    word-break: break-word;
+}
+
+textarea {
+    resize: vertical;
 }
 
 img {
@@ -585,6 +607,9 @@ img {
     outline: none;
     font-size: 14px;
     transition: border 0.2s, box-shadow 0.2s;
+    white-space: normal;
+    overflow-wrap: anywhere;
+    word-break: break-word;
 }
 
 .form-group input:focus,
@@ -595,7 +620,7 @@ img {
 }
 
 .form-group textarea {
-    min-height: 100px;
+    min-height: 52px;
     resize: vertical;
 }
 
@@ -2019,26 +2044,35 @@ img {
     background: var(--surface-light);
 }
 
+/*
+   Add-photo control: laid out horizontally (icon, then the label
+   and its hint) to match every other button in the app.
+*/
 .photo-upload-button {
     display: inline-flex;
-    flex-direction: column;
+    flex-direction: row;
     align-items: center;
-    gap: 6px;
+    gap: 10px;
     cursor: pointer;
     color: var(--secondary);
+    text-align: left;
 }
 
 .photo-upload-button span {
-    font-size: 32px;
+    font-size: 24px;
+    line-height: 1;
+    flex: 0 0 auto;
 }
 
 .photo-upload-button strong {
     font-size: 15px;
+    display: block;
 }
 
 .photo-upload-button small {
     font-size: 12px;
     color: var(--text-muted);
+    display: block;
 }
 
 .photo-upload-area:hover {
@@ -3956,6 +3990,11 @@ img {
         min-height: 46px;
     }
 
+    /* A field should only be as tall as its content needs. */
+    .form-group textarea {
+        min-height: 52px;
+    }
+
     .window-filter-bar input,
     .window-filter-bar select,
     .project-search {
@@ -4096,13 +4135,19 @@ img {
         grid-template-columns: 1fr;
     }
 
+    /*
+       Buttons stay side by side on a phone, wrapping to a new
+       line only when there is genuinely no room. They are never
+       stacked one above the other.
+    */
     .form-actions {
-        flex-direction: column;
+        flex-direction: row;
+        flex-wrap: wrap;
     }
 
     .form-actions .primary-button,
     .form-actions .secondary-button {
-        width: 100%;
+        flex: 1 1 auto;
         min-height: 46px;
     }
 
@@ -5759,6 +5804,7 @@ img {
 
 @media (max-width: 720px) {
 
+    /* Buttons sit in a row and wrap; fields stack above them. */
     .quote-add-row {
         flex-direction: column;
         align-items: stretch;
@@ -5766,7 +5812,7 @@ img {
 
     .quote-add-row .primary-button,
     .quote-add-row .secondary-button {
-        width: 100%;
+        flex: 1 1 auto;
         justify-content: center;
     }
 
@@ -5785,10 +5831,11 @@ img {
 
     .quote-list-actions {
         width: 100%;
+        flex-wrap: wrap;
     }
 
     .quote-list-actions .quote-list-button {
-        flex: 1;
+        flex: 1 1 auto;
     }
 }
 /* =========================================================
