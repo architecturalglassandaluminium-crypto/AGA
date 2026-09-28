@@ -246,8 +246,31 @@ async function main() {
                 problems += 1;
             } else if (body.configured === true) {
                 ok('functions/v1/cloud is deployed and configured');
+            } else if (typeof body.message === 'string' && /^Hello /.test(body.message)) {
+                /*
+                   The Supabase starter template. Someone pressed "Deploy a
+                   new function", left the boilerplate in place, and called it
+                   something other than "cloud" - so the endpoint the apps use
+                   is still empty while a stray "Hello Functions!" function
+                   sits beside it looking like a deployment that worked.
+
+                   Worth naming explicitly: this is exactly the trap of
+                   deploying from the dashboard, and "Hello undefined!" even
+                   appears when the template is called with our own query
+                   string.
+                */
+                fail('functions/v1/cloud is the UNEDITED SUPABASE STARTER TEMPLATE');
+                console.log('       It answered: ' + result.body.slice(0, 80));
+                console.log('       It has no database code. Either the function was');
+                console.log('       created and named something else (a stray "quick-api"');
+                console.log('       is a common result), or it was deployed without');
+                console.log('       replacing the template body.');
+                console.log('       Fix: deploy a function named exactly "cloud" with the');
+                console.log('       body of supabase/CLOUD-DASHBOARD-PASTE.ts.');
+                problems += 1;
             } else {
-                warn('the function answered without a "configured" field: ' + result.body.slice(0, 120));
+                fail('the function answered, but not with our contract: ' + result.body.slice(0, 120));
+                problems += 1;
             }
         }
     } catch (error) {
