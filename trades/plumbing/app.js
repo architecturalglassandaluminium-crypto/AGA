@@ -591,6 +591,16 @@ const CLOUD_FUNCTION_URL = (typeof window !== 'undefined' && window.APS_CLOUD_FU
 const CLOUD_ANON_KEY = (typeof window !== 'undefined' && window.APS_SUPABASE_ANON_KEY) || '';
 const OUTBOX_KEY = 'pipewise-outbox';
 
+/*
+   Which book in the shared cloud this app reads and writes.
+
+   AGA, APS and APC all keep their quotes in one Supabase project,
+   distinguished by this key rather than by separate databases. It
+   must match a trade in supabase/functions/cloud/index.ts, which
+   rejects anything it does not recognise.
+*/
+const CLOUD_TRADE = 'aps';
+
 let cloudAvailable = false;   /* server reachable AND we are signed in */
 let cloudBusy = false;
 let currentUser = null;
@@ -624,7 +634,20 @@ function updateCloudButtons() {
 async function cloudRequest(action, options = {}) {
     if (!cloudConfigured()) throw new Error('not-configured');
 
-    const url = CLOUD_FUNCTION_URL + (CLOUD_FUNCTION_URL.includes('?') ? '&' : '?') + 'action=' + encodeURIComponent(action);
+    /*
+       Every call names its trade. AGA runs all three companies from
+       one cloud - one Supabase project, not three - so the trade is
+       what tells the shared table which book a quote belongs to: it
+       is stamped on the way in and filtered by on the way out.
+
+       Without it the function rejects the call, which is deliberate:
+       a missing trade would still write the quote, just into a book
+       no app would ever read back.
+    */
+    const url = CLOUD_FUNCTION_URL
+        + (CLOUD_FUNCTION_URL.includes('?') ? '&' : '?')
+        + 'action=' + encodeURIComponent(action)
+        + '&trade=' + encodeURIComponent(CLOUD_TRADE);
 
     const headers = { 'Content-Type': 'application/json', apikey: CLOUD_ANON_KEY };
     if (currentUser && currentUser.accessToken) headers.Authorization = 'Bearer ' + currentUser.accessToken;

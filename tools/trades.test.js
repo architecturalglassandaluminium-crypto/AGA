@@ -440,6 +440,113 @@ test('each trade owns a distinct storage prefix', () => {
 });
 
 // ---------------------------------------------------------------------------
+// The shared cloud
+// ---------------------------------------------------------------------------
+
+test('every quoting trade points at the same Supabase project as AGA', () => {
+    const aga = read(path.join(ROOT, 'supabase-config.js'));
+    const agaUrl = aga.match(/SUPABASE_URL\s*=\s*"([^"]+)"/)?.[1];
+    const agaKey = aga.match(/SUPABASE_ANON_KEY\s*=\s*"([^"]+)"/)?.[1];
+
+    assert.ok(agaUrl, 'AGA has no Supabase URL');
+    assert.ok(agaKey, 'AGA has no anon key');
+
+    /*
+       One cloud for all three companies, as agreed: the same project,
+       not one each. If a trade ever points somewhere else, its quotes
+       would be invisible to the group and nobody would notice until
+       someone went looking for a job that was quoted.
+    */
+    for (const trade of ['plumbing', 'coatings']) {
+        const config = read(path.join(ROOT, 'trades', trade, 'config.js'));
+
+        assert.match(config, new RegExp(agaUrl.replace(/\./g, '\\.')),
+            `trades/${trade} does not point at AGA's Supabase project`);
+        assert.match(config, new RegExp(agaKey.replace(/_/g, '_')),
+            `trades/${trade} does not use AGA's anon key`);
+        assert.match(config, /\/functions\/v1\/cloud/,
+            `trades/${trade} does not call the cloud function`);
+    }
+});
+
+test('the config files hold only the public key', () => {
+    const configs = [
+        read(path.join(ROOT, 'trades', 'plumbing', 'config.js')),
+        read(path.join(ROOT, 'trades', 'coatings', 'config.js')),
+        read(path.join(ROOT, 'supabase-config.js'))
+    ];
+
+    /*
+       Only the code is checked, not the comments: these files
+       deliberately WARN against the secret key in their prose, and a
+       naive search matches the warning as readily as the mistake.
+    */
+    for (const source of configs) {
+        const code = source
+            .replace(/\/\*[\s\S]*?\*\//g, '')
+            .replace(/^\s*\/\/.*$/gm, '');
+
+        assert.doesNotMatch(code, /sb_secret_/, 'a secret key is in a served config file');
+        assert.doesNotMatch(code, /service_role/, 'the service role key is in a served config file');
+    }
+});
+
+test('each trade names itself when it calls the cloud', () => {
+    /*
+       The trade travels in the request, is stamped on the quote and
+       filters the list, which is what keeps the books apart in one
+       shared table. The function rejects a call with no trade rather
+       than guessing, so an app that stopped sending it would fail
+       loudly on every sync.
+    */
+    const expected = { plumbing: 'aps', coatings: 'apc' };
+
+    for (const [trade, key] of Object.entries(expected)) {
+        const source = read(path.join(ROOT, 'trades', trade, 'app.js'));
+
+        assert.match(
+            source,
+            new RegExp(`const CLOUD_TRADE = '${key}';`),
+            `trades/${trade} does not declare its cloud trade`
+        );
+        assert.match(
+            source,
+            /'&trade=' \+ encodeURIComponent\(CLOUD_TRADE\)/,
+            `trades/${trade} does not send its trade with the request`
+        );
+    }
+});
+
+test('the cloud function accepts exactly the trades the apps send', () => {
+    const fn = read(
+        path.join(ROOT, 'supabase', 'functions', 'cloud', 'index.ts')
+    );
+
+    const list = fn.match(/const TRADES = \[([^\]]+)\]/)?.[1] || '';
+
+    for (const key of ['aga', 'aps', 'apc']) {
+        assert.match(list, new RegExp(`"${key}"`),
+            `the cloud function does not accept the "${key}" trade`);
+    }
+});
+
+test('the cloud function answers with CORS headers for the deployed site', () => {
+    const fn = read(
+        path.join(ROOT, 'supabase', 'functions', 'cloud', 'index.ts')
+    );
+
+    /*
+       The apps are on GitHub Pages and the function is on a Supabase
+       domain, so every call is cross-origin and is blocked without
+       these headers. The local preview origins are in the list too,
+       or the cloud would work deployed and fail while developing.
+    */
+    assert.match(fn, /Access-Control-Allow-Origin/);
+    assert.match(fn, /architecturalglassandaluminium-crypto\.github\.io/);
+    assert.match(fn, /127\.0\.0\.1:8800/);
+});
+
+// ---------------------------------------------------------------------------
 // service worker
 // ---------------------------------------------------------------------------
 
