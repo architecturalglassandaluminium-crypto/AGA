@@ -1,0 +1,48 @@
+# =========================================================
+#  AGA GROUP - SUPABASE CLI PROJECT CONFIG
+#  ---------------------------------------------------------
+#  This file is what lets the deploy commands run without
+#  --project-ref on the end. It holds no secrets: a project
+#  reference is public (it is in the site's own URL).
+#
+#  The function it deploys is `cloud` - the shared quote
+#  store for the APS and APC quoting apps. See
+#  supabase/SETUP-CLOUD.md for the whole procedure.
+#
+#  authenticate FIRST, once per machine:
+#
+#      npx supabase login
+#
+#  Then, from the repository root:
+#
+#      npx supabase functions deploy cloud
+#
+#  Note: only `cloud` is declared under [functions]. The other
+#  edge functions this project has (send-email, and a stray
+#  quick-api starter template) are deployed from the dashboard
+#  and are not part of this repository's deploy story.
+# =========================================================
+
+project_id = "mvymxqajdiupucrkeqpg"
+
+[api]
+enabled = true
+port = 54321
+schemas = ["public"]
+extra_search_path = ["public", "extensions"]
+max_rows = 1000
+
+[db]
+port = 54322
+major_version = 15
+
+[functions.cloud]
+# The shared quote store. The apps call functions/v1/cloud, so
+# the deploy name must match exactly; anything else is a 404 that
+# surfaces in the browser only as a CORS error.
+enabled = true
+
+# No secrets to set. Supabase supplies SUPABASE_URL and
+# SUPABASE_SERVICE_ROLE_KEY to every edge function automatically,
+# which is why this function needs no [functions.cloud.env] block.
+verify_jwt = false
