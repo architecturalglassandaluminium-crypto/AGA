@@ -1811,6 +1811,27 @@ window.renderQuotes = renderQuotes;
 window.initQuotes = initQuotes;
 
 /*
+   Read-only view of the saved window/door quotes, for the combined
+   company dashboard.
+
+   It hands back each quote with its totals ALREADY CALCULATED, using
+   the same calculateQuote() the quote screen uses. The combined
+   dashboard must not re-implement the pricing rules - a second copy
+   would drift from this one and quietly report the wrong money, so the
+   maths stays here and the dashboard only reads the result.
+*/
+window.AGA_QUOTES = {
+    all: function () {
+        return loadQuotes().map(function (quote) {
+            return {
+                quote: quote,
+                totals: calculateQuote(quote)
+            };
+        });
+    }
+};
+
+/*
    Deliberately not assigned on load. catalogue.js runs after
    this file and sets window.AGA_STANDARD_PRODUCTS to the list
    actually in use, so writing the built-in list here would be

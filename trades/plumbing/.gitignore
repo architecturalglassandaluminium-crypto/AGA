@@ -1,0 +1,29 @@
+# =========================================================
+# APS - Quote Calculator
+# Secrets and local-only files. NEVER commit these.
+# =========================================================
+
+# Google OAuth / Cloud credentials
+client_secret_*.json
+*client_secret*.json
+
+# Account recovery codes and personal credentials
+github-recovery-codes.txt
+*recovery-codes*
+*.pem
+*.key
+
+# Local editor / OS noise
+.vscode/
+.hintrc
+Thumbs.db
+desktop.ini
+
+# Local dev logs
+*.log
+serve-*.out.log
+serve-*.err.log
+
+# Node
+node_modules/
+npm-debug.log*

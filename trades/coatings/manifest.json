@@ -1,0 +1,17 @@
+{
+    "name": "APC Architectural Performance Coatings Quote Calculator",
+    "short_name": "APC Quotes",
+    "start_url": "./",
+    "scope": "./",
+    "display": "standalone",
+    "background_color": "#eef0f3",
+    "theme_color": "#0d1b2e",
+    "description": "Offline quote and pricing calculator for construction site works, coatings, handyman, building, electrical and plastering work",
+    "icons": [
+        {
+            "src": "APClogo.jpg",
+            "type": "image/jpeg",
+            "sizes": "any"
+        }
+    ]
+}

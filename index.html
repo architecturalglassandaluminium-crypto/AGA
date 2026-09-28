@@ -36,6 +36,34 @@
                 </div>
             </div>
             <div class="header-status">
+                <!--
+                   TRADE SWITCHER
+
+                   AGA is one application covering three trades. Glass &
+                   Aluminium is the app you are looking at: the production
+                   tracking and quote builder below. Plumbing and Coatings
+                   are the complete APS quoting systems, embedded in a
+                   full-height panel so their code runs exactly as it was
+                   written rather than being rewritten into this one.
+
+                   Selecting a trade swaps the whole workspace: the
+                   production navigation is hidden for the two quoting
+                   trades, and the embedded app takes over the page.
+                -->
+                <div class="trade-switcher" role="tablist" aria-label="Trade">
+                    <button type="button" class="trade-button active"
+                        data-trade="glass" role="tab" aria-selected="true">
+                        Glass &amp; Aluminium
+                    </button>
+                    <button type="button" class="trade-button"
+                        data-trade="plumbing" role="tab" aria-selected="false">
+                        Plumbing (APS)
+                    </button>
+                    <button type="button" class="trade-button"
+                        data-trade="coatings" role="tab" aria-selected="false">
+                        Construction (APC)
+                    </button>
+                </div>
                 <span id="syncBadge" class="sync-badge sync-offline" title="Sync status">Offline only</span>
                 <button type="button" class="signout-button" id="signOutButton" hidden>
                     Sign out
@@ -1059,6 +1087,26 @@
         </section>
     </main>
 
+    <!--
+       EMBEDDED TRADE WORKSPACE
+
+       Holds the Plumbing (APS) and Performance Coatings (APC) quoting
+       apps. Each is a complete, self-contained application in its own
+       folder under trades/. Loading it in an iframe rather than
+       rewriting it into this page means every screen, price list and
+       calculation keeps working exactly as it was built and tested - the
+       two apps share almost no markup with this one, so merging them
+       into the same document would mean a fragile rewrite of code that
+       already works.
+
+       The iframe is only created when a trade is first opened, so the
+       Glass & Aluminium app does not pay for the weight of both quoting
+       systems on every page load.
+    -->
+    <section id="trade-view" class="trade-view" hidden>
+        <div id="tradeFrameHolder" class="trade-frame-holder"></div>
+    </section>
+
     <!-- QUOTE PRINT SHEET -->
     <div id="quotePrintSheet" class="print-only"></div>
 
@@ -1393,6 +1441,11 @@
     <script src="quotes.js"></script>
     <script src="catalogue.js"></script>
     <script src="export.js"></script>
+    <!--
+       Loaded last: the trade switcher reaches into the views and header
+       that the scripts above build, so it must run after them.
+    -->
+    <script src="trades.js"></script>
 </body>
 
 </html>

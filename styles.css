@@ -6692,3 +6692,107 @@ img {
         grid-template-columns: 1fr;
     }
 }
+/* =========================================================
+   TRADE SWITCHER
+   ---------------------------------------------------------
+   AGA covers three trades. Glass & Aluminium is this page; the
+   other two are complete quoting apps shown in an embedded
+   frame. The switcher lives in the header so it is always
+   reachable, including while a quoting trade fills the screen.
+   ========================================================= */
+
+.trade-switcher {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    padding: 3px;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.10);
+    border: 1px solid rgba(255, 255, 255, 0.16);
+}
+
+.trade-button {
+    border: 0;
+    background: transparent;
+    color: rgba(255, 255, 255, 0.78);
+    border-radius: 999px;
+    padding: 5px 13px;
+    font-size: 11.5px;
+    font-weight: 700;
+    letter-spacing: 0.01em;
+    white-space: nowrap;
+    cursor: pointer;
+    transition: background 0.15s ease, color 0.15s ease;
+}
+
+.trade-button:hover {
+    background: rgba(255, 255, 255, 0.14);
+    color: white;
+}
+
+.trade-button.active {
+    background: white;
+    color: var(--accent-dark, #1d4ed8);
+}
+
+/*
+   The embedded trade fills the screen below the header. The
+   header itself stays put, because it holds the switcher the
+   user needs to get back to the production app.
+*/
+.trade-view {
+    width: 100%;
+    height: calc(100vh - 72px);
+    min-height: 480px;
+    background: #0d1b2e;
+}
+
+.trade-frame-holder {
+    width: 100%;
+    height: 100%;
+}
+
+.trade-frame {
+    width: 100%;
+    height: 100%;
+    border: 0;
+    display: block;
+    background: #ffffff;
+}
+
+/*
+   A hidden frame must actually disappear. The display:block above
+   overrides the browser's built-in [hidden] rule, which would
+   otherwise leave an inactive trade's app painted on top of the one
+   the user selected.
+*/
+.trade-frame[hidden] {
+    display: none;
+}
+
+/*
+   While a quoting trade is open the page itself must not scroll;
+   the embedded app scrolls internally instead. Without this the
+   document and the frame scroll together, which on a phone feels
+   broken.
+*/
+body.trade-open {
+    overflow: hidden;
+}
+
+@media (max-width: 900px) {
+    .trade-switcher {
+        order: 3;
+        width: 100%;
+        justify-content: center;
+    }
+
+    .trade-button {
+        padding: 5px 9px;
+        font-size: 11px;
+    }
+
+    .trade-view {
+        height: calc(100vh - 108px);
+    }
+}

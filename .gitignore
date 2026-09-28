@@ -51,4 +51,12 @@ Thumbs.db
 node_modules/
 
 # Local VS Code settings (keep tasks.json and launch.json tracked)
-.vscode/settings.json
+.vscode/settings.json# ---------------------------------------------------------------------------
+# Quote and sample PDFs
+#
+# These are working documents, not source: customer quotes that were saved
+# into the project folder, and a multi-megabyte sample quote copied from the
+# Coatings app. They bloat the repository, change on every export, and are
+# not needed to run or build the app.
+# ---------------------------------------------------------------------------
+*.pdf
