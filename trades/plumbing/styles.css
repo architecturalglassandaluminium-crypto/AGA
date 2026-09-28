@@ -734,21 +734,32 @@ h2 {
     letter-spacing: -.055em
 }
 
+/*
+   Buttons hug their own label rather than stretching to the full
+   width of the panel. A full-width bar reads as a section, not as
+   something you can click, and it makes short labels like "Clear
+   form" look like they are missing something.
+*/
 .primary-button,
 .secondary-button {
     border: 0;
-    width: 100%;
+    width: auto;
+    max-width: 100%;
     padding: 10px 12px;
     border-radius: 3px;
     font-weight: 800;
-    margin-top: 15px
+    margin-top: 15px;
+    white-space: normal;
+    overflow-wrap: anywhere
 }
 
 .primary-button {
     background: var(--coral);
     color: white;
-    display: flex;
-    justify-content: space-between
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px
 }
 
 .primary-button:hover {
@@ -781,9 +792,25 @@ h2 {
     display: flex;
     align-items: end;
     justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 10px;
     border-bottom: 1px solid var(--line);
     padding-bottom: 18px;
     margin-bottom: 14px
+}
+
+/*
+   Action buttons run left to right and wrap onto a new line when
+   the row is full; they are never stacked vertically.
+*/
+.view-intro-actions,
+.price-list-actions,
+.quote-actions {
+    display: flex;
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px
 }
 
 .compact {
@@ -843,7 +870,9 @@ h2 {
     padding: 8px 11px;
     border-radius: 3px;
     color: var(--ink);
-    font-size: 12px
+    font-size: 12px;
+    white-space: normal;
+    overflow-wrap: anywhere
 }
 
 .settings-panel {
@@ -1156,9 +1185,14 @@ h2 {
 }
 
 .pdf-button {
-    display: flex;
-    width: 100%;
-    justify-content: space-between;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    width: auto;
+    max-width: 100%;
+    white-space: normal;
+    overflow-wrap: anywhere;
     border: 1px solid #91b9e5;
     background: #edf5ff;
     color: #0757b8;
