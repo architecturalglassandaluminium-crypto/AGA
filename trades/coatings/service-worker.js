@@ -1,5 +1,5 @@
 /* Bump this whenever a cached file changes, or phones keep the old copy. */
-const CACHE_NAME = 'apc-v15';
+const CACHE_NAME = 'apc-v16';
 const APP_FILES = [
     './',
     './index.html',
@@ -7,7 +7,17 @@ const APP_FILES = [
     './config.js',
     './app.js',
     './manifest.json',
-    './APClogo.jpg'
+    './APClogo.jpg',
+    /*
+       The shared cloud config, one level up.
+
+       These MUST be listed or the app breaks offline: index.html
+       loads them before config.js, and on a phone with no signal
+       an uncached script is simply missing - the cloud constants
+       never get set and sync fails with no obvious cause.
+    */
+    '../supabase-config.js',
+    '../aga-cloud.js'
 ];
 
 self.addEventListener('install', event => {

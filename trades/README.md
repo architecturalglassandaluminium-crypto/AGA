@@ -116,6 +116,33 @@ The prefixes must stay distinct. AGA serves all three trades from one
 origin, so a shared prefix would let one trade read and overwrite
 another's saved quotes and company settings.
 
+## One site, one cloud
+
+All three trades are one site on one origin, and they quote through one
+Supabase project. What keeps the three books apart is not a separate
+project but a `trade` column - `aga`, `aps` or `apc` - stamped on every
+quote on the way in and filtered by it on the way out.
+
+The project is named in exactly one file, `supabase-config.js` at the
+app root. `aga-cloud.js` reads it and passes the cloud address and the
+public key on to every trade under the names each app already looks for
+(`APS_*`, `APC_*`), so a trade's own `config.js` holds only what is
+genuinely that trade's - currently just APC's optional Drive URL.
+
+This matters because those values used to be typed out in three files -
+AGA's plus one per trade. Rotating the key at the Supabase dashboard was
+a three-file edit, and missing one left that trade silently unable to
+sync while the other two carried on working: the kind of fault nobody
+notices until someone goes looking for a job that was quoted. `email.js`
+had a fourth copy of the project ref and now derives it from
+`SUPABASE_URL` for the same reason.
+
+`tools/trades.test.js` enforces this. One test walks every served `.js`
+and `.html` file and fails if the project URL or key appears anywhere
+outside `supabase-config.js`; another runs the real config, cloud and
+email scripts in one shared scope and checks the values a trade actually
+receives, including the trailing-slash and unconfigured cases.
+
 ## Tests
 
 `tools/trades.test.js` asserts the wiring between the switcher and these

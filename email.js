@@ -24,16 +24,42 @@ const EMAIL_COMPANY = {
    or through the Supabase dashboard - see supabase/EMAIL-SETUP.md
    and supabase/DASHBOARD-PASTE.ts.
 
-   The ref below is the subdomain of the project URL. If the project
-   URL is https://abcdefghijk.supabase.co then the ref is
-   abcdefghijk.
+   The ref is read from SUPABASE_URL in supabase-config.js - one
+   site, one cloud - rather than typed out again here. A second copy
+   of the project ref is a second thing to update when the project
+   moves, and a stale one fails quietly: a wrong ref is a 404, and a
+   failed send is swallowed by design so email never blocks the
+   workshop. Deriving it means it cannot be stale.
 
    The endpoint must be the FUNCTION url, not the REST url:
 
      ok    https://<ref>.supabase.co/functions/v1/send-email
      not   https://<ref>.supabase.co/rest/v1/
 */
-const SUPABASE_PROJECT_REF = "mvymxqajdiupucrkeqpg";
+function supabaseProjectRef() {
+
+    /*
+       supabase-config.js loads before this file and declares
+       SUPABASE_URL as a global constant. Guarded: this file is also
+       loaded by pages that may not have it, and a thrown
+       ReferenceError here would break the whole app, not just email.
+    */
+    const url = typeof SUPABASE_URL === "string" ? SUPABASE_URL.trim() : "";
+
+    if (!url || url.includes("<")) {
+        return "";
+    }
+
+    /*
+       https://abcdefghijk.supabase.co -> abcdefghijk
+       A URL that does not match returns "", so the app falls back to
+       a mailto: draft rather than posting to a nonsense endpoint.
+    */
+    const match = url.match(/^https:\/\/([a-z0-9-]+)\.supabase\.co/i);
+    return match ? match[1] : "";
+}
+
+const SUPABASE_PROJECT_REF = supabaseProjectRef();
 
 /*
    The deployed function's name.

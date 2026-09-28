@@ -456,24 +456,37 @@ test('every quoting trade points at the same Supabase project as AGA', () => {
        not one each. If a trade ever points somewhere else, its quotes
        would be invisible to the group and nobody would notice until
        someone went looking for a job that was quoted.
+
+       The trades no longer each name the project. One site, one cloud:
+       aga-cloud.js reads AGA's config and passes the values on, so the
+       project appears in supabase-config.js and NOWHERE else. These
+       assertions therefore check the wiring - that each trade's page
+       loads the shared config - and that the shared config really does
+       derive its endpoint from AGA's URL, rather than comparing three
+       copies of the same string.
     */
     for (const trade of ['plumbing', 'coatings']) {
-        const config = read(path.join(ROOT, 'trades', trade, 'config.js'));
+        const html = read(path.join(ROOT, 'trades', trade, 'index.html'));
 
-        assert.match(config, new RegExp(agaUrl.replace(/\./g, '\\.')),
-            `trades/${trade} does not point at AGA's Supabase project`);
-        assert.match(config, new RegExp(agaKey.replace(/_/g, '_')),
-            `trades/${trade} does not use AGA's anon key`);
-        assert.match(config, /\/functions\/v1\/cloud/,
-            `trades/${trade} does not call the cloud function`);
+        assert.match(html, /src="\.\.\/\.\.\/supabase-config\.js"/,
+            `trades/${trade} does not load AGA's supabase-config.js`);
+        assert.match(html, /src="\.\.\/\.\.\/aga-cloud\.js"/,
+            `trades/${trade} does not load the shared cloud config`);
     }
+
+    const shared = read(path.join(ROOT, 'aga-cloud.js'));
+    assert.match(shared, /SUPABASE_URL/, 'the shared config ignores AGA\'s URL');
+    assert.match(shared, /SUPABASE_ANON_KEY/, 'the shared config ignores AGA\'s key');
+    assert.match(shared, /\/functions\/v1\/cloud/,
+        'the shared config does not build the cloud function endpoint');
 });
 
 test('the config files hold only the public key', () => {
     const configs = [
         read(path.join(ROOT, 'trades', 'plumbing', 'config.js')),
         read(path.join(ROOT, 'trades', 'coatings', 'config.js')),
-        read(path.join(ROOT, 'supabase-config.js'))
+        read(path.join(ROOT, 'supabase-config.js')),
+        read(path.join(ROOT, 'aga-cloud.js'))
     ];
 
     /*
@@ -489,6 +502,242 @@ test('the config files hold only the public key', () => {
         assert.doesNotMatch(code, /sb_secret_/, 'a secret key is in a served config file');
         assert.doesNotMatch(code, /service_role/, 'the service role key is in a served config file');
     }
+});
+
+test('the Supabase project is named in exactly one file', () => {
+    /*
+       This is the point of the shared config. The project URL and the
+       publishable key used to be typed out in three files - AGA's plus
+       one per trade - which meant rotating the key at the dashboard was
+       a three-file edit, and missing one left that trade silently
+       unable to sync while the other two carried on working.
+
+       Now supabase-config.js is the only place they appear. If a copy
+       is ever pasted back into a trade config, this fails.
+    */
+    const projectUrl = 'mvymxqajdiupucrkeqpg';
+    const publishableKey = 'sb_publishable_';
+
+    const filesNamingTheProject = [];
+
+    /*
+       Every served .js and .html file, excluding the test suite (which
+       uses placeholder keys by design) and node_modules/.git/supabase
+       (the last being backend code with its own config).
+    */
+    const SKIP = new Set(['node_modules', '.git', 'supabase', 'tools']);
+
+    const walk = (dir) => {
+        for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+            if (SKIP.has(entry.name)) continue;
+            const full = path.join(dir, entry.name);
+            if (entry.isDirectory()) { walk(full); continue; }
+            if (!/\.(js|html)$/.test(entry.name)) continue;
+
+            const source = read(full);
+            if (source.includes(projectUrl) || source.includes(publishableKey)) {
+                filesNamingTheProject.push(path.relative(ROOT, full).replace(/\\/g, '/'));
+            }
+        }
+    };
+
+    walk(ROOT);
+
+    /*
+       Only supabase-config.js may hold the values. A trade's config.js
+       is allowed to MENTION it is not repeated there - that is prose
+       in a comment, so compare against the stripped code as well.
+    */
+    const offenders = filesNamingTheProject.filter(rel => {
+        if (rel === 'supabase-config.js') return false;
+
+        /*
+           A file is only an offender if the value is live code, not a
+           comment explaining where the value now comes from.
+        */
+        const code = read(path.join(ROOT, rel))
+            .replace(/\/\*[\s\S]*?\*\//g, '')
+            .replace(/<!--[\s\S]*?-->/g, '')
+            .replace(/^\s*\/\/.*$/gm, '');
+
+        return code.includes(projectUrl) || code.includes(publishableKey);
+    });
+
+    assert.deepEqual(
+        offenders,
+        [],
+        'the Supabase project is named outside supabase-config.js: ' + offenders.join(', ')
+    );
+});
+
+test('the mailer derives its project ref instead of copying it', () => {
+    /*
+       email.js used to hold the project ref on its own line. A second
+       copy of the ref is a second thing to update when the project
+       moves - and a stale one fails quietly, because a failed send is
+       swallowed on purpose so email never blocks the workshop. It now
+       reads the ref out of SUPABASE_URL like everything else, so it
+       cannot drift.
+    */
+    const email = read(path.join(ROOT, 'email.js'));
+    const code = email.replace(/\/\*[\s\S]*?\*\//g, '');
+
+    assert.match(code, /function supabaseProjectRef\(\)/,
+        'email.js no longer derives the project ref');
+    assert.match(code, /typeof SUPABASE_URL === "string"/,
+        'email.js does not read SUPABASE_URL');
+    assert.doesNotMatch(code, /mvymxqajdiupucrkeqpg/,
+        'email.js still hard-codes the project ref');
+
+    /*
+       The endpoint must still be the FUNCTION url, not the REST url,
+       and the function name must still match what is deployed.
+    */
+    assert.match(code, /\/functions\/v1\/\$\{EMAIL_FUNCTION_NAME\}/,
+        'the mailer endpoint is no longer a functions/v1 URL');
+    assert.match(code, /EMAIL_FUNCTION_NAME = "send-email"/,
+        'the deployed mailer function name changed');
+});
+
+test('the shared cloud config hands every trade the same values', () => {
+    /*
+       aga-cloud.js is plain browser script, so rather than import it we
+       run it the way the page does - with a window to write to - and
+       check what a trade would actually read.
+
+       The endpoint is DERIVED from AGA's URL, so a URL ending in a
+       slash must not produce "//functions" and a 404.
+    */
+    const source = read(path.join(ROOT, 'supabase-config.js'));
+    const agaUrl = source.match(/SUPABASE_URL\s*=\s*"([^"]+)"/)[1];
+    const agaKey = source.match(/SUPABASE_ANON_KEY\s*=\s*"([^"]+)"/)[1];
+    const shared = read(path.join(ROOT, 'aga-cloud.js'));
+
+    const run = (url) => {
+        const window = {};
+        const fn = new Function('window', 'SUPABASE_URL', 'SUPABASE_ANON_KEY', shared);
+        fn(window, url, agaKey);
+        return window;
+    };
+
+    const asLoaded = run(agaUrl);
+
+    assert.equal(
+        asLoaded.APS_CLOUD_FUNCTION_URL,
+        agaUrl + '/functions/v1/cloud',
+        'APS is not handed the cloud endpoint'
+    );
+    assert.equal(
+        asLoaded.APC_CLOUD_FUNCTION_URL,
+        asLoaded.APS_CLOUD_FUNCTION_URL,
+        'APS and APC were given different cloud endpoints'
+    );
+    assert.equal(asLoaded.APS_SUPABASE_ANON_KEY, agaKey,
+        'APS is not handed AGA\'s key');
+    assert.equal(asLoaded.APC_SUPABASE_ANON_KEY, agaKey,
+        'APC is not handed AGA\'s key');
+
+    /*
+       A trailing slash is the classic way to get a double slash and a
+       404 that only shows up in one environment.
+    */
+    const withSlash = run(agaUrl + '/');
+    assert.equal(
+        withSlash.APS_CLOUD_FUNCTION_URL,
+        agaUrl + '/functions/v1/cloud',
+        'a trailing slash in SUPABASE_URL produces a double slash'
+    );
+
+    /*
+       Loaded without AGA's config (a partial deploy, or a page that
+       forgot it), the values must come out blank so the app degrades to
+       offline storage rather than fetching an undefined URL.
+    */
+    const unconfigured = run('');
+    assert.equal(unconfigured.APS_CLOUD_FUNCTION_URL, '',
+        'an unset project URL must leave the endpoint blank, not partial');
+
+    /*
+       And the same thing again, but running the REAL files in ONE shared
+       context the way two <script> tags do.
+
+       This matters: supabase-config.js declares SUPABASE_URL with const,
+       which creates a script-scoped binding rather than a property of
+       window. aga-cloud.js and email.js reference the BARE name, so they
+       only see it if the scripts share a global scope. The stubs above
+       pass the value in as a parameter and would keep passing even if
+       that sharing broke, so the real thing is run here too.
+    */
+    const vm = require('node:vm');
+    const supabaseConfig = read(path.join(ROOT, 'supabase-config.js'));
+    const cloudConfig = read(path.join(ROOT, 'aga-cloud.js'));
+    const email = read(path.join(ROOT, 'email.js'));
+
+    const page = vm.createContext({
+        window: {},
+        console: { log() {}, warn() {}, error() {} },
+    });
+    vm.runInContext(supabaseConfig, page);
+    vm.runInContext(cloudConfig, page);
+    vm.runInContext(email, page);
+
+    const seen = JSON.parse(vm.runInContext(
+        'JSON.stringify({' +
+        ' aps: window.APS_CLOUD_FUNCTION_URL,' +
+        ' apc: window.APC_CLOUD_FUNCTION_URL,' +
+        ' apsKey: window.APS_SUPABASE_ANON_KEY,' +
+        ' apcKey: window.APC_SUPABASE_ANON_KEY,' +
+        ' mailerRef: typeof SUPABASE_PROJECT_REF === "string" ? SUPABASE_PROJECT_REF : null,' +
+        ' mailerEndpoint: typeof EMAIL_ENDPOINT === "string" ? EMAIL_ENDPOINT : null })',
+        page
+    ));
+
+    const expectedEndpoint = agaUrl + '/functions/v1/cloud';
+    const expectedRef = agaUrl.replace(/^https:\/\//, '').replace(/\.supabase\.co$/, '');
+
+    assert.equal(seen.aps, expectedEndpoint,
+        'running the real files, APS is not handed the cloud endpoint');
+    assert.equal(seen.apc, expectedEndpoint,
+        'running the real files, APC is not handed the cloud endpoint');
+    assert.equal(seen.apsKey, agaKey, 'running the real files, APS has no key');
+    assert.equal(seen.apcKey, agaKey, 'running the real files, APC has no key');
+
+    /*
+       The mailer's project ref must come out of the shared config, not
+       be a copy that can go stale. A wrong ref is a 404, and a failed
+       send is swallowed on purpose so email never blocks the workshop -
+       which is exactly why it must not be able to drift.
+    */
+    assert.equal(seen.mailerRef, expectedRef,
+        'the mailer did not derive the project ref from SUPABASE_URL');
+    assert.equal(
+        seen.mailerEndpoint,
+        agaUrl + '/functions/v1/send-email',
+        'the mailer endpoint is wrong'
+    );
+});
+
+test('both trade service workers cache the shared cloud config', () => {
+    /*
+       index.html loads supabase-config.js and aga-cloud.js from one
+       level up. On a phone with no signal an uncached script is simply
+       missing, so the cloud constants never get set and sync fails with
+       no obvious cause. Both must be in the offline file list.
+    */
+    for (const [trade, logo] of [['plumbing', 'APSlogo.png'], ['coatings', 'APClogo.jpg']]) {
+        const sw = read(path.join(ROOT, 'trades', trade, 'service-worker.js'));
+
+        assert.match(sw, /'\.\.\/supabase-config\.js'/,
+            `trades/${trade} service worker does not cache the shared config`);
+        assert.match(sw, /'\.\.\/aga-cloud\.js'/,
+            `trades/${trade} service worker does not cache aga-cloud.js`);
+        assert.match(sw, new RegExp(`'\./${logo.replace('.', '\\.')}'`),
+            `trades/${trade} service worker lost its brand mark`);
+    }
+
+    const agaSw = read(SW_JS);
+    assert.match(agaSw, /"\.\/aga-cloud\.js"/,
+        'the AGA shell does not cache aga-cloud.js');
 });
 
 test('each trade names itself when it calls the cloud', () => {

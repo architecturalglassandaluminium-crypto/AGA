@@ -1870,11 +1870,18 @@
 
     <!-- =========================================================
          APS APPLICATION
-         config.js loads first: it carries the cloud function URL and
-         the public anon key the app needs to reach the shared quote
-         database. It contains no secrets — see the notes in that file.
+
+         aga-cloud.js loads first. It reads AGA's supabase-config.js
+         and passes the cloud address and public key on to every
+         trade, so the project is named in ONE place for the whole
+         site rather than repeated per trade.
+
+         config.js then loads, carrying anything that is genuinely
+         APS's own. It contains no secrets - see the notes in it.
          ========================================================= -->
 
+    <script src="../../supabase-config.js"></script>
+    <script src="../../aga-cloud.js"></script>
     <script src="config.js?v=3"></script>
     <script src="app.js?v=3"></script>
 

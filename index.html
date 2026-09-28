@@ -1432,6 +1432,13 @@
     <!-- SCRIPTS -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="supabase-config.js"></script>
+    <!--
+       One site, one cloud. aga-cloud.js reads the two constants above
+       and passes the cloud address and public key on to every trade,
+       so the Supabase project is named here and nowhere else. It must
+       load before trades.js builds the trade frames.
+    -->
+    <script src="aga-cloud.js"></script>
     <script src="email.js"></script>
     <script src="sync.js"></script>
     <script src="signin.js"></script>

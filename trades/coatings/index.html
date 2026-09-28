@@ -1803,13 +1803,22 @@
 
     <!-- =========================================================
          APC APPLICATION
-         config.js loads first: it carries the backend URL the app
-         needs to reach the shared Drive. It contains no secrets.
+
+         aga-cloud.js loads first. It reads AGA's supabase-config.js
+         and passes the cloud address and public key on to every
+         trade, so the project is named in ONE place for the whole
+         site rather than repeated per trade.
+
+         config.js then loads, carrying anything that is genuinely
+         APC's own (the optional Drive URL). It contains no secrets.
+
          The Google sign-in library is no longer needed - quotes are
          shared through the backend, not through an individual's
          Google account.
          ========================================================= -->
 
+    <script src="../../supabase-config.js"></script>
+    <script src="../../aga-cloud.js"></script>
     <script src="config.js"></script>
     <script src="app.js"></script>
 

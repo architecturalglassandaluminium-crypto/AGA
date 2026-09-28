@@ -141,7 +141,7 @@ next sync.
 | --- | --- |
 | Buttons appear, every call fails with a CORS error | the function is not deployed — step 2 |
 | `{"configured":false}` | the function deployed but `SUPABASE_URL` / `SUPABASE_SERVICE_ROLE_KEY` are missing from its environment |
-| "Cloud is not set up yet" in the app | `trades/*/config.js` has a blank URL or key |
+| "Cloud is not set up yet" in the app | `supabase-config.js` has a blank URL or key (all three trades read it from there) |
 | Quotes save but never sync | signed in? and has **Upload this device's quotes** been pressed once? |
 | `Unknown or missing trade.` | the deployed function is older than this repo — redeploy |
 
