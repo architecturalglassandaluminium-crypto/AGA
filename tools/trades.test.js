@@ -858,6 +858,55 @@ test('the cloud function accepts exactly the trades the apps send', () => {
     }
 });
 
+test('the dashboard paste copy matches the real function', () => {
+    /*
+       There are two ways to deploy this function: the Supabase CLI,
+       which uses supabase/functions/cloud/index.ts, and the dashboard,
+       which needs the source pasted into a text box. The paste copy
+       exists so nobody has to install the CLI - but two copies of one
+       function is exactly the drift this codebase keeps having to
+       unpick.
+
+       So the paste copy must be the SAME CODE, ignoring only the
+       banner comment at the top, which explains the dashboard steps
+       and is worthless to the CLI. If they ever diverge, the deployed
+       behaviour depends on which route someone happened to use.
+    */
+    const strip = (source) =>
+        source
+            /* Drop block comments (the paste copy's banner is longer). */
+            .replace(/\/\*[\s\S]*?\*\//g, '')
+            /*
+               Drop line comments, but NOT the '//' inside a string:
+               the import URL contains one, and a naive strip of
+               '//...' deletes the import and the rest of the line,
+               making two identical files look different.
+            */
+            .split('\n')
+            .map(line => {
+                const marker = line.indexOf('//');
+                if (marker === -1) return line;
+                /* Count quotes before the marker: an odd number means
+                   the '//' is inside a string, so keep the line. */
+                const quotes = (line.slice(0, marker).match(/"/g) || []).length;
+                return quotes % 2 === 1 ? line : line.slice(0, marker);
+            })
+            .join('\n')
+            .replace(/\s+/g, ' ')
+            .trim();
+
+    const real = read(path.join(ROOT, 'supabase', 'functions', 'cloud', 'index.ts'));
+    const paste = read(path.join(ROOT, 'supabase', 'CLOUD-DASHBOARD-PASTE.ts'));
+
+    assert.ok(paste.length > 0, 'the dashboard paste copy is empty');
+    assert.equal(
+        strip(paste),
+        strip(real),
+        'supabase/CLOUD-DASHBOARD-PASTE.ts has drifted from the real function - ' +
+        'the two deploy routes would behave differently'
+    );
+});
+
 test('the cloud function answers with CORS headers for the deployed site', () => {
     const fn = read(
         path.join(ROOT, 'supabase', 'functions', 'cloud', 'index.ts')

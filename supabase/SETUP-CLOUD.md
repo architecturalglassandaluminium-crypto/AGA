@@ -43,16 +43,27 @@ with Row Level Security **enabled**.
 
 ## Step 2 — deploy the function
 
-From the repository root:
+Pick **either** route. They deploy the same code; a test asserts the two
+copies have not drifted apart.
+
+### Route A — dashboard (no install)
+
+1. Supabase → **Edge Functions** → **Deploy a new function**.
+2. Name it exactly **`cloud`**. The name is not free choice: the apps call
+   `functions/v1/cloud`, and a mismatch is a 404 that the browser reports only
+   as a CORS error — which looks like a settings mistake, not a typo.
+3. Replace the template with the whole of `supabase/CLOUD-DASHBOARD-PASTE.ts`
+   and press **Deploy**.
+
+No secrets to add. Supabase supplies the two the function needs itself.
+
+### Route B — CLI
 
 ```bash
 supabase functions deploy cloud --project-ref mvymxqajdiupucrkeqpg
 ```
 
-No secrets to set. The function reads the database with the service role key
-that Supabase provides to every function automatically.
-
-**Check it worked:**
+**Check it worked (either route):**
 
 ```bash
 curl "https://mvymxqajdiupucrkeqpg.supabase.co/functions/v1/cloud?action=status" \
@@ -60,6 +71,11 @@ curl "https://mvymxqajdiupucrkeqpg.supabase.co/functions/v1/cloud?action=status"
 ```
 
 You want `{"configured":true}`.
+
+Or run `npm run check:cloud`, which probes the function **and** all three
+quoting tables and names the fix for whatever is missing. That is the faster
+route: a 404 on this endpoint shows up in a browser as a CORS error, not as
+"not deployed".
 
 ---
 
