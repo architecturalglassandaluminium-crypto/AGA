@@ -48,12 +48,30 @@ copies have not drifted apart.
 
 ### Route A — dashboard (no install)
 
+**If the function does not exist yet:**
+
 1. Supabase → **Edge Functions** → **Deploy a new function**.
 2. Name it exactly **`cloud`**. The name is not free choice: the apps call
    `functions/v1/cloud`, and a mismatch is a 404 that the browser reports only
    as a CORS error — which looks like a settings mistake, not a typo.
 3. Replace the template with the whole of `supabase/CLOUD-DASHBOARD-PASTE.ts`
    and press **Deploy**.
+
+**Do not press "Deploy a new function" if `cloud` already exists.** That
+creates a *second* function under a generated name (`smart-task`, `quick-api`,
+`super-api`) and leaves the endpoint the apps call untouched. Open the existing
+`cloud` function and replace its body instead.
+
+**Before deploying, check the editor still shows our code.** It begins with
+`const TRADES` and mentions `trade_quotes`. If it reads `Hello Functions!`, the
+paste was lost — paste it again and deploy immediately. The dashboard editor has
+silently reverted a paste more than once here.
+
+### Turn JWT verification OFF
+
+In the function's **Settings**, "Verify JWT" (or "Enforce JWT verification")
+must be **off**. The apps call this with the public anon key and no user login,
+so enforcement rejects every request with `UNAUTHORIZED_NO_AUTH_HEADER`.
 
 No secrets to add. Supabase supplies the two the function needs itself.
 

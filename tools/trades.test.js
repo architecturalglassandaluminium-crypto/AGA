@@ -944,26 +944,30 @@ test('the cloud function scopes every write to the calling trade', () => {
     assert.ok(deleteBlock, 'the function has no delete action');
     assert.match(
         deleteBlock,
-        /\.eq\("id",\s*id\)\s*\.eq\("trade",\s*trade\)/,
+        /\?id=eq\.\$\{encodeURIComponent\(id\)\}/,
+        'the delete does not filter on the id'
+    );
+    assert.match(
+        deleteBlock,
+        /&trade=eq\.\$\{encodeURIComponent\(trade\)\}/,
         'the delete is not scoped to the trade that asked for it'
     );
 
     /*
-       And the same standard everywhere else. Three statements filter on
-       trade - list, delete, and the shared settings/price-list helper -
-       and a save stamps it instead. Checked structurally: every
-       from(...) call site must be accounted for, so a new action that
-       forgets the filter is caught rather than only counted.
+       And the same standard everywhere else. The queries are PostgREST
+       strings now, so every one that touches a table must carry
+       trade=eq. on its path. Counted rather than pattern-matched at one
+       call site, so a new action that forgets the filter is caught.
     */
-    const tradeFilters = (fn.match(/\.eq\("trade",\s*trade\)/g) || []).length;
+    const tradeFilters = (fn.match(/trade=eq\.\$\{encodeURIComponent\(trade\)\}/g) || []).length;
     assert.equal(tradeFilters, 3,
-        `expected 3 statements to filter by trade, found ${tradeFilters}`);
+        `expected 3 queries to filter by trade, found ${tradeFilters}`);
 
     /*
        A quote is stamped with the trade on the way in, so a save cannot
        write into another trade's book even if the id were made up.
     */
-    assert.match(fn, /\.upsert\(\{\s*id,\s*trade,\s*body:\s*quote\s*\}/,
+    assert.match(fn, /body:\s*JSON\.stringify\(\{\s*id,\s*trade,\s*body:\s*quote\s*\}\)/,
         'a saved quote is not stamped with the calling trade');
 
     /*
@@ -971,7 +975,7 @@ test('the cloud function scopes every write to the calling trade', () => {
        the trade on write and filters on read. If that helper is ever
        bypassed with a direct call, this notices.
     */
-    const sharedUpsert = /\.upsert\(\{\s*trade,\s*body:\s*payload\s*\}/.test(fn);
+    const sharedUpsert = /body:\s*JSON\.stringify\(\{\s*trade,\s*body:\s*payload\s*\}\)/.test(fn);
     assert.ok(sharedUpsert,
         'the shared settings/price-list write is not stamped with the trade');
 
@@ -982,6 +986,48 @@ test('the cloud function scopes every write to the calling trade', () => {
     const readTradeCalls = (fn.match(/readTrade\(url\)/g) || []).length;
     assert.ok(readTradeCalls >= 4,
         `only ${readTradeCalls} actions resolve a trade before touching the database`);
+});
+
+test('the cloud function has no third-party import', () => {
+    /*
+       The deployed function returned a bare 500 with no body on every
+       request. A 500 with no JSON means the module never finished
+       loading - nothing inside it ran, including its own error handler
+       - and the only thing that can fail that way is a module-scope
+       import from a third-party domain.
+
+       The function now talks to PostgREST with plain fetch, so there is
+       nothing to resolve before the code can run. This test keeps it
+       that way: a bare 500 is the hardest failure to diagnose from the
+       app, which can only report an opaque network error.
+    */
+    const fn = read(path.join(ROOT, 'supabase', 'functions', 'cloud', 'index.ts'));
+
+    /* Strip comments: the header explains WHY there is no import, and a
+       naive search matches that explanation as readily as an import. */
+    const code = fn
+        .replace(/\/\*[\s\S]*?\*\//g, '')
+        .split('\n')
+        .map(line => {
+            const marker = line.indexOf('//');
+            if (marker === -1) return line;
+            const quotes = (line.slice(0, marker).match(/"/g) || []).length;
+            return quotes % 2 === 1 ? line : line.slice(0, marker);
+        })
+        .join('\n');
+
+    assert.doesNotMatch(code, /^\s*import\s/m,
+        'the cloud function imports at module scope again - a failing import ' +
+        'makes the whole function answer a bare 500 that the app cannot read');
+    assert.doesNotMatch(code, /esm\.sh|cdn\.jsdelivr|unpkg\.com/,
+        'the cloud function depends on a third-party module host again');
+
+    /* It must still reach the database - removing the import is only
+       correct if the REST calls actually replaced it. */
+    assert.match(code, /fetch\(/,
+        'the cloud function does not call the REST API');
+    assert.match(code, /\/rest\/v1/,
+        'the cloud function does not build a PostgREST URL');
 });
 
 // ---------------------------------------------------------------------------

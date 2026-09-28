@@ -19,12 +19,30 @@
 //    2. Edge Functions -> Deploy a new function -> "cloud" ->
 //       paste THIS file -> Deploy.
 //
+//  IF YOU ALREADY CREATED THE FUNCTION
+//  -----------------------------------
+//  Open it and REPLACE THE WHOLE BODY with this file. Do not
+//  press "Deploy a new function" again: that creates a second
+//  function under a generated name (smart-task, quick-api), and
+//  the endpoint the apps call is left untouched.
+//
+//  Before deploying, check the editor still shows OUR code. It
+//  starts with "const TRADES" and contains "trade_quotes". If it
+//  says "Hello Functions!", the paste was lost - paste again.
+//
 //  SECRETS - none. Unlike the email function, this one needs
 //  nothing pasted into Edge Functions -> Secrets. Supabase
 //  supplies SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY to every
 //  function automatically. If you ever see {"configured":false},
 //  those two environment variables are missing - redeploy and
 //  check the function logs.
+//
+//  TURN JWT VERIFICATION OFF
+//  -------------------------
+//  In the function's Settings, "Verify JWT" (or "Enforce JWT
+//  verification") must be OFF. The apps call this with the public
+//  anon key and no user login, so enforcement rejects every call
+//  with UNAUTHORIZED_NO_AUTH_HEADER.
 //
 //  WHY THE NAME MUST BE EXACTLY "cloud"
 //  -----------------------------------
@@ -34,6 +52,13 @@
 //  typo in the function name. That is the single most likely
 //  thing to go wrong here.
 //
+//  NO THIRD-PARTY IMPORT
+//  ---------------------
+//  This function uses plain fetch() against the REST API rather
+//  than importing @supabase/supabase-js from esm.sh. The import
+//  version deployed as a bare 500 with no body: the module never
+//  finished loading, so even its error handler never ran.
+//
 //  CHECK IT WORKED
 //  ---------------
 //  Open this in a browser (the anon key is public and safe here):
@@ -42,10 +67,80 @@
 //
 //  You want:  {"configured":true}
 //
+//  If you get "Hello undefined!" the template is still deployed.
+//  If you get a bare 500, read the function's Logs tab.
+//
 //  Or from the repo:   npm run check:cloud
 // =========================================================
+/* =========================================================
+   Supabase Edge Function: cloud
+   ---------------------------------------------------------
+   The shared quote store for the APS and APC quoting apps, in
+   the same Supabase project the AGA app already uses.
 
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+   WHY THIS EXISTS ON A SERVER
+   ---------------------------
+   The apps are hosted on GitHub Pages, which serves static
+   files only. A page cannot hold a database credential, because
+   anything in the page is readable by every visitor. So the
+   page calls this function, and this function holds the key and
+   talks to the database.
+
+   NO THIRD-PARTY IMPORT - ON PURPOSE
+   ----------------------------------
+   This function talks to PostgREST with plain fetch() instead of
+   importing @supabase/supabase-js. An earlier version imported it
+   from esm.sh, and the deployed function returned a bare
+   500 Internal Server Error on every request - no JSON, no log
+   message, nothing the app could act on.
+
+   A 500 with no body means the module never finished loading, so
+   nothing inside it ever ran, including its own error handler.
+   The import was the one thing that could fail that way: it is
+   fetched from a third-party domain at module scope.
+
+   The REST calls here need no library. PostgREST is a plain HTTP
+   API, and the app only ever lists, saves and deletes rows - so
+   the dependency bought nothing and could break everything.
+
+   IT DOES NOT HOLD A SECRET
+   -------------------------
+   Unlike the email function, this one needs no secret of its
+   own: it talks to the database with the service role key, which
+   Supabase supplies to every function automatically as
+   SUPABASE_SERVICE_ROLE_KEY. Nothing has to be pasted here.
+
+   THE CONTRACT
+   ------------
+   Every call is  GET/POST  <url>?action=<name>  with the anon key
+   in the apikey header. The apps already speak this; the shapes
+   below are what they expect back.
+
+     action=status       -> { configured }
+     action=list         -> { quotes: [ { id, body, updated_at } ] }
+     action=save         -> POST { id, trade, quote }  -> { saved }
+     action=delete       -> POST { id }                -> { deleted }
+     action=settings     -> { body }        | POST { ... }  -> { saved }
+     action=price-list   -> { body }        | POST { ... }  -> { saved }
+
+   WHICH TRADE A CALL BELONGS TO
+   -----------------------------
+   The trade travels in the `trade` query parameter, and is
+   required for the list, save, settings and price-list actions.
+   A quote is stamped with it on the way in and filtered by it on
+   the way out, so the plumbing app reads plumbing quotes and the
+   coatings app reads coatings ones.
+
+   ACCESS
+   ------
+   Open, as agreed for now: there is no sign-in requirement here,
+   and the database policies allow any holder of the anon key to
+   read and write every trade's rows. That is deliberate while
+   the group gets running, and it matches the AGA app's
+   ACCESS_MODE = "open". The policies in supabase/trades-schema.sql
+   carry a marked section explaining how to require sign-in and
+   confine each trade to its own quotes later.
+   ========================================================= */
 
 /* The trade keys the apps use. Anything else is rejected rather
    than written, so a typo cannot create a fourth, invisible
@@ -110,24 +205,72 @@ function json(status: number, payload: unknown) {
     });
 }
 
-/*
-   The database client.
+/* =========================================================
+   THE DATABASE, OVER PLAIN HTTP
+   ========================================================= */
 
-   The service role key bypasses Row Level Security, which is what
-   lets this function serve an app that has no signed-in user. It
-   never leaves the server: the page only ever sees the answers.
+/*
+   The REST base and the key.
+
+   Read once, lazily, so a missing variable is reported by an
+   ordinary JSON reply rather than throwing at module load - which
+   is the failure this file exists to avoid.
 */
-function db() {
-    const url = Deno.env.get("SUPABASE_URL");
-    const key = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+function config() {
+    const url = (Deno.env.get("SUPABASE_URL") || "").replace(/\/+$/, "");
+    const key = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "";
 
     if (!url || !key) {
         return null;
     }
 
-    return createClient(url, key, {
-        auth: { persistSession: false }
+    return { rest: url + "/rest/v1", key };
+}
+
+/*
+   One PostgREST call, as fetch.
+
+   `path` is everything after the table name, e.g.
+   "?trade=eq.aps&select=id,body,updated_at&order=updated_at.desc".
+
+   PostgREST answers 200/201/204 for success; anything else is
+   turned into a thrown Error so the caller's catch block reports
+   it, rather than the app being handed a silent failure.
+*/
+async function rest(
+    conf: { rest: string; key: string },
+    table: string,
+    path: string,
+    init: RequestInit = {}
+) {
+    const response = await fetch(`${conf.rest}/${table}${path}`, {
+        ...init,
+        headers: {
+            apikey: conf.key,
+            Authorization: `Bearer ${conf.key}`,
+            "Content-Type": "application/json",
+            /* Ask for the saved row back on a write, so a write that
+               silently matched nothing is visible rather than assumed. */
+            Prefer: "return=representation",
+            ...(init.headers || {})
+        }
     });
+
+    const text = await response.text();
+
+    if (!response.ok) {
+        throw new Error(`${table} -> HTTP ${response.status}: ${text.slice(0, 300)}`);
+    }
+
+    if (!text) {
+        return null;
+    }
+
+    try {
+        return JSON.parse(text);
+    } catch {
+        return null;
+    }
 }
 
 /* Read the trade from the query string, rejecting anything unknown. */
@@ -145,34 +288,42 @@ Deno.serve(async (request: Request) => {
     /*
        The browser sends a preflight OPTIONS before a cross-origin
        POST, and it must be answered with the CORS headers or the
-       real request is never sent.
+       real request is never sent. Answered before the database is
+       consulted, so a preflight can never fail on configuration.
     */
     if (request.method === "OPTIONS") {
         return new Response(null, { status: 204, headers: corsHeaders() });
     }
 
-    const url = new URL(request.url);
-    const action = String(url.searchParams.get("action") || "").trim();
-
-    const client = db();
-
-    if (!client) {
-        /* Not configured: the app hides its cloud buttons and keeps
-           saving on the device, so this is a setting, not an error. */
-        return json(200, { configured: false });
-    }
-
-    /* A body is only present on a POST; a GET has none. */
-    let payload: Record<string, any> = {};
-    if (request.method === "POST") {
-        try {
-            payload = (await request.json()) ?? {};
-        } catch {
-            return json(400, { error: "The request body was not valid JSON." });
-        }
-    }
-
+    /*
+       Everything from here on is wrapped, including reading the
+       configuration. A function that throws at module scope is
+       what cost this deployment a day: the platform answers a bare
+       500 and the app can only report an opaque network failure.
+       A thrown error must always come back as JSON.
+    */
     try {
+        const url = new URL(request.url);
+        const action = String(url.searchParams.get("action") || "").trim();
+
+        const conf = config();
+
+        if (!conf) {
+            /* Not configured: the app hides its cloud buttons and keeps
+               saving on the device, so this is a setting, not an error. */
+            return json(200, { configured: false });
+        }
+
+        /* A body is only present on a POST; a GET has none. */
+        let payload: Record<string, any> = {};
+        if (request.method === "POST") {
+            try {
+                payload = (await request.json()) ?? {};
+            } catch {
+                return json(400, { error: "The request body was not valid JSON." });
+            }
+        }
+
         switch (action) {
 
             /* ---- is the cloud usable at all ---- */
@@ -184,15 +335,15 @@ Deno.serve(async (request: Request) => {
                 const trade = readTrade(url);
                 if (!trade) return json(400, { error: "Unknown or missing trade." });
 
-                const { data, error } = await client
-                    .from("trade_quotes")
-                    .select("id, body, updated_at")
-                    .eq("trade", trade)
-                    .order("updated_at", { ascending: false });
+                const rows = await rest(
+                    conf,
+                    "trade_quotes",
+                    `?trade=eq.${encodeURIComponent(trade)}` +
+                    `&select=id,body,updated_at` +
+                    `&order=updated_at.desc`
+                );
 
-                if (error) return json(500, { error: error.message });
-
-                return json(200, { quotes: data ?? [] });
+                return json(200, { quotes: rows ?? [] });
             }
 
             /* ---- save one quote ---- */
@@ -208,11 +359,11 @@ Deno.serve(async (request: Request) => {
                     return json(400, { error: "A quote needs a body." });
                 }
 
-                const { error } = await client
-                    .from("trade_quotes")
-                    .upsert({ id, trade, body: quote }, { onConflict: "id" });
-
-                if (error) return json(500, { error: error.message });
+                await rest(conf, "trade_quotes", "?on_conflict=id", {
+                    method: "POST",
+                    headers: { Prefer: "resolution=merge-duplicates,return=representation" },
+                    body: JSON.stringify({ id, trade, body: quote })
+                });
 
                 return json(200, { saved: id });
             }
@@ -235,13 +386,13 @@ Deno.serve(async (request: Request) => {
                    that asked means a client bug cannot remove another
                    trade's quote.
                 */
-                const { error } = await client
-                    .from("trade_quotes")
-                    .delete()
-                    .eq("id", id)
-                    .eq("trade", trade);
-
-                if (error) return json(500, { error: error.message });
+                await rest(
+                    conf,
+                    "trade_quotes",
+                    `?id=eq.${encodeURIComponent(id)}` +
+                    `&trade=eq.${encodeURIComponent(trade)}`,
+                    { method: "DELETE" }
+                );
 
                 return json(200, { deleted: id });
             }
@@ -249,14 +400,14 @@ Deno.serve(async (request: Request) => {
             /* ---- company settings, one row per trade ---- */
             case "settings":
                 return readWriteShared(
-                    client, "trade_settings", url, payload,
+                    conf, "trade_settings", url, payload,
                     request.method === "POST"
                 );
 
             /* ---- price list, one row per trade ---- */
             case "price-list":
                 return readWriteShared(
-                    client, "trade_prices", url, payload,
+                    conf, "trade_prices", url, payload,
                     request.method === "POST"
                 );
 
@@ -285,14 +436,12 @@ Deno.serve(async (request: Request) => {
    made every GET look like an empty POST.
 */
 async function readWriteShared(
-    client: ReturnType<typeof db>,
+    conf: { rest: string; key: string },
     table: string,
     url: URL,
     payload: Record<string, any>,
     isWrite: boolean
 ) {
-    if (!client) return json(200, { configured: false });
-
     const trade = readTrade(url);
     if (!trade) return json(400, { error: "Unknown or missing trade." });
 
@@ -301,22 +450,22 @@ async function readWriteShared(
             return json(400, { error: "Nothing to save." });
         }
 
-        const { error } = await client
-            .from(table)
-            .upsert({ trade, body: payload }, { onConflict: "trade" });
-
-        if (error) return json(500, { error: error.message });
+        await rest(conf, table, "?on_conflict=trade", {
+            method: "POST",
+            headers: { Prefer: "resolution=merge-duplicates,return=representation" },
+            body: JSON.stringify({ trade, body: payload })
+        });
 
         return json(200, { saved: trade });
     }
 
-    const { data, error } = await client
-        .from(table)
-        .select("body")
-        .eq("trade", trade)
-        .maybeSingle();
+    const rows = await rest(
+        conf,
+        table,
+        `?trade=eq.${encodeURIComponent(trade)}&select=body&limit=1`
+    );
 
-    if (error) return json(500, { error: error.message });
+    const body = Array.isArray(rows) && rows.length ? rows[0].body : {};
 
-    return json(200, { body: (data && data.body) || {} });
+    return json(200, { body: body || {} });
 }

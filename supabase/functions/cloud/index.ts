@@ -12,6 +12,23 @@
    page calls this function, and this function holds the key and
    talks to the database.
 
+   NO THIRD-PARTY IMPORT - ON PURPOSE
+   ----------------------------------
+   This function talks to PostgREST with plain fetch() instead of
+   importing @supabase/supabase-js. An earlier version imported it
+   from esm.sh, and the deployed function returned a bare
+   500 Internal Server Error on every request - no JSON, no log
+   message, nothing the app could act on.
+
+   A 500 with no body means the module never finished loading, so
+   nothing inside it ever ran, including its own error handler.
+   The import was the one thing that could fail that way: it is
+   fetched from a third-party domain at module scope.
+
+   The REST calls here need no library. PostgREST is a plain HTTP
+   API, and the app only ever lists, saves and deletes rows - so
+   the dependency bought nothing and could break everything.
+
    IT DOES NOT HOLD A SECRET
    -------------------------
    Unlike the email function, this one needs no secret of its
@@ -50,8 +67,6 @@
    carry a marked section explaining how to require sign-in and
    confine each trade to its own quotes later.
    ========================================================= */
-
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 /* The trade keys the apps use. Anything else is rejected rather
    than written, so a typo cannot create a fourth, invisible
@@ -116,24 +131,72 @@ function json(status: number, payload: unknown) {
     });
 }
 
-/*
-   The database client.
+/* =========================================================
+   THE DATABASE, OVER PLAIN HTTP
+   ========================================================= */
 
-   The service role key bypasses Row Level Security, which is what
-   lets this function serve an app that has no signed-in user. It
-   never leaves the server: the page only ever sees the answers.
+/*
+   The REST base and the key.
+
+   Read once, lazily, so a missing variable is reported by an
+   ordinary JSON reply rather than throwing at module load - which
+   is the failure this file exists to avoid.
 */
-function db() {
-    const url = Deno.env.get("SUPABASE_URL");
-    const key = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+function config() {
+    const url = (Deno.env.get("SUPABASE_URL") || "").replace(/\/+$/, "");
+    const key = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "";
 
     if (!url || !key) {
         return null;
     }
 
-    return createClient(url, key, {
-        auth: { persistSession: false }
+    return { rest: url + "/rest/v1", key };
+}
+
+/*
+   One PostgREST call, as fetch.
+
+   `path` is everything after the table name, e.g.
+   "?trade=eq.aps&select=id,body,updated_at&order=updated_at.desc".
+
+   PostgREST answers 200/201/204 for success; anything else is
+   turned into a thrown Error so the caller's catch block reports
+   it, rather than the app being handed a silent failure.
+*/
+async function rest(
+    conf: { rest: string; key: string },
+    table: string,
+    path: string,
+    init: RequestInit = {}
+) {
+    const response = await fetch(`${conf.rest}/${table}${path}`, {
+        ...init,
+        headers: {
+            apikey: conf.key,
+            Authorization: `Bearer ${conf.key}`,
+            "Content-Type": "application/json",
+            /* Ask for the saved row back on a write, so a write that
+               silently matched nothing is visible rather than assumed. */
+            Prefer: "return=representation",
+            ...(init.headers || {})
+        }
     });
+
+    const text = await response.text();
+
+    if (!response.ok) {
+        throw new Error(`${table} -> HTTP ${response.status}: ${text.slice(0, 300)}`);
+    }
+
+    if (!text) {
+        return null;
+    }
+
+    try {
+        return JSON.parse(text);
+    } catch {
+        return null;
+    }
 }
 
 /* Read the trade from the query string, rejecting anything unknown. */
@@ -151,34 +214,42 @@ Deno.serve(async (request: Request) => {
     /*
        The browser sends a preflight OPTIONS before a cross-origin
        POST, and it must be answered with the CORS headers or the
-       real request is never sent.
+       real request is never sent. Answered before the database is
+       consulted, so a preflight can never fail on configuration.
     */
     if (request.method === "OPTIONS") {
         return new Response(null, { status: 204, headers: corsHeaders() });
     }
 
-    const url = new URL(request.url);
-    const action = String(url.searchParams.get("action") || "").trim();
-
-    const client = db();
-
-    if (!client) {
-        /* Not configured: the app hides its cloud buttons and keeps
-           saving on the device, so this is a setting, not an error. */
-        return json(200, { configured: false });
-    }
-
-    /* A body is only present on a POST; a GET has none. */
-    let payload: Record<string, any> = {};
-    if (request.method === "POST") {
-        try {
-            payload = (await request.json()) ?? {};
-        } catch {
-            return json(400, { error: "The request body was not valid JSON." });
-        }
-    }
-
+    /*
+       Everything from here on is wrapped, including reading the
+       configuration. A function that throws at module scope is
+       what cost this deployment a day: the platform answers a bare
+       500 and the app can only report an opaque network failure.
+       A thrown error must always come back as JSON.
+    */
     try {
+        const url = new URL(request.url);
+        const action = String(url.searchParams.get("action") || "").trim();
+
+        const conf = config();
+
+        if (!conf) {
+            /* Not configured: the app hides its cloud buttons and keeps
+               saving on the device, so this is a setting, not an error. */
+            return json(200, { configured: false });
+        }
+
+        /* A body is only present on a POST; a GET has none. */
+        let payload: Record<string, any> = {};
+        if (request.method === "POST") {
+            try {
+                payload = (await request.json()) ?? {};
+            } catch {
+                return json(400, { error: "The request body was not valid JSON." });
+            }
+        }
+
         switch (action) {
 
             /* ---- is the cloud usable at all ---- */
@@ -190,15 +261,15 @@ Deno.serve(async (request: Request) => {
                 const trade = readTrade(url);
                 if (!trade) return json(400, { error: "Unknown or missing trade." });
 
-                const { data, error } = await client
-                    .from("trade_quotes")
-                    .select("id, body, updated_at")
-                    .eq("trade", trade)
-                    .order("updated_at", { ascending: false });
+                const rows = await rest(
+                    conf,
+                    "trade_quotes",
+                    `?trade=eq.${encodeURIComponent(trade)}` +
+                    `&select=id,body,updated_at` +
+                    `&order=updated_at.desc`
+                );
 
-                if (error) return json(500, { error: error.message });
-
-                return json(200, { quotes: data ?? [] });
+                return json(200, { quotes: rows ?? [] });
             }
 
             /* ---- save one quote ---- */
@@ -214,11 +285,11 @@ Deno.serve(async (request: Request) => {
                     return json(400, { error: "A quote needs a body." });
                 }
 
-                const { error } = await client
-                    .from("trade_quotes")
-                    .upsert({ id, trade, body: quote }, { onConflict: "id" });
-
-                if (error) return json(500, { error: error.message });
+                await rest(conf, "trade_quotes", "?on_conflict=id", {
+                    method: "POST",
+                    headers: { Prefer: "resolution=merge-duplicates,return=representation" },
+                    body: JSON.stringify({ id, trade, body: quote })
+                });
 
                 return json(200, { saved: id });
             }
@@ -241,13 +312,13 @@ Deno.serve(async (request: Request) => {
                    that asked means a client bug cannot remove another
                    trade's quote.
                 */
-                const { error } = await client
-                    .from("trade_quotes")
-                    .delete()
-                    .eq("id", id)
-                    .eq("trade", trade);
-
-                if (error) return json(500, { error: error.message });
+                await rest(
+                    conf,
+                    "trade_quotes",
+                    `?id=eq.${encodeURIComponent(id)}` +
+                    `&trade=eq.${encodeURIComponent(trade)}`,
+                    { method: "DELETE" }
+                );
 
                 return json(200, { deleted: id });
             }
@@ -255,14 +326,14 @@ Deno.serve(async (request: Request) => {
             /* ---- company settings, one row per trade ---- */
             case "settings":
                 return readWriteShared(
-                    client, "trade_settings", url, payload,
+                    conf, "trade_settings", url, payload,
                     request.method === "POST"
                 );
 
             /* ---- price list, one row per trade ---- */
             case "price-list":
                 return readWriteShared(
-                    client, "trade_prices", url, payload,
+                    conf, "trade_prices", url, payload,
                     request.method === "POST"
                 );
 
@@ -291,14 +362,12 @@ Deno.serve(async (request: Request) => {
    made every GET look like an empty POST.
 */
 async function readWriteShared(
-    client: ReturnType<typeof db>,
+    conf: { rest: string; key: string },
     table: string,
     url: URL,
     payload: Record<string, any>,
     isWrite: boolean
 ) {
-    if (!client) return json(200, { configured: false });
-
     const trade = readTrade(url);
     if (!trade) return json(400, { error: "Unknown or missing trade." });
 
@@ -307,22 +376,22 @@ async function readWriteShared(
             return json(400, { error: "Nothing to save." });
         }
 
-        const { error } = await client
-            .from(table)
-            .upsert({ trade, body: payload }, { onConflict: "trade" });
-
-        if (error) return json(500, { error: error.message });
+        await rest(conf, table, "?on_conflict=trade", {
+            method: "POST",
+            headers: { Prefer: "resolution=merge-duplicates,return=representation" },
+            body: JSON.stringify({ trade, body: payload })
+        });
 
         return json(200, { saved: trade });
     }
 
-    const { data, error } = await client
-        .from(table)
-        .select("body")
-        .eq("trade", trade)
-        .maybeSingle();
+    const rows = await rest(
+        conf,
+        table,
+        `?trade=eq.${encodeURIComponent(trade)}&select=body&limit=1`
+    );
 
-    if (error) return json(500, { error: error.message });
+    const body = Array.isArray(rows) && rows.length ? rows[0].body : {};
 
-    return json(200, { body: (data && data.body) || {} });
+    return json(200, { body: body || {} });
 }
