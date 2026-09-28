@@ -225,14 +225,27 @@ Deno.serve(async (request: Request) => {
 
             /* ---- remove one quote ---- */
             case "delete": {
+                const trade = readTrade(url);
+                if (!trade) return json(400, { error: "Unknown or missing trade." });
+
                 const id = String(payload.id || "").trim();
 
                 if (!id) return json(400, { error: "A quote needs an id." });
 
+                /*
+                   The trade is part of the WHERE, not decoration.
+                   Quote ids are minted per app ("quote 40"), so two
+                   trades can hold rows with the same id - and this
+                   function holds the service role key, which bypasses
+                   Row Level Security. Scoping the delete to the trade
+                   that asked means a client bug cannot remove another
+                   trade's quote.
+                */
                 const { error } = await client
                     .from("trade_quotes")
                     .delete()
-                    .eq("id", id);
+                    .eq("id", id)
+                    .eq("trade", trade);
 
                 if (error) return json(500, { error: error.message });
 

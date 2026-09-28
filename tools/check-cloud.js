@@ -202,6 +202,92 @@ async function main() {
         }
     }
 
+    /* =========================================================
+       THE TRADE CLOUD (APS and APC quoting apps)
+       ---------------------------------------------------------
+       This is what was missing from this checker, and it hid a real
+       fault: the apps call functions/v1/cloud, that function was
+       never deployed, and every call came back 404. In the browser
+       that surfaces only as a CORS error, which looks like a
+       settings problem rather than a missing deployment - so the
+       one thing worth checking was the one thing never checked.
+       ========================================================= */
+    console.log('\nTrade cloud (APS / APC quoting)');
+
+    const cloudUrl = base + '/functions/v1/cloud?action=status&trade=aps';
+
+    try {
+        const result = await get(cloudUrl, headers);
+
+        if (result.status === 404) {
+            fail('functions/v1/cloud -> 404, the function is NOT deployed');
+            console.log('       Every APS and APC cloud call fails. In the browser this');
+            console.log('       shows up only as a CORS error, which reads like a config');
+            console.log('       mistake rather than a missing deployment.');
+            console.log('       Fix: supabase functions deploy cloud');
+            console.log('       See supabase/SETUP-CLOUD.md.');
+            problems += 1;
+        } else if (result.status !== 200) {
+            fail('functions/v1/cloud -> HTTP ' + result.status);
+            problems += 1;
+        } else {
+            let body = {};
+            try {
+                body = JSON.parse(result.body || '{}');
+            } catch (_) {
+                body = {};
+            }
+
+            if (body.configured === false) {
+                fail('the function is deployed but reports configured:false');
+                console.log('       Its environment is missing SUPABASE_URL or');
+                console.log('       SUPABASE_SERVICE_ROLE_KEY. Supabase sets both');
+                console.log('       automatically - redeploy and check the function logs.');
+                problems += 1;
+            } else if (body.configured === true) {
+                ok('functions/v1/cloud is deployed and configured');
+            } else {
+                warn('the function answered without a "configured" field: ' + result.body.slice(0, 120));
+            }
+        }
+    } catch (error) {
+        fail('the trade cloud could not be reached: ' + error.message);
+        problems += 1;
+    }
+
+    /* The quoting tables, in their own schema file. */
+    console.log('\nTrade quoting tables (supabase/trades-schema.sql)');
+
+    const tradeTables = ['trade_quotes', 'trade_settings', 'trade_prices'];
+    const missingTrade = [];
+
+    for (const table of tradeTables) {
+        try {
+            const result = await get(base + '/rest/v1/' + table + '?select=*&limit=0', headers);
+
+            if (result.status === 200) {
+                ok(table + ' exists');
+            } else if (result.status === 404) {
+                fail(table + ' -> 404, the table does not exist');
+                missingTrade.push(table);
+            } else {
+                fail(table + ' -> HTTP ' + result.status);
+                missingTrade.push(table);
+            }
+        } catch (error) {
+            fail(table + ' -> ' + error.message);
+            missingTrade.push(table);
+        }
+    }
+
+    if (missingTrade.length > 0) {
+        problems += 1;
+        console.log('');
+        fail(missingTrade.length + ' of ' + tradeTables.length + ' quoting tables are missing.');
+        console.log('       Fix: open the Supabase SQL editor and run supabase/trades-schema.sql.');
+        console.log('       Until then a quote saves on the device but never syncs.');
+    }
+
     /* ---- 5. Storage. The app does not use buckets; say so plainly. ---- */
     console.log('\nSupabase Storage');
 

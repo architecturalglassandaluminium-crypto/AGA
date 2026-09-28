@@ -9,15 +9,19 @@ const APP_FILES = [
     './manifest.json',
     './APClogo.jpg',
     /*
-       The shared cloud config, one level up.
+       The shared cloud config, two levels up - the app root.
 
        These MUST be listed or the app breaks offline: index.html
        loads them before config.js, and on a phone with no signal
        an uncached script is simply missing - the cloud constants
        never get set and sync fails with no obvious cause.
+
+       The path is relative to THIS folder (the service worker's
+       own scope), not to index.html. Both files sit at the app
+       root, which is two levels up from here: '../../'.
     */
-    '../supabase-config.js',
-    '../aga-cloud.js'
+    '../../supabase-config.js',
+    '../../aga-cloud.js'
 ];
 
 self.addEventListener('install', event => {

@@ -719,28 +719,107 @@ test('the shared cloud config hands every trade the same values', () => {
 
 test('both trade service workers cache the shared cloud config', () => {
     /*
-       index.html loads supabase-config.js and aga-cloud.js from one
-       level up. On a phone with no signal an uncached script is simply
+       index.html loads supabase-config.js and aga-cloud.js from the app
+       root. On a phone with no signal an uncached script is simply
        missing, so the cloud constants never get set and sync fails with
        no obvious cause. Both must be in the offline file list.
+
+       The path is resolved from the SERVICE WORKER's own folder, not
+       from index.html - the two are one level apart, which is exactly
+       how this was got wrong the first time: '../x' looked right beside
+       index.html's '../../x' but pointed at trades/x, which does not
+       exist. Asserting on the literal string would have locked the bug
+       in, so each entry is resolved on disk instead.
     */
     for (const [trade, logo] of [['plumbing', 'APSlogo.png'], ['coatings', 'APClogo.jpg']]) {
-        const sw = read(path.join(ROOT, 'trades', trade, 'service-worker.js'));
+        const swPath = path.join(ROOT, 'trades', trade, 'service-worker.js');
+        const sw = read(swPath);
+        const swDir = path.dirname(swPath);
 
-        assert.match(sw, /'\.\.\/supabase-config\.js'/,
-            `trades/${trade} service worker does not cache the shared config`);
-        assert.match(sw, /'\.\.\/aga-cloud\.js'/,
-            `trades/${trade} service worker does not cache aga-cloud.js`);
-        assert.match(sw, new RegExp(`'\./${logo.replace('.', '\\.')}'`),
+        /* Every './...' and '../...' entry in the file list. */
+        const listed = [...sw.matchAll(/'(\.\.?\/[^']+)'/g)].map(m => m[1]);
+        assert.ok(listed.length >= 8, `trades/${trade} has no offline file list`);
+
+        for (const entry of listed) {
+            /* './' means the folder itself; test it as index.html. */
+            const target = entry.replace(/\/$/, '/index.html');
+            assert.ok(
+                fs.existsSync(path.resolve(swDir, target)),
+                `trades/${trade} service worker lists '${entry}', which does not ` +
+                `exist relative to its own folder (${path.resolve(swDir, target)})`
+            );
+        }
+
+        /*
+           And the two shared files specifically, because a file list that
+           simply omits them still passes a general check.
+        */
+        for (const shared of ['../../supabase-config.js', '../../aga-cloud.js']) {
+            assert.ok(
+                listed.includes(shared),
+                `trades/${trade} service worker does not cache ${shared}`
+            );
+        }
+
+        assert.ok(listed.includes(`./${logo}`),
             `trades/${trade} service worker lost its brand mark`);
     }
 
-    const agaSw = read(SW_JS);
-    assert.match(agaSw, /"\.\/aga-cloud\.js"/,
+    /*
+       The AGA shell lists files from its own root, so './' is right
+       there. Checked the same way - resolved, not pattern-matched.
+    */
+    const agaListed = [...read(SW_JS).matchAll(/"(\.\/[^"]+)"/g)].map(m => m[1]);
+    assert.ok(agaListed.includes('./aga-cloud.js'),
         'the AGA shell does not cache aga-cloud.js');
+
+    for (const entry of agaListed) {
+        const target = entry.replace(/\/$/, 'index.html');
+        assert.ok(
+            fs.existsSync(path.resolve(ROOT, target)),
+            `the AGA shell lists '${entry}', which does not exist`
+        );
+    }
 });
 
-test('each trade names itself when it calls the cloud', () => {
+test('every local file a page loads actually exists', () => {
+    /*
+       A wrong path here is invisible until it matters: the browser
+       simply does not load the script, and an app that depends on it
+       fails later for an unrelated-looking reason. The shared cloud
+       config is loaded by relative path from two directories deep, so
+       this is exactly the kind of reference that goes wrong quietly.
+    */
+    const PAGES = ['index.html', 'trades/plumbing/index.html', 'trades/coatings/index.html'];
+
+    for (const page of PAGES) {
+        const full = path.join(ROOT, page);
+        const html = read(full);
+        const dir = path.dirname(full);
+
+        const refs = [...html.matchAll(/(?:src|href)\s*=\s*"([^"]+)"/g)].map(m => m[1]);
+
+        for (const ref of refs) {
+            /* Remote, in-page, protocol and data URLs are not files. */
+            if (/^(https?:)?\/\//.test(ref)) continue;
+            if (/^(#|mailto:|tel:|data:)/.test(ref)) continue;
+
+            const clean = ref.split('?')[0].split('#')[0];
+            if (!clean) continue;
+
+            const target = clean.startsWith('/')
+                ? path.join(ROOT, clean)
+                : path.resolve(dir, clean);
+
+            assert.ok(
+                fs.existsSync(target),
+                `${page} loads "${ref}", which does not exist (${path.relative(ROOT, target)})`
+            );
+        }
+    }
+});
+
+test('every trade names itself when it calls the cloud', () => {
     /*
        The trade travels in the request, is stamped on the quote and
        filters the list, which is what keeps the books apart in one
@@ -793,6 +872,67 @@ test('the cloud function answers with CORS headers for the deployed site', () =>
     assert.match(fn, /Access-Control-Allow-Origin/);
     assert.match(fn, /architecturalglassandaluminium-crypto\.github\.io/);
     assert.match(fn, /127\.0\.0\.1:8800/);
+});
+
+test('the cloud function scopes every write to the calling trade', () => {
+    const fn = read(
+        path.join(ROOT, 'supabase', 'functions', 'cloud', 'index.ts')
+    );
+
+    /*
+       The function holds the service role key, which bypasses Row Level
+       Security entirely. That makes the trade filter the ONLY thing
+       stopping one trade reaching another's rows, so every statement
+       that touches a table must carry it.
+
+       delete was the one that did not: it filtered on `id` alone. Quote
+       ids are prefixed per app today, so nothing collides - but that is
+       a convention in the apps, not a constraint in the database, and a
+       future id scheme would let a delete land on the wrong trade.
+    */
+    const deleteBlock = fn.match(/case "delete":\s*\{([\s\S]*?)\n\s*\}/)?.[1] || '';
+
+    assert.ok(deleteBlock, 'the function has no delete action');
+    assert.match(
+        deleteBlock,
+        /\.eq\("id",\s*id\)\s*\.eq\("trade",\s*trade\)/,
+        'the delete is not scoped to the trade that asked for it'
+    );
+
+    /*
+       And the same standard everywhere else. Three statements filter on
+       trade - list, delete, and the shared settings/price-list helper -
+       and a save stamps it instead. Checked structurally: every
+       from(...) call site must be accounted for, so a new action that
+       forgets the filter is caught rather than only counted.
+    */
+    const tradeFilters = (fn.match(/\.eq\("trade",\s*trade\)/g) || []).length;
+    assert.equal(tradeFilters, 3,
+        `expected 3 statements to filter by trade, found ${tradeFilters}`);
+
+    /*
+       A quote is stamped with the trade on the way in, so a save cannot
+       write into another trade's book even if the id were made up.
+    */
+    assert.match(fn, /\.upsert\(\{\s*id,\s*trade,\s*body:\s*quote\s*\}/,
+        'a saved quote is not stamped with the calling trade');
+
+    /*
+       Settings and the price list go through one helper, which stamps
+       the trade on write and filters on read. If that helper is ever
+       bypassed with a direct call, this notices.
+    */
+    const sharedUpsert = /\.upsert\(\{\s*trade,\s*body:\s*payload\s*\}/.test(fn);
+    assert.ok(sharedUpsert,
+        'the shared settings/price-list write is not stamped with the trade');
+
+    /*
+       Nothing may touch a table without the trade being resolved first:
+       one readTrade call per action that reaches the database.
+    */
+    const readTradeCalls = (fn.match(/readTrade\(url\)/g) || []).length;
+    assert.ok(readTradeCalls >= 4,
+        `only ${readTradeCalls} actions resolve a trade before touching the database`);
 });
 
 // ---------------------------------------------------------------------------
