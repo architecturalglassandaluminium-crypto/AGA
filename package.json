@@ -8,6 +8,7 @@
     "test:watch": "node --test --watch \"tools/*.test.js\"",
     "test:launch": "node --test tools/verify-launch-config.test.js",
     "test:cloud": "node --test tools/cloud-config.test.js",
-    "check:cloud": "node tools/check-cloud.js"
+    "check:cloud": "node tools/check-cloud.js",
+    "check:sync": "node tools/check-sync.mjs"
   }
 }
