@@ -547,6 +547,205 @@ test('the cloud function answers with CORS headers for the deployed site', () =>
 });
 
 // ---------------------------------------------------------------------------
+// Stores and the best price
+// ---------------------------------------------------------------------------
+
+/*
+   Both quoting apps must price a job the same way: take the cheapest
+   price for an item across the catalogue and every store, then say
+   WHICH store that price came from. These tests pin the pieces that
+   make that true, because it is easy to break by editing one app.
+*/
+
+const PLUMBING_APP = path.join(ROOT, 'trades', 'plumbing', 'app.js');
+const COATINGS_APP = path.join(ROOT, 'trades', 'coatings', 'app.js');
+const PLUMBING_HTML = path.join(ROOT, 'trades', 'plumbing', 'index.html');
+const COATINGS_HTML = path.join(ROOT, 'trades', 'coatings', 'index.html');
+
+test('Leroy Merlin is a store in both quoting apps', () => {
+    /**
+     * LeRoy Merlin, https://leroymerlin.co.za/, sells both plumbing
+     * (pipes, geysers, taps) and building supplies (cement, bricks,
+     * blocks), so it belongs on the shelf of BOTH trades - not just
+     * the one that happened to be edited first.
+     */
+    for (const [label, file] of [
+        ['plumbing (APS)', PLUMBING_APP],
+        ['coatings (APC)', COATINGS_APP]
+    ]) {
+        const source = read(file);
+        assert.match(
+            source,
+            /leroymerlin:\s*\{\s*name:\s*'Leroy Merlin',\s*url:\s*'https:\/\/leroymerlin\.co\.za\/'\s*\}/,
+            `${label} has no Leroy Merlin store card`
+        );
+        assert.match(
+            source,
+            /leroymerlin:\s*\{/, // the price catalogue entry
+            `${label} has no Leroy Merlin price catalogue`
+        );
+    }
+});
+
+test('the Leroy Merlin tab is offered in both quoting apps', () => {
+    for (const [label, file] of [
+        ['plumbing (APS)', PLUMBING_HTML],
+        ['coatings (APC)', COATINGS_HTML]
+    ]) {
+        assert.match(
+            read(file),
+            /data-supplier="leroymerlin"/,
+            `${label} has no Leroy Merlin store tab`
+        );
+    }
+});
+
+test('every store in the tab row is a store the app actually knows', () => {
+    /**
+     * A tab is a data-supplier key the click handler looks up in
+     * supplierInfo. A tab with no entry there renders, is clickable,
+     * then throws - the store card list and the markup have to agree.
+     */
+    for (const [label, appFile, htmlFile] of [
+        ['plumbing (APS)', PLUMBING_APP, PLUMBING_HTML],
+        ['coatings (APC)', COATINGS_APP, COATINGS_HTML]
+    ]) {
+        const app = read(appFile);
+        const html = read(htmlFile);
+        const tabs = [...html.matchAll(/data-supplier="([a-z]+)"/g)].map(m => m[1]);
+
+        assert.ok(tabs.length, `${label} has no store tabs`);
+        assert.equal(new Set(tabs).size, tabs.length,
+            `${label} lists the same store twice`);
+
+        for (const key of tabs) {
+            assert.match(
+                app,
+                new RegExp(`${key}:\\s*\\{\\s*name:`),
+                `${label} has a ${key} tab but no ${key} store card`
+            );
+        }
+    }
+});
+
+test('both apps price a catalogue cost against a named reference store', () => {
+    /**
+     * The catalogue's own cost used to be attributed to no store at
+     * all (coatings) or to a store that was never named in the
+     * supplier list (plumbing). Both now park it on REFERENCE_SUPPLIER,
+     * so the best-price label can always answer "which store?".
+     */
+    const plumbing = read(PLUMBING_APP);
+    const coatings = read(COATINGS_APP);
+
+    assert.match(plumbing, /const REFERENCE_SUPPLIER = 'plumblink';/);
+    assert.match(coatings, /const REFERENCE_SUPPLIER = 'builders';/);
+
+    for (const [label, source] of [
+        ['plumbing (APS)', plumbing],
+        ['coatings (APC)', coatings]
+    ]) {
+        assert.match(
+            source,
+            /\{ supplier: REFERENCE_SUPPLIER, cost: baseCost \}/,
+            `${label} does not know which store its catalogue cost belongs to`
+        );
+        assert.doesNotMatch(
+            source,
+            /supplier: 'reference'/,
+            `${label} still labels the catalogue cost as "reference" instead of a store`
+        );
+    }
+});
+
+test('the cheapest price is labelled with the store it came from', () => {
+    /**
+     * This is the ask: when a product is added the row must show the
+     * lowest price AND name the store it was found at. A bare
+     * currency figure does not tell a buyer where to go.
+     */
+    for (const [label, appFile, htmlFile] of [
+        ['plumbing (APS)', PLUMBING_APP, PLUMBING_HTML],
+        ['coatings (APC)', COATINGS_APP, COATINGS_HTML]
+    ]) {
+        const app = read(appFile);
+
+        assert.match(
+            app,
+            /function getMaterialSupplierLabel\(material\)/,
+            `${label} has no best-price label helper`
+        );
+
+        /*
+           The label prints the price, a separator and the store
+           name(s). Both apps must produce the same shape. The
+           separator is written as a character class so this test
+           itself stays plain ASCII: a \u escape in a regex literal
+           is consumed by the regex engine, not by the file.
+
+           The closing brace of the template expression is part of
+           the pattern: the app writes ${currency(...)}, not
+           ${currency(...).
+        */
+        assert.match(
+            app,
+            /\$\{currency\(bestPrice\.cost\)\}\s*[^\s]\s*\$\{bestPrice\.suppliers\.map\(supplierName\)\.join\(', '\)\}/,
+            `${label} does not print "<price> - <store>"`
+        );
+
+        /*
+           The material row must use the label, not the old bare
+           currency(getSupplierCost(...)) which showed a price with
+           no store beside it.
+        */
+        assert.match(
+            app,
+            /class="material-best-price"[^>]*>\$\{getMaterialSupplierLabel\(material\)\}</,
+            `${label} material row does not use the labelled best price`
+        );
+        assert.doesNotMatch(
+            app,
+            /class="material-best-price">\$\{material\.description \? currency\(getSupplierCost/,
+            `${label} still shows an unlabelled best price`
+        );
+
+        assert.match(
+            read(htmlFile),
+            /<span>Best price \(store\)<\/span>/,
+            `${label} column heading does not say the store is shown`
+        );
+    }
+});
+
+test('the best-price label falls back instead of showing a store it has not got', () => {
+    /*
+       No description yet, or nothing priced: the cell must read
+       "\u2014" or "No price match", never "R0.00 - undefined".
+    */
+    for (const [label, file] of [
+        ['plumbing (APS)', PLUMBING_APP],
+        ['coatings (APC)', COATINGS_APP]
+    ]) {
+        const source = read(file);
+        const helper = source.match(/function getMaterialSupplierLabel[\s\S]*?\n\}/)?.[0] || '';
+
+        assert.ok(helper, `${label} has no getMaterialSupplierLabel body`);
+        assert.match(helper, /No price match/, `${label} has no empty-store fallback`);
+        /*
+           supplierName( is inside a template literal, so the text of
+           the helper contains `.map(supplierName)` - a plain
+           supplierName( with nothing before it would not match.
+        */
+        assert.match(helper, /supplierName\)/, `${label} does not name the store safely`);
+        assert.match(
+            source,
+            /function supplierName\(key\) \{ return supplierInfo\[key\]\?\.name \|\| 'Reference price'; \}/,
+            `${label} has no safe store-name lookup`
+        );
+    }
+});
+
+// ---------------------------------------------------------------------------
 // service worker
 // ---------------------------------------------------------------------------
 

@@ -1,6 +1,6 @@
 const VAT_DEFAULT = 15;
 const MATERIAL_MARKUP = 45;
-let selectedSupplier = 'plumblink';
+let selectedSupplier = 'leroymerlin';
 const currency = value => new Intl.NumberFormat('en-ZA', { style: 'currency', currency: 'ZAR' }).format(Number(value) || 0);
 const $ = id => document.getElementById(id);
 const $$ = selector => [...document.querySelectorAll(selector)];
@@ -294,13 +294,31 @@ Object.entries(standardPlumbingServices).forEach(([category, tasks]) => { if (!s
 const storedServiceCatalogue = JSON.parse(localStorage.getItem('pipewise-service-catalogue') || '{}');
 Object.entries(storedServiceCatalogue).forEach(([category, tasks]) => { if (!Array.isArray(tasks)) return; if (!serviceCatalogue[category]) serviceCatalogue[category] = []; tasks.forEach(task => { if (typeof task === 'string' && !serviceCatalogue[category].includes(task)) serviceCatalogue[category].push(task); }); });
 const serviceCategories = Object.keys(serviceCatalogue);
+/*
+   The reference catalogue is kept as a store so that APS and APC
+   name their stores, their reference prices and their "best price"
+   label in exactly the same way. APS prices against its plumbing
+   stores (Plumblink) and Leroy Merlin; before this list existed the
+   best price was always attributed to Plumblink, because Plumblink
+   was the only set that carried APS's own catalogue costs.
+*/
 const supplierInfo = {
+    leroymerlin: { name: 'Leroy Merlin', url: 'https://leroymerlin.co.za/' },
     plumblink: { name: 'Plumblink', url: 'https://www.plumblink.co.za/all-products' },
     builders: { name: 'Builders', url: 'https://www.builders.co.za/Plumbing-Bathroom-and-Kitchen/c/13' },
     bathroom: { name: 'Bathroom Bizarre', url: 'https://bathroom.co.za/' }
 };
 const supplierOptions = Object.keys(supplierInfo);
 const supplierPrices = {
+    leroymerlin: {
+        'Plumbing tape PTFE - 12mm x 7m': 19.9,
+        'Cement - 50kg PPC': 122.9,
+        'Cement stock brick - 7 MPa': 3.49,
+        'Cement block - M190 190 x 190 x 390mm': 19.9,
+        'Geyser - 150L': 4599,
+        'Toilet - Standard': 1699,
+        'Basin - Standard': 899
+    },
     builders: {
         'HDPE drainage pipe - 110mm x 5m': 349,
         'HDPE water pipe - 25mm x 100m': 29,
@@ -323,6 +341,7 @@ const supplierPrices = {
     }
 };
 const supplierAvailability = {
+    leroymerlin: new Set(Object.keys(supplierPrices.leroymerlin)),
     plumblink: new Set([
         'HDPE drainage pipe - 110mm x 5m',
         'HDPE water pipe - 25mm x 100m',
@@ -339,20 +358,44 @@ const supplierAvailability = {
     bathroom: new Set(Object.keys(supplierPrices.bathroom))
 };
 const priceCheckKey = 'pipewise-last-price-check';
+/*
+   APS's own catalogue cost is priced as the store named here. It is
+   the same value APC uses (APC calls it 'reference'), so the two
+   apps label a price the same way and neither one invents a store
+   for a cost the catalogue owns.
+*/
+const REFERENCE_SUPPLIER = 'plumblink';
+function supplierName(key) { return supplierInfo[key]?.name || 'Reference price'; }
 function getBestMaterialPrice(material) {
     if (!material.description) return { cost: getValue(material.cost), suppliers: [] };
     const baseCost = plumbingCatalogue[material.category]?.[material.type]?.sizes[material.size] ?? getValue(material.cost);
-    const prices = [{ supplier: 'plumblink', cost: baseCost }, ...Object.entries(supplierPrices).filter(([, catalogue]) => catalogue[material.description] !== undefined).map(([supplier, catalogue]) => ({ supplier, cost: catalogue[material.description] }))].filter(({ cost }) => Number.isFinite(cost) && cost > 0);
+    const prices = [{ supplier: REFERENCE_SUPPLIER, cost: baseCost }, ...Object.entries(supplierPrices).filter(([, catalogue]) => catalogue[material.description] !== undefined).map(([supplier, catalogue]) => ({ supplier, cost: catalogue[material.description] }))].filter(({ cost }) => Number.isFinite(cost) && cost > 0);
     if (!prices.length) return { cost: 0, suppliers: [] };
     const cost = Math.min(...prices.map(price => price.cost));
     return { cost, suppliers: prices.filter(price => price.cost === cost).map(price => price.supplier) };
 }
 function getSupplierCost(material) { return getBestMaterialPrice(material).cost; }
+/*
+   The label on the "Best price" cell. The number is the cheapest
+   price found across the catalogue and the stores, and the name
+   after it says WHERE that price came from, so a quote never shows
+   a bare figure the user cannot trace back to a store.
+*/
+function getMaterialSupplierLabel(material) {
+    if (!material.description) return '—';
+    const bestPrice = getBestMaterialPrice(material);
+    if (!bestPrice.suppliers.length) return 'No price match';
+    return `${currency(bestPrice.cost)} · ${bestPrice.suppliers.map(supplierName).join(', ')}`;
+}
+/*
+   Kept for callers that want the price and its store as one string
+   in a sentence (the material note), not in the best-price cell.
+*/
 function getMaterialSuppliers(material) {
     if (!material.description) return 'Select material';
     const bestPrice = getBestMaterialPrice(material);
     if (!bestPrice.suppliers.length) return 'No price match';
-    return `${currency(bestPrice.cost)} - ${bestPrice.suppliers.map(supplier => supplierInfo[supplier].name).join(', ')}`;
+    return `${currency(bestPrice.cost)} - ${bestPrice.suppliers.map(supplierName).join(', ')}`;
 }
 function getQuantity(material) { return Math.max(1, Number(material.quantity) || 1); }
 function getMaterialArea(material) {
@@ -520,7 +563,7 @@ function renderMaterials() {
             <input class="material-quantity" type="number" min="1" step="1" value="${getQuantity(material)}" aria-label="Material quantity">
             <input class="material-width" type="number" min="0" step="1" value="${Number(material.width) || 0}" placeholder="W mm" aria-label="Width (mm)">
             <input class="material-height" type="number" min="0" step="1" value="${Number(material.height) || 0}" placeholder="H mm" aria-label="Height (mm)">
-        <span class="material-best-price">${material.description ? currency(getSupplierCost(material)) : '—'}</span>
+        <span class="material-best-price" title="Cheapest price and the store it was found at">${getMaterialSupplierLabel(material)}</span>
     <input class="material-markup" type="number" value="${MATERIAL_MARKUP}" aria-label="Material markup percentage" readonly>
     <span class="material-total">${currency(getEffectiveCost(material) * (1 + MATERIAL_MARKUP / 100))}</span>
       <button class="remove-material" type="button" aria-label="Remove material">×</button>
@@ -2446,7 +2489,7 @@ function switchView(view) { document.querySelectorAll('.nav-item').forEach(item 
 function loadSettings() { $('company-name').value = settings.name || ''; $('company-phone').value = settings.phone || ''; $('company-email').value = settings.email || ''; $('prepared-by').value = settings.preparedBy || ''; $('tax-number').value = settings.taxNumber || ''; $('print-prepared-by').textContent = settings.preparedBy || 'Cheyenne'; $('print-contact').textContent = settings.phone || '076 705 8718'; $('print-email').textContent = settings.email || 'architecturalplumbingservices@gmail.com'; $('print-tax-number').textContent = settings.taxNumber || '105 976 616'; $('vat-rate').value = settings.vatRate ?? VAT_DEFAULT; $('quote-date').textContent = new Date().toLocaleDateString('en-ZA', { day: '2-digit', month: 'short', year: 'numeric' }); }
 
 document.querySelectorAll('.nav-item').forEach(item => item.addEventListener('click', () => switchView(item.dataset.view)));
-document.querySelectorAll('.supplier-tab').forEach(tab => tab.addEventListener('click', () => { selectedSupplier = tab.dataset.supplier; document.querySelectorAll('.supplier-tab').forEach(item => item.classList.toggle('active', item === tab)); $('supplier-source').innerHTML = `Prices shown from ${supplierInfo[selectedSupplier].name} reference catalogue · <a href="${supplierInfo[selectedSupplier].url}" target="_blank" rel="noopener">Open supplier ↗</a>`; renderMaterials(); }));
+document.querySelectorAll('.supplier-tab').forEach(tab => tab.addEventListener('click', () => { selectedSupplier = tab.dataset.supplier; document.querySelectorAll('.supplier-tab').forEach(item => item.classList.toggle('active', item === tab)); $('supplier-source').innerHTML = `Reference catalogue from ${supplierName(selectedSupplier)} · <a href="${supplierInfo[selectedSupplier].url}" target="_blank" rel="noopener">Open supplier ↗</a>`; renderMaterials(); }));
 document.querySelectorAll('input, textarea').forEach(input => input.addEventListener('input', () => { updateSummary(); calculate(); }));
 document.querySelector('#new-quote-view').addEventListener('input', event => { if (event.target.id !== 'amendment-reason') markQuoteAmended(); });
 document.querySelector('#new-quote-view').addEventListener('change', event => { if (event.target.id !== 'amendment-reason') markQuoteAmended(); });

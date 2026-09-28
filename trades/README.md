@@ -50,6 +50,7 @@ and differ only in trade content:
 | Quoting: lines, labour, materials, VAT, PDF | yes |
 | Scenarios and the Price list | yes |
 | Project planning: durations, auto-scheduler, timeline | yes |
+| Stores, reference price catalogues and the best-price label | yes, **but each trade lists its own stores** |
 | Working-day and date maths | yes, but **APS is a 7-hour day and APC is 8** |
 | Per-task time table | **no** - plumbing jobs vs construction jobs |
 | Work-sequence order | **no** - what follows what differs by trade |
@@ -59,6 +60,35 @@ Both keep their own storage prefix, so nothing crosses over. The shared
 parts are deliberately shared rather than copied: two copies of the
 date maths would drift, and a quote would then be scheduled two
 different ways depending on which trade opened it.
+
+### Stores and the best price
+
+Both apps price a material the same way. For every material row the
+app collects the catalogue cost plus every store that lists the item,
+takes the **lowest**, and shows that number together with the name of
+the store it came from - `R 119,90 · Chamberlains` - so a figure on a
+quote can always be traced back to a shop. The column is headed
+"Best price (store)" in both apps.
+
+The catalogue's own cost is filed against a `REFERENCE_SUPPLIER`, so
+it too is attributed to a store rather than floating free: APS uses
+`plumblink`, APC uses `builders`. Each trade lists the stores that
+sell what it buys:
+
+| Store | APS (plumbing) | APC (construction) |
+|---|---|---|
+| Leroy Merlin | yes | yes |
+| Plumblink | yes | - |
+| Builders | yes | yes |
+| Bathroom Bizarre | yes | - |
+| Chamberlains | - | yes |
+| Build it | - | yes |
+
+Leroy Merlin, https://leroymerlin.co.za/, stocks both plumbing (pipes,
+geysers, taps) and building supplies (cement, bricks, blocks), which is
+why it appears in both lists. Its reference prices here are starting
+points taken from the store's own catalogue, not live prices; the
+"Check prices now" control is where live figures are set.
 
 ### Brand marks
 

@@ -30,7 +30,7 @@ function storageKey(name) {
 
 const VAT_DEFAULT = 15;
 const MATERIAL_MARKUP = 45;
-let selectedSupplier = 'builders';
+let selectedSupplier = 'leroymerlin';
 const currency = value => new Intl.NumberFormat('en-ZA', { style: 'currency', currency: 'ZAR' }).format(Number(value) || 0);
 const $ = id => document.getElementById(id);
 const $$ = selector => [...document.querySelectorAll(selector)];
@@ -912,6 +912,7 @@ const serviceCategories = Object.keys(serviceCatalogue);
    control on the quote screen is where live prices are set.
    ========================================================= */
 const supplierInfo = {
+    leroymerlin: { name: 'Leroy Merlin', url: 'https://leroymerlin.co.za/' },
     builders: { name: 'Builders', url: 'https://www.builders.co.za/' },
     chamberlains: { name: 'Chamberlains', url: 'https://www.chamberlains.co.za/' },
     buildit: { name: 'Build it', url: 'https://www.buildit.co.za/' }
@@ -921,6 +922,12 @@ const supplierOptions = Object.keys(supplierInfo);
 // Reference price catalogue per supplier. Keys match the material
 // description shown in the material row ("Type - Size").
 const supplierPrices = {
+    leroymerlin: {
+        'Cement - 50kg PPC': 122.9,
+        'Cement stock brick - 7 MPa': 3.49,
+        'Cement block - M190 190 x 190 x 390mm': 19.9,
+        'Plumbing tape PTFE - 12mm x 7m': 19.9
+    },
     builders: {
         'Cement - 50kg PPC': 122.9,
         'Building sand - 1 tonne': 445,
@@ -1056,25 +1063,51 @@ const supplierPrices = {
     }
 };
 const supplierAvailability = {
+    leroymerlin: new Set(Object.keys(supplierPrices.leroymerlin)),
     builders: new Set(Object.keys(supplierPrices.builders)),
     chamberlains: new Set(Object.keys(supplierPrices.chamberlains)),
     buildit: new Set(Object.keys(supplierPrices.buildit))
 };
 const priceCheckKey = storageKey('last-price-check');
+/*
+   The reference catalogue cost is stored against this store, so the
+   "best price" cell can always name where a price came from. It is
+   the same value APS keeps in REFERENCE_SUPPLIER (APS calls its
+   reference store "plumblink"); the two apps do the same thing with
+   a different store, because the catalogues are not the same trade.
+*/
+const REFERENCE_SUPPLIER = 'builders';
+function supplierName(key) { return supplierInfo[key]?.name || 'Reference price'; }
 function getBestMaterialPrice(material) {
     if (!material.description) return { cost: getValue(material.cost), suppliers: [] };
     const baseCost = materialItem(material)?.sizes[material.size] ?? getValue(material.cost);
-    const prices = [{ supplier: 'reference', cost: baseCost }, ...Object.entries(supplierPrices).filter(([, catalogue]) => catalogue[material.description] !== undefined).map(([supplier, catalogue]) => ({ supplier, cost: catalogue[material.description] }))].filter(({ cost }) => Number.isFinite(cost) && cost > 0);
+    const prices = [{ supplier: REFERENCE_SUPPLIER, cost: baseCost }, ...Object.entries(supplierPrices).filter(([, catalogue]) => catalogue[material.description] !== undefined).map(([supplier, catalogue]) => ({ supplier, cost: catalogue[material.description] }))].filter(({ cost }) => Number.isFinite(cost) && cost > 0);
     if (!prices.length) return { cost: 0, suppliers: [] };
     const cost = Math.min(...prices.map(price => price.cost));
     return { cost, suppliers: prices.filter(price => price.cost === cost).map(price => price.supplier) };
 }
 function getSupplierCost(material) { return getBestMaterialPrice(material).cost; }
+/*
+   The label on the "Best price" cell. The number is the cheapest
+   price found across the catalogue and the stores, and the name
+   after it says WHERE that price came from, so a quote never shows
+   a bare figure the user cannot trace back to a store.
+*/
+function getMaterialSupplierLabel(material) {
+    if (!material.description) return '—';
+    const bestPrice = getBestMaterialPrice(material);
+    if (!bestPrice.suppliers.length) return 'No price match';
+    return `${currency(bestPrice.cost)} · ${bestPrice.suppliers.map(supplierName).join(', ')}`;
+}
+/*
+   Kept for callers that want the price and its store as one string
+   in a sentence, not in the best-price cell.
+*/
 function getMaterialSuppliers(material) {
     if (!material.description) return 'Select material';
     const bestPrice = getBestMaterialPrice(material);
     if (!bestPrice.suppliers.length) return 'No price match';
-    return `${currency(bestPrice.cost)} - ${bestPrice.suppliers.map(supplier => supplierInfo[supplier]?.name || 'Reference price').join(', ')}`;
+    return `${currency(bestPrice.cost)} - ${bestPrice.suppliers.map(supplierName).join(', ')}`;
 }
 function getQuantity(material) { return Math.max(1, Number(material.quantity) || 1); }
 function getMaterialArea(material) {
@@ -1259,7 +1292,7 @@ function renderMaterials() {
             <select class="material-type" aria-label="Material type"><option value="">Select type</option>${types.map(type => `<option ${material.type === type ? 'selected' : ''}>${escapeHtml(type)}</option>`).join('')}</select>
             <select class="material-size" aria-label="Material size"><option value="">Select size</option>${item ? Object.keys(item.sizes).map(size => `<option ${material.size === size ? 'selected' : ''}>${escapeHtml(size)}</option>`).join('') : ''}</select>
             <input class="material-quantity" type="number" min="1" step="1" value="${getQuantity(material)}" aria-label="Material quantity">
-        <span class="material-best-price">${material.description ? currency(getSupplierCost(material)) : '—'}</span>
+        <span class="material-best-price" title="Cheapest price and the store it was found at">${getMaterialSupplierLabel(material)}</span>
     <input class="material-markup" type="number" value="${MATERIAL_MARKUP}" aria-label="Material markup percentage" readonly>
     <span class="material-total">${currency(getEffectiveCost(material) * (1 + MATERIAL_MARKUP / 100))}</span>
       <button class="remove-material" type="button" aria-label="Remove material">×</button>
@@ -3299,7 +3332,7 @@ function loadSettings() { $('company-name').value = settings.name || ''; $('comp
     $('print-email').textContent = settings.email || 'info@agasouthafrica.co.za'; $('print-tax-number').textContent = settings.taxNumber || '105 976 616'; $('vat-rate').value = settings.vatRate ?? VAT_DEFAULT; $('quote-date').textContent = new Date().toLocaleDateString('en-ZA', { day: '2-digit', month: 'short', year: 'numeric' }); }
 
 document.querySelectorAll('.nav-item').forEach(item => item.addEventListener('click', () => switchView(item.dataset.view)));
-document.querySelectorAll('.supplier-tab').forEach(tab => tab.addEventListener('click', () => { selectedSupplier = tab.dataset.supplier; document.querySelectorAll('.supplier-tab').forEach(item => item.classList.toggle('active', item === tab)); $('supplier-source').innerHTML = `Reference prices from ${supplierInfo[selectedSupplier].name} · <a href="${supplierInfo[selectedSupplier].url}" target="_blank" rel="noopener">Open supplier ↗</a>`; renderMaterials(); }));
+document.querySelectorAll('.supplier-tab').forEach(tab => tab.addEventListener('click', () => { selectedSupplier = tab.dataset.supplier; document.querySelectorAll('.supplier-tab').forEach(item => item.classList.toggle('active', item === tab)); $('supplier-source').innerHTML = `Reference catalogue from ${supplierName(selectedSupplier)} · <a href="${supplierInfo[selectedSupplier].url}" target="_blank" rel="noopener">Open supplier ↗</a>`; renderMaterials(); }));
 document.querySelectorAll('input, textarea').forEach(input => input.addEventListener('input', () => { updateSummary(); calculate(); }));
 document.querySelector('#new-quote-view').addEventListener('input', event => { if (event.target.id !== 'amendment-reason') markQuoteAmended(); });
 document.querySelector('#new-quote-view').addEventListener('change', event => { if (event.target.id !== 'amendment-reason') markQuoteAmended(); });
