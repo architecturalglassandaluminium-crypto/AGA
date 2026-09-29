@@ -2471,7 +2471,18 @@ function formatDuration(minutes) {
     return parts.join(' ') || '-';
 }
 
+function reloadProjectsFromStorage() {
+    try {
+        const fresh = JSON.parse(localStorage.getItem(storageKey('projects')) || '[]');
+        if (Array.isArray(fresh)) {
+            projects = fresh;
+            if (loadedProjectIndex !== null && !projects[loadedProjectIndex]) loadedProjectIndex = null;
+        }
+    } catch (_) { /* keep the in-memory copy when storage is unreadable */ }
+}
+
 function newProject() {
+    reloadProjectsFromStorage();
     const project = {
         id: nextProjectNumber(),
         name: '',
@@ -3335,13 +3346,18 @@ function switchPlanningProject(index) {
     renderProjects();
 }
 
-/* Entry point for the shared three-company portfolio. */
+/* Entry point for the shared three-company portfolio. Reloads from
+   storage first: the QA script (and any other tab) can write projects
+   directly to localStorage after this frame already loaded. */
 window.openPlanningProject = function (id) {
+    reloadProjectsFromStorage();
     const index = projects.findIndex(project => String(project.id) === String(id));
     if (index < 0) return;
     switchPlanningProject(index);
     setPlanningView('single');
 };
+window.switchView = switchView;
+window.newProject = newProject;
 
 function switchView(view) { document.querySelectorAll('.nav-item').forEach(item => item.classList.toggle('active', item.dataset.view === view)); document.querySelectorAll('.view').forEach(item => item.classList.remove('active-view')); $(`${view}-view`).classList.add('active-view'); const titles = { 'new-quote': 'Quote', quotes: 'Saved quotes', 'price-list': 'Price list', settings: 'Company settings', scenarios: 'Scenarios', planning: 'Project planning' }; $('page-title').textContent = titles[view] || 'Quote'; if (view === 'price-list') renderPriceList(); if (view === 'planning') renderProjects(); }
 function loadSettings() { $('company-name').value = settings.name || ''; $('company-phone').value = settings.phone || ''; $('company-email').value = settings.email || ''; $('prepared-by').value = settings.preparedBy || ''; $('tax-number').value = settings.taxNumber || ''; $('print-prepared-by').textContent = settings.preparedBy || 'Cheyenne'; $('print-contact').textContent = settings.phone || '010 597 6616';
