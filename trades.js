@@ -115,6 +115,7 @@
         if (tradeView) {
             tradeView.hidden = true;
         }
+        if (byId("portfolio-view")) byId("portfolio-view").hidden = true;
 
         /*
            Hide every embedded frame too. The parent panel is hidden
@@ -196,6 +197,7 @@
         });
 
         tradeView.hidden = false;
+        if (byId("portfolio-view")) byId("portfolio-view").hidden = true;
         document.body.classList.add("trade-open");
     }
 
@@ -205,16 +207,21 @@
 
     function setTrade(trade) {
 
-        if (trade !== "glass" && !TRADE_APPS[trade]) {
+        if (trade !== "glass" && trade !== "portfolio" && !TRADE_APPS[trade]) {
             trade = "glass";
         }
 
         currentTrade = trade;
+        if (byId("portfolioButton")) {
+            byId("portfolioButton").classList.toggle("active", trade === "portfolio");
+            byId("portfolioButton").setAttribute("aria-pressed", trade === "portfolio" ? "true" : "false");
+        }
 
         /*
            Light up the button for the chosen trade.
         */
         byClass("trade-button").forEach(function (button) {
+            if (!button.dataset.trade) return;
             var isActive = button.dataset.trade === trade;
             button.classList.toggle("active", isActive);
             button.setAttribute(
@@ -225,6 +232,16 @@
 
         if (trade === "glass") {
             showGlass();
+        } else if (trade === "portfolio") {
+            glassRegions().forEach(function (el) {
+                el.hidden = true;
+                el.style.display = "none";
+            });
+            if (byId("trade-view")) byId("trade-view").hidden = true;
+            Object.keys(frames).forEach(function (key) { frames[key].hidden = true; });
+            if (byId("portfolio-view")) byId("portfolio-view").hidden = false;
+            document.body.classList.remove("trade-open");
+            if (typeof window.renderPortfolio === "function") window.renderPortfolio();
         } else {
             showTrade(trade);
         }
@@ -254,7 +271,7 @@
             saved = null;
         }
 
-        if (saved && (saved === "glass" || TRADE_APPS[saved])) {
+        if (saved && (saved === "glass" || saved === "portfolio" || TRADE_APPS[saved])) {
             setTrade(saved);
         }
     }
@@ -266,10 +283,14 @@
     function init() {
 
         byClass("trade-button").forEach(function (button) {
+            if (!button.dataset.trade) return;
             button.addEventListener("click", function () {
                 setTrade(button.dataset.trade);
             });
         });
+        if (byId("portfolioButton")) {
+            byId("portfolioButton").addEventListener("click", function () { setTrade("portfolio"); });
+        }
 
         restoreTrade();
     }

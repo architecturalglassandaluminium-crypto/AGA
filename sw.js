@@ -11,7 +11,7 @@
    Bump this whenever the app shell changes. It is the signal to
    every installed browser that its cached copy is obsolete.
 */
-const CACHE_NAME = "aga-shell-v23";
+const CACHE_NAME = "aga-shell-v24";
 
 /* The app shell: everything needed to boot the UI offline. */
 const APP_SHELL = [
@@ -34,6 +34,7 @@ const APP_SHELL = [
     "./quotes.js",
     "./export.js",
     "./trades.js",
+    "./portfolio.js",
     "./favicon.png",
     /* Letterhead art, so a worksheet can still be printed offline. */
     "./logo.png",

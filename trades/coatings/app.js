@@ -65,6 +65,15 @@ settings.phone ||= '010 597 6616';
 settings.email ||= 'info@agasouthafrica.co.za';
 settings.taxNumber ||= '105 976 616';
 let quotes = JSON.parse(localStorage.getItem(storageKey('quotes')) || '[]');
+/* Keep APC project plans separate from APS, even on the same origin. */
+let projects = JSON.parse(localStorage.getItem(storageKey('projects')) || '[]');
+let loadedProjectIndex = null;
+const PROJECT_STAGES = ['Not started', 'Scheduled', 'In progress', 'Blocked', 'Done'];
+const PROJECT_STATUS_LABELS = {
+    planning: 'Planning', scheduled: 'Scheduled', 'in-progress': 'In progress',
+    'on-hold': 'On hold', complete: 'Complete'
+};
+const planningTasks = () => [];
 /* =========================================================
    MATERIAL CATALOGUE
    ---------------------------------------------------------
@@ -3326,6 +3335,13 @@ function switchPlanningProject(index) {
     renderProjects();
 }
 
+/* Entry point for the shared three-company portfolio. */
+window.openPlanningProject = function (id) {
+    const index = projects.findIndex(project => String(project.id) === String(id));
+    if (index < 0) return;
+    switchPlanningProject(index);
+    setPlanningView('single');
+};
 
 function switchView(view) { document.querySelectorAll('.nav-item').forEach(item => item.classList.toggle('active', item.dataset.view === view)); document.querySelectorAll('.view').forEach(item => item.classList.remove('active-view')); $(`${view}-view`).classList.add('active-view'); const titles = { 'new-quote': 'Quote', quotes: 'Saved quotes', 'price-list': 'Price list', settings: 'Company settings', scenarios: 'Scenarios', planning: 'Project planning' }; $('page-title').textContent = titles[view] || 'Quote'; if (view === 'price-list') renderPriceList(); if (view === 'planning') renderProjects(); }
 function loadSettings() { $('company-name').value = settings.name || ''; $('company-phone').value = settings.phone || ''; $('company-email').value = settings.email || ''; $('prepared-by').value = settings.preparedBy || ''; $('tax-number').value = settings.taxNumber || ''; $('print-prepared-by').textContent = settings.preparedBy || 'Cheyenne'; $('print-contact').textContent = settings.phone || '010 597 6616';

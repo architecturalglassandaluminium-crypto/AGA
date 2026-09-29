@@ -64,6 +64,7 @@
                         Construction (APC)
                     </button>
                 </div>
+                <button type="button" id="portfolioButton" class="trade-button portfolio-button" aria-pressed="false">All company projects</button>
                 <span id="syncBadge" class="sync-badge sync-offline" title="Sync status">Offline only</span>
                 <button type="button" class="signout-button" id="signOutButton" hidden>
                     Sign out
@@ -1107,6 +1108,25 @@
         <div id="tradeFrameHolder" class="trade-frame-holder"></div>
     </section>
 
+    <section id="portfolio-view" class="portfolio-view" hidden aria-labelledby="portfolioTitle">
+        <div class="portfolio-heading">
+            <div>
+                <h2 id="portfolioTitle">All company projects</h2>
+                <p>AGA glass, APS plumbing and APC construction in one place. Open a project to manage its work in the company app.</p>
+                <small>APS and APC plans are saved on this device; AGA projects use the existing AGA sync.</small>
+            </div>
+            <button type="button" class="secondary-button" id="portfolioRefresh">Refresh</button>
+        </div>
+        <div class="portfolio-totals" id="portfolioTotals" aria-live="polite"></div>
+        <div class="portfolio-toolbar">
+            <label>Company <select id="portfolioCompany"><option value="all">All companies</option><option value="glass">AGA · Glass &amp; Aluminium</option><option value="plumbing">APS · Plumbing</option><option value="coatings">APC · Construction</option></select></label>
+            <label>Status <select id="portfolioStatus"><option value="all">All statuses</option><option value="active">Active</option><option value="overdue">Overdue</option><option value="complete">Complete</option></select></label>
+            <label>Search <input type="search" id="portfolioSearch" placeholder="Project, customer, site or number"></label>
+        </div>
+        <div class="portfolio-actions" id="portfolioActions"></div>
+        <div class="portfolio-list" id="portfolioList" aria-live="polite"></div>
+    </section>
+
     <!-- QUOTE PRINT SHEET -->
     <div id="quotePrintSheet" class="print-only"></div>
 
@@ -1453,6 +1473,7 @@
        that the scripts above build, so it must run after them.
     -->
     <script src="trades.js"></script>
+    <script src="portfolio.js"></script>
 </body>
 
 </html>

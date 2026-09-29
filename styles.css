@@ -6843,3 +6843,36 @@ body.trade-open {
         height: calc(100vh - 108px);
     }
 }
+/* Three-company project portfolio */
+.portfolio-button { border: 1px solid rgba(255,255,255,.4); }
+.portfolio-view { max-width: 1280px; margin: 0 auto; padding: 32px 24px 64px; }
+.portfolio-heading { display: flex; justify-content: space-between; align-items: start; gap: 24px; margin-bottom: 24px; }
+.portfolio-heading h2 { font-size: 28px; color: var(--primary-dark); }
+.portfolio-heading p { color: var(--text-light); margin: 6px 0; }
+.portfolio-heading small { color: var(--text-light); }
+.portfolio-totals { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14px; margin-bottom: 20px; }
+.portfolio-stat, .portfolio-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow-xs); }
+.portfolio-stat { padding: 16px 20px; display: flex; flex-direction: column; }
+.portfolio-stat strong { font-size: 28px; color: var(--primary); }
+.portfolio-stat span { color: var(--text-light); }
+.portfolio-toolbar { display: flex; flex-wrap: wrap; gap: 14px; margin-bottom: 16px; }
+.portfolio-toolbar label { display: flex; flex-direction: column; gap: 5px; font-weight: 600; min-width: 190px; flex: 1; }
+.portfolio-toolbar input, .portfolio-toolbar select { width: 100%; padding: 9px 12px; border: 1px solid var(--border-dark); border-radius: var(--radius-sm); background: white; color: var(--text); }
+.portfolio-actions { display: flex; flex-wrap: wrap; gap: 10px; margin: 20px 0; }
+.portfolio-list { display: grid; gap: 14px; }
+.portfolio-card { padding: 20px; }
+.portfolio-card-heading { display: flex; justify-content: space-between; align-items: start; gap: 12px; }
+.portfolio-card-heading small { color: var(--text-light); font-weight: 700; }
+.portfolio-card h3 { margin: 3px 0 14px; overflow-wrap: anywhere; }
+.portfolio-badge { padding: 4px 12px; background: var(--accent-soft); color: var(--primary); border-radius: 999px; white-space: nowrap; }
+.portfolio-badge.is-overdue { background: var(--danger-soft); color: var(--danger); }
+.portfolio-meta { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px 18px; color: var(--text-light); margin-bottom: 16px; overflow-wrap: anywhere; }
+.portfolio-empty { padding: 28px; background: white; border-radius: var(--radius); text-align: center; }
+.portfolio-view[hidden] { display: none; }
+@media (max-width: 700px) {
+    .portfolio-view { padding: 20px 14px; }
+    .portfolio-heading { flex-direction: column; }
+    .portfolio-totals { grid-template-columns: repeat(2, 1fr); }
+    .portfolio-meta { grid-template-columns: 1fr 1fr; }
+}
+@media print { .portfolio-view { display: none !important; } }
