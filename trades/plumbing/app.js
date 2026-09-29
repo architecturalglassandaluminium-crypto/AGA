@@ -1179,8 +1179,12 @@ function persistProjects() {
 
 function nextProjectNumber() { return `PR-${new Date().getFullYear()}-${String(projects.length + 1).padStart(3, '0')}`; }
 
+/* A task's site-work fields. dependsOn holds 1-based row numbers of the
+   tasks that must finish first (kept as text so a half-typed list
+   survives a re-render); resources lists materials, equipment and
+   access needs; notes records delays, changes and revised dates. */
 function emptyPlanningTask(source = 'Manual') {
-    return { source, task: '', quantity: 1, duration: 0, days: 0, daysOverridden: false, quoteId: '', start: '', startPinned: false, finish: '', owner: '', stage: 'Not started' };
+    return { source, task: '', quantity: 1, duration: 0, days: 0, daysOverridden: false, quoteId: '', start: '', startPinned: false, finish: '', owner: '', dependsOn: '', resources: '', notes: '', stage: 'Not started' };
 }
 
 /* ============================ TASK DURATIONS ============================
@@ -1644,6 +1648,44 @@ function reloadProjectsFromStorage() {
     } catch (_) { /* keep the in-memory copy when storage is unreadable */ }
 }
 
+/*
+   SITE DIARY - date-stamped daily comments on a task.
+
+   A plan on paper is out of date the moment it is printed; the diary is
+   what carries the reality of the site day by day, and it travels onto
+   the printed sheet so a foreman's comments reach the office.
+
+   Kept on each TASK (item.diary = [{date, text}]) rather than on the
+   project: a comment usually belongs to one line of work, and printing
+   puts the task's own diary under that task where it is read.
+*/
+function addDiaryEntry(rowIndex) {
+    const project = loadedProjectIndex !== null ? projects[loadedProjectIndex] : null;
+    const item = project && Array.isArray(project.items) ? project.items[rowIndex] : null;
+    if (!item) return;
+    /* The diary block is a SIBLING of its .planning-row, not a child, so the
+       input is found beside the row at the same data-index, not inside it. */
+    const input = document.querySelector(`.planning-diary[data-index="${rowIndex}"] .planning-diary-input`);
+    const text = input ? input.value.trim() : '';
+    if (!text) { showToast('Type a diary note first'); return; }
+    const date = new Date().toISOString().slice(0, 10);
+    if (!Array.isArray(item.diary)) item.diary = [];
+    item.diary.push({ date, text });
+    item.diary.sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0));
+    persistProjects();
+    renderPlanningList();
+    showToast(`Diary note added for ${date}`);
+}
+
+function removeDiaryEntry(rowIndex, entryIndex) {
+    const project = loadedProjectIndex !== null ? projects[loadedProjectIndex] : null;
+    const item = project && Array.isArray(project.items) ? project.items[rowIndex] : null;
+    if (!item || !Array.isArray(item.diary)) return;
+    item.diary.splice(entryIndex, 1);
+    persistProjects();
+    renderPlanningList();
+}
+
 function newProject() {
     reloadProjectsFromStorage();
     const project = {
@@ -1722,7 +1764,10 @@ function saveProject() {
 function collectPlanningList() {
     const project = projects[loadedProjectIndex];
     if (!project) return;
-    project.items = [...document.querySelectorAll('#planning-list .planning-row')].map(row => ({
+    /* The task rows and their diary blocks alternate in #planning-list; each
+       row keeps its own previous diary so a re-render never loses notes. */
+    const previous = new Map(project.items.map((item, index) => [index, item.diary]));
+    project.items = [...document.querySelectorAll('#planning-list .planning-row')].map((row, rowIndex) => ({
         source: row.dataset.source || 'Manual',
         task: row.querySelector('.planning-task').value.trim(),
         quantity: Math.max(1, Number(row.querySelector('.planning-quantity').value) || 1),
@@ -1740,6 +1785,10 @@ function collectPlanningList() {
         startPinned: row.dataset.startPinned === 'true',
         finish: row.querySelector('.planning-finish').value,
         owner: row.querySelector('.planning-owner').value.trim(),
+        dependsOn: row.querySelector('.planning-depends').value.trim(),
+        resources: row.querySelector('.planning-resources').value.trim(),
+        notes: row.querySelector('.planning-notes').value.trim(),
+        diary: previous.get(rowIndex) || [],
         stage: row.querySelector('.planning-stage').value
     }));
     /*
@@ -1747,7 +1796,7 @@ function collectPlanningList() {
        including time. Keeping rows that hold just a date or a time matters
        because a half-filled plan must survive a re-render.
     */
-    project.items = project.items.filter(item => item.task || item.owner || item.start || item.finish || item.duration);
+    project.items = project.items.filter(item => item.task || item.owner || item.start || item.finish || item.duration || item.dependsOn || item.resources || item.notes);
 }
 
 /*
@@ -2320,8 +2369,15 @@ function renderPlanningList() {
             <span class="planning-duration-label" title="${minutes} minutes">${describeDays(minutes)}</span>
             <input class="planning-finish" type="date" value="${escapeHtml(item.finish || finish || '')}" aria-label="Finish date for task ${index + 1}" title="Calculated from the start date and duration">
             <input class="planning-owner" type="text" value="${escapeHtml(item.owner || '')}" placeholder="Who / crew" aria-label="Owner for task ${index + 1}">
+            <input class="planning-depends" type="text" inputmode="numeric" value="${escapeHtml(item.dependsOn || '')}" placeholder="After #" aria-label="Depends on task numbers for task ${index + 1}" title="Row numbers that must finish first, e.g. 1, 2">
+            <input class="planning-resources" type="text" value="${escapeHtml(item.resources || '')}" placeholder="Materials, plant, access" aria-label="Resources for task ${index + 1}">
+            <input class="planning-notes" type="text" value="${escapeHtml(item.notes || '')}" placeholder="Delays, changes" aria-label="Plan updates for task ${index + 1}" title="Delays, changes and revised dates">
             ${stageOptions(item.stage || 'Not started', item.task || 'task')}
             <button class="remove-material planning-remove" type="button" aria-label="Remove task ${index + 1}">×</button>
+        </div>
+        <div class="planning-diary" data-index="${index}">
+            ${Array.isArray(item.diary) && item.diary.length ? `<div class="planning-diary-entries">${item.diary.map((entry, entryIndex) => `<div class="planning-diary-entry"><b>${escapeHtml(entry.date)}</b><span>${escapeHtml(entry.text)}</span><button class="planning-diary-remove" type="button" data-row="${index}" data-entry="${entryIndex}" aria-label="Remove diary note ${entryIndex + 1}">×</button></div>`).join('')}</div>` : ''}
+            <div class="planning-diary-add"><input class="planning-diary-input" type="text" placeholder="Daily comment" aria-label="Diary note for task ${index + 1}"><button class="planning-diary-button" type="button" data-row="${index}" title="Add a dated diary note">+ Note</button></div>
         </div>`;
     }).join('');
     $('planning-empty').hidden = items.length > 0;
@@ -2345,6 +2401,10 @@ function renderPlanningList() {
         renderPlanningList();
         renderPlanningProgress();
     }));
+    /* Site diary: add a dated comment, remove one. The handlers live on the
+       re-rendered diary rows, so they are re-bound on every render. */
+    document.querySelectorAll('.planning-diary-button').forEach(button => button.addEventListener('click', () => addDiaryEntry(Number(button.dataset.row))));
+    document.querySelectorAll('.planning-diary-remove').forEach(button => button.addEventListener('click', () => removeDiaryEntry(Number(button.dataset.row), Number(button.dataset.entry))));
     /*
        Editing a field updates the stored row and the derived cells IN PLACE.
        A full re-render here would rebuild every row from stored state and
@@ -2496,19 +2556,6 @@ function switchPlanningProject(index) {
     renderProjects();
 }
 
-/* Entry point for the shared three-company portfolio. Reloads from
-   storage first: the QA script (and any other tab) can write projects
-   directly to localStorage after this frame already loaded. */
-window.openPlanningProject = function (id) {
-    reloadProjectsFromStorage();
-    const index = projects.findIndex(project => String(project.id) === String(id));
-    if (index < 0) return;
-    switchPlanningProject(index);
-    setPlanningView('single');
-};
-window.switchView = switchView;
-window.newProject = newProject;
-
 function switchView(view) { document.querySelectorAll('.nav-item').forEach(item => item.classList.toggle('active', item.dataset.view === view)); document.querySelectorAll('.view').forEach(item => item.classList.remove('active-view')); $(`${view}-view`).classList.add('active-view'); const titles = { 'new-quote': 'Quote', quotes: 'Saved quotes', 'price-list': 'Price list', settings: 'Company settings', scenarios: 'Scenarios', planning: 'Project planning' }; $('page-title').textContent = titles[view] || 'Quote'; if (view === 'price-list') renderPriceList(); if (view === 'planning') renderProjects(); }
 function loadSettings() { $('company-name').value = settings.name || ''; $('company-phone').value = settings.phone || ''; $('company-email').value = settings.email || ''; $('prepared-by').value = settings.preparedBy || ''; $('tax-number').value = settings.taxNumber || ''; $('print-prepared-by').textContent = settings.preparedBy || 'Cheyenne'; $('print-contact').textContent = settings.phone || '076 705 8718'; $('print-email').textContent = settings.email || 'architecturalplumbingservices@gmail.com'; $('print-tax-number').textContent = settings.taxNumber || '105 976 616'; $('vat-rate').value = settings.vatRate ?? VAT_DEFAULT; $('quote-date').textContent = new Date().toLocaleDateString('en-ZA', { day: '2-digit', month: 'short', year: 'numeric' }); }
 
@@ -2565,10 +2612,25 @@ $('delete-project').addEventListener('click', () => {
     deleteProject();
 });
 $('save-project').addEventListener('click', saveProject);
+/* Print the plan with its diary: the browser's print dialog, driven after
+   the latest edits on screen are written back to the project. */
+$('print-plan').addEventListener('click', () => {
+    if (loadedProjectIndex === null || !projects[loadedProjectIndex]) { showToast('Open a project to print'); return; }
+    collectPlanningList();
+    Object.assign(projects[loadedProjectIndex], collectProjectForm());
+    persistProjects();
+    window.print();
+});
 $('add-quote-items').addEventListener('click', addQuoteItemsToProject);
 $('auto-plan-project').addEventListener('click', autoPlanProject);
 $('add-planning-task').addEventListener('click', () => {
-    if (loadedProjectIndex === null) { showToast('Create or open a project first'); return; }
+    /* If no project is open or created yet, start one automatically so adding
+       a task directly on an empty board immediately gives the user a workspace
+       (exactly like saveProject does when no project exists). */
+    if (loadedProjectIndex === null || !projects[loadedProjectIndex]) {
+        if (!projects.length) newProject();
+        if (loadedProjectIndex === null) return;
+    }
     collectPlanningList();
     /*
        Append without sequencing. The new row is blank, so it has no place in
@@ -2597,4 +2659,19 @@ $('save-settings').addEventListener('click', () => { settings = { name: $('compa
 loadSettings(); resetForm(); renderSavedQuotes(); renderPriceList(); updatePriceCheckStatus();
 if (projects.length) loadedProjectIndex = 0;
 setPlanningView('overview');
+/* Entry points for the shared three-company portfolio. Assigned AFTER the
+   function declarations above (not before them): assigning window.switchView
+   earlier evaluated switchView before its function body ran, which threw
+   and aborted the whole script - no window functions existed at all.
+   reload on entry: another tab or script can write projects to
+   localStorage after this frame already booted. */
+window.openPlanningProject = function openPlanningProject(id) {
+    reloadProjectsFromStorage();
+    const index = projects.findIndex(project => String(project.id) === String(id));
+    if (index < 0) return;
+    switchPlanningProject(index);
+    setPlanningView('single');
+};
+window.switchView = switchView;
+window.newProject = newProject;
 if ('serviceWorker' in navigator) navigator.serviceWorker.register('service-worker.js').catch(() => { });
