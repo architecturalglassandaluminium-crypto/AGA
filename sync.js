@@ -154,6 +154,13 @@ function enqueue(change) {
     queue.push({
         id: `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`,
         at: new Date().toISOString(),
+        /*
+           How many times this change has been attempted. Bounded
+           by MAX_SYNC_ATTEMPTS so one change that can never
+           succeed is parked in the failed log rather than
+           retried for the life of the device.
+        */
+        attempts: 0,
         ...change
     });
 
@@ -169,6 +176,119 @@ function pendingChangeCount() {
 }
 
 window.pendingChangeCount = pendingChangeCount;
+
+/* =========================================================
+   FAILED CHANGES
+   ---------------------------------------------------------
+   A change that has been attempted MAX_SYNC_ATTEMPTS times is
+   moved here instead of being retried forever. Nothing is
+   deleted: the failed log is a real record the user can read,
+   which is what makes moving a change out of the queue safe.
+   ========================================================= */
+
+const SYNC_FAILED_KEY = "aga_sync_failed";
+
+/* How many attempts a stuck change gets before it is parked. */
+const MAX_SYNC_ATTEMPTS = 5;
+
+/* Kept small so a device that cannot sync for months does not
+   fill its storage with the same record over and over. */
+const MAX_FAILED_LOG = 100;
+
+function getFailedChanges() {
+
+    try {
+        const raw = localStorage.getItem(SYNC_FAILED_KEY);
+
+        if (!raw) {
+            return [];
+        }
+
+        const parsed = JSON.parse(raw);
+
+        return Array.isArray(parsed) ? parsed : [];
+
+    } catch (error) {
+        console.error("AGA: could not read the failed sync log:", error);
+        return [];
+    }
+}
+
+function saveFailedChanges(failed) {
+
+    try {
+        localStorage.setItem(SYNC_FAILED_KEY, JSON.stringify(failed));
+        return true;
+    } catch (error) {
+        /*
+           A full storage must not stop the queue draining, so a
+           failure to record is logged and swallowed. The change
+           has already been dropped from the queue at this point,
+           which is why parking is only done after the log write
+           succeeds in noteFailedChange() below.
+        */
+        console.error("AGA: could not save the failed sync log:", error);
+        return false;
+    }
+}
+
+/*
+   Move one change from the queue into the failed log.
+
+   Bounded and newest-kept: when the log is full the oldest
+   entries are dropped. Returns true only when the change was
+   actually recorded, so the caller can keep it queued rather
+   than lose it.
+*/
+function noteFailedChange(change, reason) {
+
+    const failed = getFailedChanges();
+
+    failed.push({
+        id: change.id || "",
+        type: change.type || "unknown",
+        at: change.at || "",
+        failedAt: new Date().toISOString(),
+        attempts: Number(change.attempts || 0),
+        reason: reason || "unknown",
+        /* Enough to identify the change on screen without holding
+           the whole project (which can carry photos). */
+        windowId: change.windowId || "",
+        projectId: change.projectId || "",
+        status: change.status || ""
+    });
+
+    while (failed.length > MAX_FAILED_LOG) {
+        failed.shift();
+    }
+
+    return saveFailedChanges(failed);
+}
+
+function clearFailedChanges() {
+
+    try {
+        localStorage.removeItem(SYNC_FAILED_KEY);
+        return true;
+    } catch (error) {
+        console.error("AGA: could not clear the failed sync log:", error);
+        return false;
+    }
+}
+
+function failedChangeCount() {
+
+    return getFailedChanges().length;
+}
+
+/*
+   Exposed so the sync badge and any diagnostics screen can show
+   what could not be uploaded, and so a user can acknowledge it
+   once they have seen it.
+*/
+window.getFailedChanges = getFailedChanges;
+window.clearFailedChanges = clearFailedChanges;
+window.failedChangeCount = failedChangeCount;
 
 /* =========================================================
    SYNC STATE (for the on-screen indicator)
@@ -238,8 +358,26 @@ function updateSyncIndicator() {
 
     if (currentSyncState === SYNC_STATE.error) {
         badge.className = "sync-badge sync-error";
-        badge.textContent = "Not saved";
-        badge.title = lastSyncError || "Some changes could not be uploaded.";
+
+        /*
+           Parked changes are the ones the user needs to know
+           about, because they will not retry themselves. Say how
+           many there are and where to look, rather than repeating
+           the last error over a queue that is still moving.
+        */
+        const failed = failedChangeCount();
+
+        badge.textContent = failed
+            ? `${failed} could not save`
+            : "Not saved";
+
+        badge.title = failed
+            ? `${failed} change${failed === 1 ? "" : "s"} could not be ` +
+              "uploaded and will not retry. " +
+              (lastSyncError || "") +
+              " See getFailedChanges() in the console for the list."
+            : (lastSyncError || "Some changes could not be uploaded.");
+
         return;
     }
 
@@ -247,6 +385,23 @@ function updateSyncIndicator() {
         badge.className = "sync-badge sync-pending";
         badge.textContent = `${pending} to save`;
         badge.title = "Waiting to upload. This happens automatically.";
+        return;
+    }
+
+    /*
+       Nothing waiting, but something was parked earlier. Keep
+       saying so - otherwise a failure the user never saw scrolls
+       past and the badge says "Saved" over data that is not.
+    */
+    const parked = failedChangeCount();
+
+    if (parked) {
+        badge.className = "sync-badge sync-error";
+        badge.textContent = `${parked} could not save`;
+        badge.title =
+            `${parked} change${parked === 1 ? "" : "s"} could not be ` +
+            "uploaded and will not retry. Everything else is saved. " +
+            "See getFailedChanges() in the console for the list.";
         return;
     }
 
@@ -640,7 +795,99 @@ async function uploadEmployee(employeeId) {
 
 window.uploadEmployee = uploadEmployee;
 
-async function uploadStatusChange(windowId, status, employeeId, employeeName) {
+/*
+   What the server currently holds for one window.
+
+   Used by the optimistic-concurrency check below: everything we
+   send that changes a window has to be based on the revision we
+   last saw, so a change built on a stale copy can be refused
+   instead of silently overwriting whoever wrote first.
+
+   Returns null when the window cannot be read - a network
+   failure or a window this device cannot see. The caller treats
+   that as "do not write", never as "go ahead".
+*/
+async function readWindowRevision(windowId) {
+
+    const client = getSupabase();
+
+    if (!client) {
+        return null;
+    }
+
+    const res = await client
+        .from("windows")
+        .select("revision")
+        .eq("id", windowId)
+        .maybeSingle();
+
+    if (res.error) {
+        console.error("AGA: could not read window revision:", res.error.message);
+
+        return null;
+    }
+
+    if (!res.data) {
+        return null;
+    }
+
+    /*
+       Number() because Postgres hands back an integer either as a
+       number or as a string depending on the driver, and the
+       revision is compared with === below.
+    */
+    return Number(res.data.revision || 1);
+}
+
+/*
+   The optimistic-concurrency guard, in one place.
+
+   Reads the server's revision, and returns a refusal when it has
+   moved on from the one this change was based on. Returns ok:true
+   with the current revision when the caller may proceed.
+
+   A failure to read is reported as a retryable error rather than
+   a conflict: an offline phone must not be told it has lost an
+   edit it never made.
+*/
+async function checkWindowRevision(windowId, baseRevision) {
+
+    const currentRevision = await readWindowRevision(windowId);
+
+    if (currentRevision === null) {
+        return { ok: false, reason: "revision-unreadable" };
+    }
+
+    /*
+       No base revision recorded means the change was queued
+       before this guard existed. Accept it, and let the next
+       change carry a revision.
+    */
+    if (baseRevision === undefined || baseRevision === null) {
+        return { ok: true, revision: currentRevision };
+    }
+
+    if (Number(baseRevision) !== currentRevision) {
+        return {
+            ok: false,
+            conflict: true,
+            reason:
+                "Someone else updated this item first. Your change is " +
+                "kept and will not overwrite theirs.",
+            revision: currentRevision
+        };
+    }
+
+    return { ok: true, revision: currentRevision };
+}
+
+async function uploadStatusChange(
+    windowId,
+    status,
+    employeeId,
+    employeeName,
+    baseRevision
+) {
 
     const client = getSupabase();
 
@@ -655,17 +902,38 @@ async function uploadStatusChange(windowId, status, employeeId, employeeName) {
     }
 
     /*
+       Refuse the write when another phone has moved this window
+       on since our copy was made. Checked here, before anything
+       is sent, so a stale change cannot land and cannot write a
+       misleading status_history row either.
+    */
+    const guard = await checkWindowRevision(windowId, baseRevision);
+
+    if (!guard.ok) {
+        return guard.conflict
+            ? { ok: false, conflict: true, reason: guard.reason }
+            : { ok: false, reason: guard.reason };
+    }
+
+    /*
        Only the columns this change actually touches are sent, so
        two phones updating different windows - or different fields
        of the same window - cannot fight.
+
+       The revision predicate makes that guarantee real: the write
+       lands only while the server still holds the revision we
+       read, and bumps it by one so the next change has to match.
     */
     const windowRes = await client
         .from("windows")
         .update({
             status,
-            updated_at: new Date().toISOString()
+            updated_at: new Date().toISOString(),
+            revision: guard.revision + 1
         })
-        .eq("id", windowId);
+        .eq("id", windowId)
+        .eq("workshop_id", workshopId)
+        .eq("revision", guard.revision);
 
     if (windowRes.error) {
         return { ok: false, reason: windowRes.error.message };
@@ -723,12 +991,27 @@ async function uploadActivity(entry) {
     return { ok: true };
 }
 
-async function uploadAllocation(windowId, employeeId, employeeName) {
+async function uploadAllocation(windowId, employeeId, employeeName, baseRevision) {
 
     const client = getSupabase();
 
     if (!client) {
         return { ok: false, reason: "not-configured" };
+    }
+
+    const workshopId = await getWorkshopId();
+
+    if (!workshopId) {
+        return { ok: false, reason: "no-workshop" };
+    }
+
+    /* Allocating and setting a status must obey the same rule. */
+    const guard = await checkWindowRevision(windowId, baseRevision);
+
+    if (!guard.ok) {
+        return guard.conflict
+            ? { ok: false, conflict: true, reason: guard.reason }
+            : { ok: false, reason: guard.reason };
     }
 
     const res = await client
@@ -737,9 +1020,12 @@ async function uploadAllocation(windowId, employeeId, employeeName) {
             allocated_to_id: employeeId || null,
             allocated_to: employeeName || "",
             allocated_at: employeeId ? new Date().toISOString() : null,
-            updated_at: new Date().toISOString()
+            updated_at: new Date().toISOString(),
+            revision: guard.revision + 1
         })
-        .eq("id", windowId);
+        .eq("id", windowId)
+        .eq("workshop_id", workshopId)
+        .eq("revision", guard.revision);
 
     if (res.error) {
         return { ok: false, reason: res.error.message };
@@ -807,7 +1093,8 @@ async function flushSyncQueue() {
                     change.windowId,
                     change.status,
                     change.employeeId,
-                    change.employeeName
+                    change.employeeName,
+                    change.baseRevision
                 );
 
             } else if (change.type === "activity") {
@@ -817,7 +1104,8 @@ async function flushSyncQueue() {
                 result = await uploadAllocation(
                     change.windowId,
                     change.employeeId,
-                    change.employeeName
+                    change.employeeName,
+                    change.baseRevision
                 );
 
             } else {
@@ -828,12 +1116,82 @@ async function flushSyncQueue() {
 
             if (!result.ok) {
 
+                if (result.conflict) {
+
+                    /*
+                       The revision moved on, so this change was
+                       built on a copy the server no longer holds.
+
+                       It is parked straight away rather than
+                       retried: retrying would only produce the same
+                       conflict for ever, and the newest server copy
+                       will arrive on the next pull. It is written
+                       to the failed log, so the dropped change
+                       stays readable. If the log itself cannot be
+                       written the change stays queued instead of
+                       being lost.
+                    */
+                    console.warn(
+                        "AGA: queued change conflicts with a newer copy:",
+                        change.type,
+                        change.windowId || change.projectId || ""
+                    );
+
+                    if (noteFailedChange(change, result.reason)) {
+                        setSyncState(SYNC_STATE.error, result.reason);
+                    } else {
+                        remaining.push(change);
+                    }
+
+                    continue;
+                }
+
+                /*
+                   Count the attempt before deciding what to do
+                   with it. A change that keeps failing on the same
+                   cause - a project deleted server-side, a
+                   constraint the server will never accept - would
+                   otherwise be retried every 30 seconds for the
+                   life of the device.
+                */
+                const attempts = Number(change.attempts || 0) + 1;
+
+                if (attempts >= MAX_SYNC_ATTEMPTS) {
+
+                    /*
+                       Give up on this one and park it. The failed
+                       log is written FIRST: only when the record is
+                       safely stored is it dropped from the queue.
+                       Nothing is discarded without a trace.
+                    */
+                    console.warn(
+                        "AGA: change failed too many times, parking it:",
+                        change.type,
+                        result.reason
+                    );
+
+                    if (noteFailedChange(
+                        Object.assign({}, change, { attempts }),
+                        result.reason
+                    )) {
+                        setSyncState(SYNC_STATE.error, result.reason);
+                    } else {
+                        remaining.push(
+                            Object.assign({}, change, { attempts })
+                        );
+                    }
+
+                    continue;
+                }
+
                 /*
                    Keep the change for a later attempt. A record is
                    never silently discarded - the badge shows the
                    backlog so the user knows.
                 */
-                remaining.push(change);
+                remaining.push(
+                    Object.assign({}, change, { attempts })
+                );
 
                 setSyncState(SYNC_STATE.error, result.reason);
             }

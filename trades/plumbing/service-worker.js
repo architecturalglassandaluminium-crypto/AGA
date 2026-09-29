@@ -1,9 +1,10 @@
 /* Bump this whenever a cached file changes, or phones keep the old copy. */
-const CACHE_NAME = 'aps-v12';
+const CACHE_NAME = 'aps-v13';
 const APP_FILES = [
     './',
     './index.html',
     './styles.css',
+    '../shared-trade-layout.css',
     './config.js',
     './app.js',
     './manifest.json',

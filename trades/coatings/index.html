@@ -13,6 +13,14 @@
     <link rel="apple-touch-icon" href="APClogo.jpg">
     <link rel="stylesheet" href="styles.css">
 
+    <!--
+         Shared APS/APC layout, loaded AFTER styles.css so it wins:
+         the menu runs horizontally across the top, text boxes are
+         larger, and text wraps instead of being clipped.
+         See the comment block at the top of the file.
+    -->
+    <link rel="stylesheet" href="../shared-trade-layout.css?v=4">
+
     <title>APC Architectural Performance Coatings — Quote Calculator</title>
 </head>
 
@@ -269,16 +277,20 @@
                             </div>
 
 
-                            <div class="labour-headings" aria-hidden="true">
-                                <span>Line item</span>
-                                <span>Unit</span>
-                                <span>Qty</span>
-                                <span>Cost / day</span>
-                                <span>Total</span>
+                            <div class="table-scroll">
+
+                                <div class="labour-headings" aria-hidden="true">
+                                    <span>Line item</span>
+                                    <span>Unit</span>
+                                    <span>Qty</span>
+                                    <span>Cost / day</span>
+                                    <span>Total</span>
+                                </div>
+
+
+                                <div class="labour-list" id="labour-list"></div>
+
                             </div>
-
-
-                            <div class="labour-list" id="labour-list"></div>
 
 
                             <div class="inline-total">
@@ -381,20 +393,24 @@
 
                             <!-- MATERIAL HEADINGS -->
 
-                            <div class="material-headings" aria-hidden="true">
-                                <span>Category</span>
-                                <span>Sub-group</span>
-                                <span>Material</span>
-                                <span>Size</span>
-                                <span>Qty</span>
-                                <span>Best price (store)</span>
-                                <span>Markup</span>
-                                <span>Total</span>
-                                <span></span>
+                            <div class="table-scroll">
+
+                                <div class="material-headings" aria-hidden="true">
+                                    <span>Category</span>
+                                    <span>Sub-group</span>
+                                    <span>Material</span>
+                                    <span>Size</span>
+                                    <span>Qty</span>
+                                    <span>Best price (store)</span>
+                                    <span>Markup</span>
+                                    <span>Total</span>
+                                    <span></span>
+                                </div>
+
+
+                                <div class="material-list" id="material-list"></div>
+
                             </div>
-
-
-                            <div class="material-list" id="material-list"></div>
 
 
                             <div class="material-empty" id="material-empty">
@@ -530,18 +546,22 @@
                             </p>
 
 
-                            <div class="material-headings service-headings" aria-hidden="true">
-                                <span>Category</span>
-                                <span>Task</span>
-                                <span>Unit</span>
-                                <span>Qty</span>
-                                <span>Rate</span>
-                                <span>Total</span>
-                                <span></span>
+                            <div class="table-scroll">
+
+                                <div class="material-headings service-headings" aria-hidden="true">
+                                    <span>Category</span>
+                                    <span>Task</span>
+                                    <span>Unit</span>
+                                    <span>Qty</span>
+                                    <span>Rate</span>
+                                    <span>Total</span>
+                                    <span></span>
+                                </div>
+
+
+                                <div class="service-list" id="service-list"></div>
+
                             </div>
-
-
-                            <div class="service-list" id="service-list"></div>
 
 
                             <div class="material-empty" id="service-empty">

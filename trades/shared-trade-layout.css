@@ -1,0 +1,616 @@
+/* =========================================================
+   APS AND APC - SHARED LAYOUT OVERRIDES
+   ---------------------------------------------------------
+   One file, loaded last by both trade apps, that makes the
+   two of them behave the same way:
+
+     1. The menu runs HORIZONTALLY across the top of the page
+        instead of up and down a sidebar.
+     2. Text boxes are taller and larger, so a field the user
+        has to read back is comfortable to tap and to see.
+     3. Nothing is clipped: every field and every label wraps
+        its text rather than cutting it off with an ellipsis.
+
+   WHY A SEPARATE FILE
+   -------------------
+   aps (plumbing) and apc (coatings) are two copies of the same
+   app with different brand colours. Making this change in each
+   stylesheet would mean fixing everything twice and then
+   watching the two drift apart. This file is the one place both
+   of them look, so a rule fixed here is fixed in both.
+
+   It is written to sit AFTER each app's own stylesheet and
+   override it, which is why a few rules carry !important: the
+   app stylesheets end with broad rules such as
+
+       body :not(...) { font-size: 12px !important }
+
+   that would otherwise beat anything sensible written here.
+
+   COLOURS COME FROM THE APP
+   -------------------------
+   Every colour is read from the app's own custom properties
+   (--ink, --coral, --line, ...), which both apps already
+   define. Nothing here hard-codes a brand colour, so the
+   plumbing app stays teal and the coatings app stays blue
+   without this file knowing which one it is in.
+   ========================================================= */
+
+/* =========================================================
+   1. THE MENU, HORIZONTALLY
+   ---------------------------------------------------------
+   The app shell was a flex row of [sidebar | content]. It
+   becomes a column of [header | content], with the former
+   sidebar contents - brand, kicker, menu, footer - laid out
+   left to right.
+
+   The markup is untouched: .sidebar is simply re-styled into
+   a header band. That keeps this change to CSS, so the app's
+   own JavaScript, ids and data-view wiring are unaffected.
+   ========================================================= */
+
+.app-shell {
+    flex-direction: column;
+    align-items: stretch
+}
+
+.sidebar {
+    /*
+       Reset the sidebar column: a fixed 220px wide, full-height
+       strip becomes a band across the top that is as wide as
+       the page and only as tall as its contents.
+    */
+    width: 100%;
+    min-height: 0;
+    padding: 12px 20px;
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: center;
+    column-gap: 18px;
+    row-gap: 10px;
+
+    /*
+       A sticky header is what makes a horizontal menu work on a
+       long quote: the menu stays reachable as the page scrolls,
+       which is the one thing the sidebar gave for free.
+    */
+    position: sticky;
+    top: 0;
+    z-index: 40;
+
+    border-bottom: 1px solid rgba(255, 255, 255, .18);
+    box-shadow: 0 1px 6px rgba(0, 0, 0, .10)
+}
+
+/* The logo sits at the far left of the band. */
+.sidebar .brand {
+    flex: 0 0 auto
+}
+
+.sidebar .brand-logo {
+    /*
+       Smaller than the 155px sidebar version: at header height
+       the full size would make the whole band tall. max-height
+       keeps the aspect ratio whatever the image's own size is.
+    */
+    width: auto;
+    height: auto;
+    max-height: 38px;
+    max-width: 150px;
+    object-fit: contain
+}
+
+/* The small "FIELD QUOTING / 01" line reads as a divider. */
+.sidebar .sidebar-kicker {
+    margin: 0;
+    flex: 0 0 auto;
+    padding-right: 18px;
+    border-right: 1px solid rgba(255, 255, 255, .22);
+    align-self: center
+}
+
+/* The menu itself: one row, wrapping, never stacked. */
+.sidebar .nav {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px;
+    flex: 1 1 auto;
+    /*
+       min-width:0 so a long label collapses the row rather than
+       forcing the header wider than the page.
+    */
+    min-width: 0
+}
+
+.sidebar .nav-item {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+
+    /* Room for a comfortable tap target on a tablet. */
+    padding: 9px 13px;
+    min-height: 40px;
+
+    border-radius: 6px;
+    text-align: left;
+
+    /*
+       The app stylesheet ends with a blanket 12px !important, so
+       the menu needs its own !important to stay legible.
+    */
+    font-size: 12px !important;
+    line-height: 1.25;
+
+    /*
+       A long label ("Project planning") wraps inside the button
+       rather than being clipped or forcing the row wide.
+    */
+    white-space: normal;
+    overflow-wrap: anywhere;
+    max-width: 100%
+}
+
+.sidebar .nav-item .nav-count {
+    margin-left: 2px;
+    flex: 0 0 auto
+}
+
+.sidebar .sidebar-footer {
+    /*
+       Sits at the right-hand end of the band, and is dropped on
+       a narrow screen where the row would otherwise wrap badly.
+    */
+    margin-top: 0;
+    margin-left: auto;
+    flex: 0 0 auto;
+    align-self: center;
+    white-space: nowrap
+}
+
+/* The content starts directly under the header band. */
+.main-content {
+    /*
+       The app capped this at 1340px, which on a wide screen left
+       a lopsided gap once the sidebar was gone. Centred reads
+       correctly now that the menu is not holding the left edge.
+    */
+    max-width: 1400px;
+    margin: 0 auto;
+    padding-top: 22px;
+    /*
+       The wide cost tables scroll inside .table-scroll rather
+       than widening this container, which is what keeps the
+       page itself from gaining a horizontal scrollbar.
+    */
+    min-width: 0;
+    overflow-x: clip
+}
+
+/* =========================================================
+   2. ONE FONT: CALIBRI 11
+   ---------------------------------------------------------
+   Both apps carry a stack of faces - 'DM Mono' for the small
+   mono labels, Arial for everything else - and the tails of
+   each stylesheet force Arial over the lot with !important.
+
+   Everything now reads as Calibri 11, which is what matches
+   the Word documents the office quotes come out of.
+
+   Calibri is a Microsoft font: it is on Windows and on most
+   Office installs, but NOT on Android or iOS. The list below
+   therefore keeps Carlito immediately after Calibri - Carlito
+   is the metric-compatible clone that ships with LibreOffice
+   and most Linux distributions, so metrics stay identical
+   where Calibri is missing - and then falls back to the
+   platform UI font. That matters here because this is a field
+   app on tablets, and a font stack that ends at Calibri alone
+   would silently drop back to Times New Roman on a device
+   without it.
+
+   The rules are written against "body, body *" and carry
+   !important so they beat the app's own !important tail
+   rules, whatever order the two files end up loaded in.
+
+   Sizes go in half-pixel steps deliberately: the app styles
+   dense cost tables at 8-10px for wide rows, and forcing those
+   straight to 11px is what makes a row of columns wrap and
+   break. They read more comfortably just under the target,
+   and the .table-scroll wrapper added below keeps them on one
+   line. Everything not named in that list is a full 11px.
+   ========================================================= */
+
+body,
+body * {
+    font-family: Calibri, Carlito, "Segoe UI", "Helvetica Neue", Arial, sans-serif !important
+}
+
+body {
+    font-size: 11px;
+    /*
+       Calibri sits small for its point size next to Arial, so
+       the body gets a little more room between lines than the
+       app's default.
+    */
+    line-height: 1.45
+}
+
+/*
+   Everything in the app is Calibri 11.
+
+   The :not() list is the short set of things that legitimately
+   differ, and it has to be ONE rule. There were briefly two of
+   these side by side - the second adding input/textarea/select
+   so that the larger-field rule further down could win - but
+   the first still matched every control and, being equal in
+   weight, simply won on cascade order. The field text was
+   pinned back to 11px and the "larger text boxes" change was
+   reduced to padding alone.
+
+   Rather than rely on two !important rules fighting, the
+   controls are excluded here by NAME, in a single rule. The
+   field rule below then applies on its own merits, with no
+   specificity contest to lose.
+*/
+body :not(h1,
+    h2,
+    h3,
+    .nav-icon,
+    .icon-button,
+    .text-button span,
+    .remove-material,
+    .delete-price,
+    .brand-mark,
+    input,
+    textarea,
+    select) {
+    font-size: 11px !important
+}
+
+/*
+   Page and section headings stay above body text: they are the
+   only thing separating one block of the form from the next,
+   and at 11px that difference disappears.
+*/
+h1 {
+    font-size: 24px !important
+}
+
+h2 {
+    font-size: 15px !important
+}
+
+h3 {
+    font-size: 12.5px !important
+}
+
+/*
+   Wide tables (labour, materials, services) are laid out as
+   fixed-pixel grid columns. At a full 11px the longest price
+   and amount columns wrap and the rows lose their alignment,
+   so they sit just under it.
+*/
+.labour-headings,
+.labour-row,
+.material-headings,
+.material-row,
+.service-headings,
+.service-row,
+.scenario-service-headings,
+.scenario-editor-row {
+    font-size: 10.5px !important
+}
+
+/*
+   Let those tables scroll sideways instead of wrapping: an
+   eleven-column cost row cannot be squeezed onto a phone
+   without either clipping it or breaking the alignment.
+
+   The min-width below is what makes the scroll real. Without
+   it the grid columns simply shrink - a 1fr track happily goes
+   to nothing - so the wrapper would never overflow and the
+   rows would squash instead. 820px is roughly the widest row
+   at its natural column sizes.
+*/
+.table-scroll {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    max-width: 100%
+}
+
+.table-scroll>.labour-list,
+.table-scroll>.labour-headings,
+.table-scroll>.material-list,
+.table-scroll>.material-headings,
+.table-scroll>.service-list,
+.table-scroll>.service-headings {
+    min-width: 820px
+}
+
+/*
+   The small mono labels (kickers, timestamps, id lines) were
+   written for a monospace face, where figures line up in a
+   column. In Calibri they are just cramped, so they get a
+   little extra size to stay legible.
+*/
+.sidebar-kicker,
+.nav-count,
+.eyebrow,
+.summary-card .eyebrow,
+.quote-id,
+.view-note small,
+.company-contact-print span {
+    font-size: 11.5px !important
+}
+
+/* =========================================================
+   3. LARGER TEXT BOXES
+   ---------------------------------------------------------
+   The app's fields were padding: 7px 9px at 12px text - fine
+   for a mouse, cramped on a tablet in a van. Every text input,
+   textarea and select gets more height and more room to read
+   its own value back.
+
+   Deliberately scoped to real text controls. The dense cost
+   table inputs (.material-row, .labour-row, .service-row) keep
+   their own tighter padding from the app stylesheet, because
+   those rows are designed to fit many columns at once and
+   enlarging them would break the table layout.
+   ========================================================= */
+
+.field input,
+.field textarea,
+.field select {
+    padding: 11px 12px !important;
+    /*
+       A step above the 11px body: a field the user has to read
+       back to check a measurement off a photo earns the extra.
+
+       No specificity trick is needed here - the blanket rule
+       above excludes input/textarea/select by name, so this is
+       the only rule setting a size on them.
+    */
+    font-size: 12.5px !important;
+    line-height: 1.45 !important;
+    min-height: 42px;
+
+    /*
+       content-box keeps min-height meaning "the text area",
+       not "padding + text", so the actual typing space is the
+       size asked for. Without this the border-box default
+       eats 22px of it on every field.
+    */
+    box-sizing: content-box;
+
+    /*
+       Nothing the user typed is cut off.
+    */
+    white-space: normal;
+    overflow-wrap: anywhere;
+    word-break: break-word
+}
+
+.field textarea {
+    /* A textarea is meant to be written in, so give it height. */
+    min-height: 96px;
+    resize: vertical
+}
+
+/*
+   The label above each field: allowed to wrap onto two lines
+   rather than being squeezed or clipped.
+*/
+.field {
+    font-size: 11px !important;
+    line-height: 1.35;
+    white-space: normal;
+    overflow-wrap: anywhere
+}
+
+/* Option rows inside a select can be long product names. */
+.field select,
+.material-row select {
+    text-overflow: clip;
+    white-space: normal
+}
+
+/* The settings and scenario panels use the same field styling. */
+.settings-panel input,
+.settings-panel textarea,
+.settings-panel select,
+.scenario-panel input,
+.scenario-panel textarea,
+.scenario-panel select {
+    padding: 11px 12px !important;
+    font-size: 12.5px !important;
+    line-height: 1.45 !important;
+    min-height: 42px;
+    box-sizing: content-box;
+    white-space: normal;
+    overflow-wrap: anywhere
+}
+
+/* =========================================================
+   4. NOTHING IS CLIPPED
+   ---------------------------------------------------------
+   The app cuts off several text elements with an ellipsis
+   (text-overflow: ellipsis + overflow: hidden). Where a value
+   matters to the user - a product name, a note, a saved quote's
+   heading - it now wraps instead.
+   ========================================================= */
+
+.nav-item,
+.sidebar-footer,
+.view-intro h1,
+.view-intro p,
+.view-note,
+.saved-quote,
+.saved-quote strong,
+.summary-lines div,
+.summary-lines strong,
+.planning-item,
+.planning-row {
+    white-space: normal !important;
+    overflow: visible !important;
+    text-overflow: clip !important
+}
+
+/* =========================================================
+   5. NARROW SCREENS
+   ---------------------------------------------------------
+   The app's own 850px and 520px blocks collapse the sidebar
+   into a 70px icon rail. There is no rail to collapse now, so
+   those rules are neutralised and replaced with ones that suit
+   a horizontal band.
+
+   The app's later 850px block (font-size: 0 on the nav items,
+   which hid the labels and showed icons only) is overridden by
+   restoring the label size - the whole point of this change is
+   that the menu text is readable.
+   ========================================================= */
+
+/* =========================================================
+   5. NARROW SCREENS
+   ---------------------------------------------------------
+   The app's own 850px and 520px blocks collapse the sidebar
+   into a 70px icon rail and hide the menu labels by setting
+   their font-size to 0. Neither makes sense now the menu is a
+   horizontal band, so both are overridden here.
+
+   WHY THE MENU SELECTORS ARE WRITTEN "body .sidebar .nav-item"
+   -------------------------------------------------------------
+   The app hides the labels with a rule at the END of its own
+   stylesheet:
+
+       @media(max-width:850px) {
+           body .sidebar .nav .nav-item { font-size: 0 !important }
+       }
+
+   That is (0,3,3) - three classes and three type selectors -
+   and it out-specifies a plain ".sidebar .nav-item" (0,2,1)
+   even when the latter is also !important. A !important does
+   not beat a !important; specificity decides. Matching the
+   selector's shape exactly and coming later in the cascade is
+   what actually wins, which is why these are written long.
+   ========================================================= */
+
+@media(max-width:850px) {
+
+    .sidebar {
+        width: 100% !important;
+        padding: 10px 14px !important;
+        flex-direction: row;
+        flex-wrap: wrap;
+        position: sticky;
+        top: 0
+    }
+
+    .sidebar .sidebar-kicker,
+    .sidebar .sidebar-footer {
+        /*
+           The divider and the status line are the first things
+           to go: the menu is what has to fit.
+        */
+        display: none !important
+    }
+
+    .sidebar .nav {
+        flex: 1 1 100%;
+        gap: 5px;
+        /*
+           The nav must not be wider than the band. Without this
+           the wrapping buttons push the page sideways and the
+           whole layout gains a horizontal scrollbar.
+        */
+        min-width: 0;
+        max-width: 100%
+    }
+
+    /*
+       Restores the menu labels the app's own 850px rule
+       collapsed to font-size: 0. See the block comment above for
+       why the selector is this long.
+    */
+    body .sidebar .nav .nav-item,
+    body .sidebar .nav .nav-item:not(.active)::after {
+        font-size: 11px !important
+    }
+
+    .sidebar .nav-item {
+        padding: 8px 10px;
+        min-height: 38px;
+        flex: 1 1 auto;
+        min-width: 0;
+        justify-content: center
+    }
+
+    .sidebar .nav-icon {
+        font-size: 16px !important
+    }
+
+    .sidebar .brand-logo {
+        max-height: 30px
+    }
+
+    .main-content {
+        padding-top: 18px
+    }
+}
+
+@media(max-width:520px) {
+
+    .sidebar {
+        padding: 9px 10px !important
+    }
+
+    /* Long form again, for the same reason as the 850px block. */
+    body .sidebar .nav .nav-item,
+    body .sidebar .nav .nav-item:not(.active)::after {
+        font-size: 11px !important
+    }
+
+    .sidebar .nav-item {
+        padding: 8px 9px;
+        gap: 5px;
+        min-width: 0;
+
+        /*
+           Two per row on a phone: every button the same width,
+           so the menu reads as a grid rather than a ragged row.
+        */
+        flex: 1 1 calc(50% - 5px);
+        justify-content: flex-start
+    }
+
+    .field input,
+    .field textarea,
+    .field select {
+        font-size: 12.5px !important
+    }
+}
+
+/* =========================================================
+   6. PRINT
+   ---------------------------------------------------------
+   On paper the menu is noise. The app already hides .sidebar
+   for print, and that is kept here - explicitly, because
+   section 4 gives .sidebar a position and a width and it must
+   not reappear on the printed quote.
+   ========================================================= */
+
+@media print {
+
+    .sidebar {
+        display: none !important
+    }
+
+    .app-shell {
+        display: block
+    }
+
+    .main-content {
+        max-width: none;
+        margin: 0;
+        padding: 0
+    }
+}
