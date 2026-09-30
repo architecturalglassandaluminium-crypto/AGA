@@ -1283,6 +1283,68 @@ function renderServices() {
 }
 function syncMasterScenarioOptions() { ['scenario-select'].forEach(selectId => { const select = $(selectId); select.querySelectorAll('[data-master-scenario]').forEach(optionGroup => optionGroup.remove()); const categories = [...new Set(masterScenarioLibrary.map(([category]) => category))]; categories.forEach(category => { const group = document.createElement('optgroup'); group.label = category; group.dataset.masterScenario = 'true'; masterScenarioLibrary.filter(([libraryCategory]) => libraryCategory === category).forEach(([, name], index) => { const option = document.createElement('option'); option.value = `library-${masterScenarioLibrary.findIndex(([, scenarioName]) => scenarioName === name) + 1}`; option.textContent = name; group.append(option); }); select.append(group); }); }); }
 function syncCustomScenarioOptions() { ['scenario-select'].forEach(selectId => { const select = $(selectId); select.querySelectorAll('[data-custom-scenario]').forEach(option => option.remove()); let group = [...select.querySelectorAll('optgroup')].find(optionGroup => optionGroup.label === 'Custom scenarios'); if (!group) { group = document.createElement('optgroup'); group.label = 'Custom scenarios'; select.append(group); } customScenarios.forEach(scenario => { const option = document.createElement('option'); option.value = scenario.id; option.textContent = scenario.name; option.dataset.customScenario = 'true'; group.append(option); }); }); }
+
+/* ---- scenario library editor (Scenarios view) ---- */
+let selectedScenarioId = '';
+function scenarioKeyTitle(key) { return key.split('-').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' '); }
+function scenarioLabel(id) {
+    const custom = customScenarios.find(scenario => scenario.id === id);
+    if (custom) return custom.name;
+    const library = masterScenarioLibrary.find(([, name], index) => `library-${index + 1}` === id);
+    if (library) return library[1];
+    return scenarioKeyTitle(id);
+}
+function renderScenarioEditorSelect() {
+    const select = $('scenario-editor-select');
+    if (!select) return;
+    const ids = Object.keys(scenarios);
+    if (!selectedScenarioId || !scenarios[selectedScenarioId]) selectedScenarioId = ids[0] || '';
+    select.innerHTML = ids.map(id => `<option value="${escapeHtml(id)}" ${id === selectedScenarioId ? 'selected' : ''}>${escapeHtml(scenarioLabel(id))}</option>`).join('');
+}
+function renderScenarioEditor() {
+    renderScenarioEditorSelect();
+    const list = $('scenario-editor-list');
+    const empty = $('scenario-editor-empty');
+    if (!list) return;
+    const scenario = scenarios[selectedScenarioId];
+    const rows = scenario ? scenario.services : [];
+    empty.style.display = rows.length ? 'none' : 'block';
+    list.innerHTML = rows.map((service, index) => `<div class="scenario-editor-row" data-index="${index}"><select class="service-category" aria-label="Scenario service category">${categoryOptions(service.category)}</select><select class="service-task" aria-label="Scenario service task"><option value="">Select task</option>${getServiceTasks(service).map(task => `<option ${service.task === task ? 'selected' : ''}>${escapeHtml(task)}</option>`).join('')}</select>${unitSelect(getServiceUnit(service), `Unit for ${escapeHtml(service.task || 'service')}`).replace('class="price-unit"', 'class="service-unit"')}<input class="service-quantity" type="number" min="1" step="1" value="${getServiceQuantity(service)}" aria-label="Scenario service quantity"><span class="scenario-editor-rate">${currency(getServiceRate(service))}</span><span class="scenario-editor-total">${currency(getServiceRate(service) * getServiceQuantity(service))}</span><button class="remove-scenario-service" type="button" aria-label="Remove service">×</button></div>`).join('');
+    list.querySelectorAll('.service-category').forEach(select => select.addEventListener('change', event => { const row = event.target.closest('.scenario-editor-row'); const index = Number(row.dataset.index); const task = rows[index].task; rows[index].category = event.target.value; if (task && !(serviceCatalogue[event.target.value] || []).includes(task)) rows[index].task = ''; renderScenarioEditor(); }));
+    list.querySelectorAll('.service-task').forEach(select => select.addEventListener('change', event => { const index = Number(event.target.closest('.scenario-editor-row').dataset.index); rows[index].task = event.target.value; const rate = serviceRates[event.target.value]; if (rate !== undefined) rows[index].rate = rate; renderScenarioEditor(); }));
+    list.querySelectorAll('.service-quantity').forEach(input => input.addEventListener('input', event => { const row = event.target.closest('.scenario-editor-row'); const index = Number(row.dataset.index); rows[index].quantity = getValue(event.target.value) || 1; const total = row.querySelector('.scenario-editor-total'); if (total) total.textContent = currency(getServiceRate(rows[index]) * getServiceQuantity(rows[index])); }));
+    list.querySelectorAll('.remove-scenario-service').forEach(button => button.addEventListener('click', event => { rows.splice(Number(event.target.closest('.scenario-editor-row').dataset.index), 1); renderScenarioEditor(); }));
+}
+function persistScenarioEdits() {
+    localStorage.setItem(storageKey('scenario-services'), JSON.stringify(Object.fromEntries(Object.entries(scenarios).filter(([id]) => id.startsWith('library-')).map(([id, scenario]) => [id, scenario.services]))));
+    const customs = Object.entries(scenarios).filter(([id]) => id.startsWith('custom-')).map(([id, scenario]) => {
+        const stored = customScenarios.find(entry => entry.id === id);
+        return stored ? { ...stored, services: scenario.services } : { id, name: scenarioLabel(id), services: scenario.services };
+    });
+    localStorage.setItem(storageKey('custom-scenarios'), JSON.stringify(customs));
+    customScenarios.length = 0;
+    customScenarios.push(...customs);
+    syncCustomScenarioOptions();
+    syncMasterScenarioOptions();
+}
+function saveScenarioEdits() {
+    if (!selectedScenarioId) { showToast('Select a scenario first'); return; }
+    persistScenarioEdits();
+    showToast(`Scenario "${scenarioLabel(selectedScenarioId)}" saved`);
+}
+function addScenarioService() {
+    if (!selectedScenarioId) { showToast('Select a scenario first'); return; }
+    scenarios[selectedScenarioId].services.push({ category: '', task: '', quantity: 1, rate: 350 });
+    renderScenarioEditor();
+}
+function createScenario(name) {
+    const id = `custom-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+    scenarios[id] = { services: [], materials: [] };
+    customScenarios.push({ id, name, services: [] });
+    selectedScenarioId = id;
+    persistScenarioEdits();
+    renderScenarioEditor();
+}
 function renderLabourItems() {
     $('labour-list').innerHTML = labourItems.map((item, index) => `<div class="labour-row" data-index="${index}"><span>${escapeHtml(item.description)}</span><span>${escapeHtml(item.unit)}</span><input class="labour-quantity" type="number" min="0" step="1" value="${getValue(item.quantity)}" aria-label="Quantity for ${escapeHtml(item.description)}"><input class="labour-rate" type="number" min="0" step="0.01" value="${getValue(item.rate)}" aria-label="Cost per day for ${escapeHtml(item.description)}"><strong>${currency(getValue(item.quantity) * getValue(item.rate))}</strong></div>`).join('');
     document.querySelectorAll('.labour-row').forEach(row => { const index = Number(row.dataset.index); row.querySelector('.labour-quantity').addEventListener('input', event => { labourItems[index].quantity = getValue(event.target.value); renderLabourItems(); calculate(); }); row.querySelector('.labour-rate').addEventListener('input', event => { labourItems[index].rate = getValue(event.target.value); renderLabourItems(); calculate(); }); });
@@ -3409,7 +3471,7 @@ function switchPlanningProject(index) {
 /* Entry point for the shared three-company portfolio. Reloads from
    storage first: the QA script (and any other tab) can write projects
    directly to localStorage after this frame already loaded. */
-function switchView(view) { document.querySelectorAll('.nav-item').forEach(item => item.classList.toggle('active', item.dataset.view === view)); document.querySelectorAll('.view').forEach(item => item.classList.remove('active-view')); $(`${view}-view`).classList.add('active-view'); const titles = { 'new-quote': 'Quote', quotes: 'Saved quotes', 'price-list': 'Price list', settings: 'Company settings', scenarios: 'Scenarios', planning: 'Project planning' }; $('page-title').textContent = titles[view] || 'Quote'; if (view === 'price-list') renderPriceList(); if (view === 'planning') renderProjects(); }
+function switchView(view) { document.querySelectorAll('.nav-item').forEach(item => item.classList.toggle('active', item.dataset.view === view)); document.querySelectorAll('.view').forEach(item => item.classList.remove('active-view')); $(`${view}-view`).classList.add('active-view'); const titles = { 'new-quote': 'Quote', quotes: 'Saved quotes', 'price-list': 'Price list', settings: 'Company settings', scenarios: 'Scenarios', planning: 'Project planning' }; $('page-title').textContent = titles[view] || 'Quote'; if (view === 'price-list') renderPriceList(); if (view === 'planning') renderProjects(); if (view === 'scenarios') renderScenarioEditor(); }
 function loadSettings() { $('company-name').value = settings.name || ''; $('company-phone').value = settings.phone || ''; $('company-email').value = settings.email || ''; $('prepared-by').value = settings.preparedBy || ''; $('tax-number').value = settings.taxNumber || ''; $('print-prepared-by').textContent = settings.preparedBy || 'Cheyenne'; $('print-contact').textContent = settings.phone || '010 597 6616';
     $('print-email').textContent = settings.email || 'info@agasouthafrica.co.za'; $('print-tax-number').textContent = settings.taxNumber || '105 976 616'; $('vat-rate').value = settings.vatRate ?? VAT_DEFAULT; $('quote-date').textContent = new Date().toLocaleDateString('en-ZA', { day: '2-digit', month: 'short', year: 'numeric' }); }
 
@@ -3424,6 +3486,14 @@ syncCustomScenarioOptions();
 $('add-material').addEventListener('click', () => { materials.push({ category: '', subGroup: '', type: '', size: '', quantity: 1, description: '', cost: 0, markup: MATERIAL_MARKUP }); renderMaterials(); document.querySelector('.material-category:last-of-type')?.focus(); });
 $('add-service').addEventListener('click', () => { services.push({ category: '', task: '', quantity: 1, rate: 350, scenario: 'Additional services' }); renderServices(); document.querySelector('.service-category:last-of-type')?.focus(); });
 $('add-scenario').addEventListener('click', addScenario);
+/* ---- scenario library editor ---- */
+$('scenario-editor-select').addEventListener('change', event => { selectedScenarioId = event.target.value; renderScenarioEditor(); });
+$('add-scenario-service').addEventListener('click', addScenarioService);
+$('save-scenario').addEventListener('click', saveScenarioEdits);
+$('new-scenario').addEventListener('click', () => { $('scenario-dialog-title').textContent = 'New scenario'; $('new-scenario-name').value = ''; $('scenario-dialog').showModal(); $('new-scenario-name').focus(); });
+$('cancel-scenario').addEventListener('click', () => $('scenario-dialog').close());
+$('scenario-form').addEventListener('submit', event => { event.preventDefault(); const name = $('new-scenario-name').value.trim(); if (!name) return; createScenario(name); $('scenario-dialog').close(); showToast(`Scenario "${name}" created`); });
+renderScenarioEditor();
 function clearQuote() { resetForm(); showToast('Quote cleared'); }
 $('save-quote').addEventListener('click', saveQuote); $('clear-quote').addEventListener('click', clearQuote); $('clear-quote-top').addEventListener('click', clearQuote); $('print-button').addEventListener('click', () => window.print()); $('pdf-button').addEventListener('click', () => window.print()); $('export-quotes-button').addEventListener('click', exportQuotes);
 $('import-quotes-button').addEventListener('click', () => $('import-quotes-file').click());
