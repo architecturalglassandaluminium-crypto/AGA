@@ -1374,7 +1374,8 @@ h2 {
     }
 
     .workspace-grid {
-        display: block
+        display: flex;
+        flex-direction: column
     }
 
     .summary-card {
@@ -1412,29 +1413,41 @@ h2 {
         color: #000
     }
 
-    /* The bottom summary now carries the quote totals, so it must stay on
-       paper. Only its interactive controls and input fields are dropped. */
+    /* The printed document now carries its own costing summary, so the whole
+       summary block is dropped from paper. It is reordered above the terms so
+       the printed quote reads cover → schedule → summary → terms, as in the
+       ExampleQuote document. */
     .summary-section {
-        background: #fff;
-        border: 1px solid #ddd;
-        margin-top: 14px;
-        padding: 0
+        display: block !important;
+        order: -1;
+        background: none;
+        border: 0;
+        margin: 0;
+        padding: 0;
+        break-inside: auto
     }
 
-    .summary-section .summary-actions .pdf-button,
-    .summary-section .summary-actions .primary-button,
-    .summary-section .summary-actions .secondary-button,
+    .summary-section .company-print-header {
+        display: grid !important
+    }
+
+    .summary-section .summary-section-header,
+    .summary-section .summary-actions,
     .summary-section .quote-summary-fields,
+    .summary-section .quote-totals,
     .summary-section .vat-row {
-        display: none
+        display: none !important
     }
 
     .summary-section .summary-footnote {
         color: #555
     }
 
-    .topbar {
-        margin-bottom: 20px
+    .topbar,
+    .view-intro,
+    .quick-start,
+    .scenario-panel {
+        display: none !important
     }
 }
 
@@ -1734,6 +1747,164 @@ h2 {
     .print-totals strong {
         font-size: 17px;
         margin-top: 4px
+    }
+
+    /* ---- the printed quotation document ---- */
+
+    .print-details {
+        font: 10.5px/1.45 Arial, Helvetica, sans-serif;
+        color: #111
+    }
+
+    .print-details h2 {
+        font-size: 12px;
+        font-weight: 700;
+        letter-spacing: .08em;
+        text-transform: uppercase;
+        padding-bottom: 5px;
+        margin: 0 0 10px;
+        border-bottom: 1px solid #111
+    }
+
+    .doc-cover {
+        margin-bottom: 16px
+    }
+
+    .doc-cover-meta {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 10px 16px
+    }
+
+    .doc-cover-meta p {
+        margin: 0;
+        display: flex;
+        flex-direction: column;
+        gap: 1px
+    }
+
+    .doc-cover-meta span {
+        font-size: 8.5px;
+        letter-spacing: .07em;
+        text-transform: uppercase;
+        color: #555
+    }
+
+    .doc-cover-meta strong {
+        font-size: 11px;
+        font-weight: 700
+    }
+
+    .doc-intro {
+        margin-bottom: 16px
+    }
+
+    .doc-intro p {
+        margin: 0 0 6px
+    }
+
+    .doc-client-line {
+        font-size: 10px;
+        color: #444
+    }
+
+    .doc-schedule,
+    .doc-costing {
+        margin-bottom: 16px;
+        break-inside: avoid-page;
+        page-break-inside: avoid
+    }
+
+    .doc-table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 9.5px
+    }
+
+    .doc-table th {
+        text-align: left;
+        font-size: 8.5px;
+        letter-spacing: .06em;
+        text-transform: uppercase;
+        color: #444;
+        padding: 5px 4px;
+        border-bottom: 1px solid #111
+    }
+
+    .doc-table td {
+        padding: 4px;
+        border-bottom: 1px solid #e4e9ef;
+        vertical-align: top
+    }
+
+    .doc-num {
+        width: 7%;
+        color: #555
+    }
+
+    /* The legacy print rule right-aligns every non-first column; descriptions
+       and units must stay left-aligned inside the document tables. */
+    .doc-table th:not(:first-child),
+    .doc-table td:not(:first-child) {
+        text-align: left
+    }
+
+    .doc-amount {
+        text-align: right;
+        white-space: nowrap;
+        font-variant-numeric: tabular-nums
+    }
+
+    .doc-table td.doc-amount,
+    .doc-table tfoot td.doc-amount {
+        text-align: right
+    }
+
+    .doc-section-head td {
+        background: #f2f5f8;
+        font-weight: 700;
+        font-size: 9.5px;
+        letter-spacing: .04em;
+        text-transform: uppercase;
+        border-bottom: 1px solid #c3cedb
+    }
+
+    .doc-section-total td {
+        font-weight: 700;
+        border-bottom: 1px solid #c3cedb
+    }
+
+    .doc-cost-row td {
+        border-bottom: 1px solid #eef2f6
+    }
+
+    .doc-cost-total td {
+        font-weight: 700;
+        font-size: 11px;
+        border-top: 1.5px solid #111;
+        border-bottom: 1px solid #111;
+        padding-top: 6px;
+        padding-bottom: 6px
+    }
+
+    .doc-cost-deposit td {
+        color: #1f6f43;
+        font-weight: 700
+    }
+
+    .doc-costing tfoot .doc-amount {
+        font-weight: 700
+    }
+
+    .doc-note {
+        font-size: 9px;
+        color: #555;
+        margin: 8px 0 0
+    }
+
+    .doc-empty {
+        color: #777;
+        font-style: italic
     }
 }
 

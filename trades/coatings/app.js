@@ -1247,13 +1247,17 @@ function calculate() {
 }
 /* The bottom summary mirrors the AGA quote builder: a discount is taken off the
    subtotal, VAT applies to the discounted net, and a deposit is shown on the total. */
-function renderQuoteTotals(totals) {
+function quoteTotals(totals) {
     const discountRate = getNumber('quote-discount');
     const discount = totals.subtotal * discountRate / 100;
     const net = totals.subtotal - discount;
     const vat = totals.vatRate * net / 100;
     const total = net + vat;
     const depositRate = getNumber('quote-deposit');
+    return { ...totals, discountRate, discount, net, vat, total, depositRate, deposit: total * depositRate / 100 };
+}
+function renderQuoteTotals(totals) {
+    const { discount, net, vat, total, deposit, depositRate, discountRate, vatRate } = quoteTotals(totals);
     $('totals-callout').textContent = currency(totals.callout);
     $('totals-labour').textContent = currency(totals.labour);
     $('totals-materials').textContent = currency(totals.materialsTotal);
@@ -1264,20 +1268,102 @@ function renderQuoteTotals(totals) {
     $('totals-vat-label').textContent = `VAT @ ${totals.vatRate}%`;
     $('totals-vat').textContent = currency(vat);
     $('grand-total').textContent = currency(total);
-    $('totals-deposit').textContent = currency(total * depositRate / 100);
+    $('totals-deposit').textContent = currency(deposit);
     $('vat-rate-label').textContent = `${totals.vatRate}%`;
 }
 function updatePrintDetails(totals = calculateTotals()) {
+    const t = quoteTotals(totals);
     const customer = $('customer-name').value.trim() || 'New customer';
     const phone = $('customer-phone').value.trim() || 'Not provided';
     const address = $('customer-address').value.trim() || 'Not provided';
     const description = $('service-description').value.trim();
     const amendmentReason = $('amendment-reason').value.trim() || 'Reason not provided';
-    const labourRows = labourItems.map(item => `<tr><td>${escapeHtml(item.description)}</td><td>${escapeHtml(item.unit)}</td><td>${getValue(item.quantity)}</td><td>${currency(item.rate)}</td><td>${currency(getValue(item.quantity) * getValue(item.rate))}</td></tr>`).join('');
-    const rows = materials.filter(material => material.description).map(material => `<tr><td>${escapeHtml(material.description)}</td><td>${getMaterialQtyLabel(material)}${getMaterialArea(material) ? ' m²' : ''}</td><td>${currency(getEffectiveCost(material) * (1 + MATERIAL_MARKUP / 100))}</td></tr>`).join('');
-    const serviceRows = services.filter(service => service.task).map(service => `<tr><td>${escapeHtml(service.task)}</td><td>${escapeHtml(getServiceUnit(service))}</td><td>${getServiceQuantity(service)}</td><td>${currency(getServiceRate(service))}</td><td>${currency(getServiceRate(service) * getServiceQuantity(service))}</td></tr>`).join('');
+    const quoteNumber = $('quote-number').textContent.trim();
+    const quoteDate = $('quote-date').textContent.trim();
+
+    /* Every priced line is grouped into a lettered section, matching the layout
+       of the ExampleQuote document: number, description, qty, unit, rate, amount. */
+    let itemNumber = 0;
+    const sections = [];
+    const addSection = (title, rows) => {
+        if (!rows.length) return;
+        const subtotal = rows.reduce((sum, entry) => sum + entry.amount, 0);
+        const body = rows.map(entry => {
+            itemNumber += 1;
+            return `<tr><td class="doc-num">${itemNumber}</td><td>${entry.description}</td><td class="doc-num">${entry.qty}</td><td>${entry.unit}</td><td class="doc-amount">${currency(entry.rate)}</td><td class="doc-amount">${currency(entry.amount)}</td></tr>`;
+        }).join('');
+        sections.push({ title, subtotal, html: `<tbody>${body}</tbody>` });
+    };
+    /* qty must stay as given: labour rows default to a quantity of 0, and
+       treating that as 1 would inflate the priced schedule. */
+    const row = (description, unit, qty, rate) => ({ description, unit, qty, rate, amount: qty * rate });
+
+    addSection('Preliminaries & labour', labourItems.filter(item => item.description).map(item => row(escapeHtml(item.description), escapeHtml(item.unit), getValue(item.quantity), getValue(item.rate))));
+    materials.filter(material => material.description).reduce((groups, material) => {
+        const name = material.category || 'Materials';
+        if (!groups.has(name)) groups.set(name, []);
+        groups.get(name).push(material);
+        return groups;
+    }, new Map()).forEach((items, name) => addSection(name, items.map(material => row(escapeHtml(material.description), `${getMaterialQtyLabel(material)}${getMaterialArea(material) ? ' m²' : ''}`, 1, getEffectiveCost(material) * (1 + MATERIAL_MARKUP / 100)))));
+    services.filter(service => service.task).reduce((groups, service) => {
+        const name = service.scenario || 'Services & site work';
+        if (!groups.has(name)) groups.set(name, []);
+        groups.get(name).push(service);
+        return groups;
+    }, new Map()).forEach((items, name) => addSection(name, items.map(service => row(escapeHtml(service.task), escapeHtml(getServiceUnit(service)), getServiceQuantity(service), getServiceRate(service)))));
+
+    // Re-letter the sections now their count is known.
+    sections.forEach((section, index) => { section.letter = String.fromCharCode(65 + index); });
+
+    const sectionHtml = sections.map(section => `<tr class="doc-section-head"><td>${section.letter}</td><td colspan="5">${escapeHtml(section.title)}</td></tr>${section.html}<tr class="doc-section-total"><td></td><td>Section total</td><td colspan="3"></td><td class="doc-amount">${currency(section.subtotal)}</td></tr>`).join('');
+    const costingRows = sections.map(section => `<tr><td class="doc-num">${section.letter}</td><td>${escapeHtml(section.title)}</td><td class="doc-amount">${currency(section.subtotal)}</td></tr>`).join('');
+
     const supportingPhotos = sitePhotos.length ? `<section class="print-supporting-photos"><h3>Supporting photos</h3><div>${sitePhotos.map((photo, index) => `<figure><img src="${photo.data}" alt="Supporting photo ${index + 1}"><figcaption>${escapeHtml(photo.description || `Supporting photo ${index + 1}`)}</figcaption></figure>`).join('')}</div></section>` : '';
-    $('print-details').innerHTML = `<div class="print-document-title"><span>${isAmended ? 'AMENDED QUOTATION' : 'QUOTATION'}</span><strong>${escapeHtml($('quote-number').textContent)}</strong></div><div class="print-customer"><strong>${escapeHtml(customer)}</strong><span>${escapeHtml(phone)}</span><span>${escapeHtml(address)}</span>${description ? `<span><b>Requested services:</b> ${escapeHtml(description)}</span>` : ''}</div><h3>Labour &amp; call-out</h3><table><thead><tr><th>Description</th><th>Unit</th><th>Qty</th><th>Rate</th><th>Total</th></tr></thead><tbody>${labourRows}</tbody></table><h3>Materials</h3><table><thead><tr><th>Description</th><th>Qty</th><th>Selling price</th></tr></thead><tbody>${rows || '<tr><td colspan="3">No materials added</td></tr>'}</tbody></table><h3>Services &amp; site work</h3><table><thead><tr><th>Task</th><th>Unit</th><th>Qty</th><th>Rate</th><th>Total</th></tr></thead><tbody>${serviceRows || '<tr><td colspan="5">No additional services</td></tr>'}</tbody></table><div class="print-totals"><span>Subtotal: ${currency(totals.subtotal)}</span><span>VAT (${totals.vatRate}%): ${currency(totals.vat)}</span><strong>Total: ${currency(totals.total)}</strong></div>${isAmended ? `<div class="print-amendment"><strong>Reason for amended quote</strong><span>${escapeHtml(amendmentReason)}</span></div>` : ''}${supportingPhotos}`;
+
+    $('print-details').innerHTML = `
+        <section class="doc-cover">
+            <div class="doc-cover-meta">
+                <p><span>Date</span><strong>${escapeHtml(quoteDate)}</strong></p>
+                <p><span>Client</span><strong>${escapeHtml(customer)}</strong></p>
+                <p><span>Prepared by</span><strong>${escapeHtml(settings.preparedBy || 'Cheyenne')}</strong></p>
+                <p><span>Quotation no.</span><strong>${escapeHtml(quoteNumber)}</strong></p>
+            </div>
+        </section>
+
+        ${isAmended ? `<div class="print-amendment"><strong>Reason for amended quote</strong><span>${escapeHtml(amendmentReason)}</span></div>` : ''}
+
+        <section class="doc-intro">
+            <h2>Scope of work</h2>
+            ${description ? `<p>${escapeHtml(description)}</p>` : '<p>Scope as itemised in the sections below.</p>'}
+            <p class="doc-client-line">Prepared for ${escapeHtml(customer)}${phone !== 'Not provided' ? ` · ${escapeHtml(phone)}` : ''}${address !== 'Not provided' ? ` · ${escapeHtml(address)}` : ''}</p>
+        </section>
+
+        ${sections.length ? `<section class="doc-schedule">
+            <h2>Priced schedule</h2>
+            <table class="doc-table">
+                <thead><tr><th>#</th><th>Description</th><th>Qty</th><th>Unit</th><th>Rate (R)</th><th>Amount (R)</th></tr></thead>
+                ${sectionHtml}
+            </table>
+        </section>` : '<section class="doc-schedule"><p class="doc-empty">No priced items have been added to this quotation yet.</p></section>'}
+
+        <section class="doc-costing">
+            <h2>Costing summary</h2>
+            <table class="doc-table">
+                <thead><tr><th class="doc-num">#</th><th>Section</th><th class="doc-amount">Amount (R)</th></tr></thead>
+                <tbody>${costingRows || '<tr><td colspan="3" class="doc-empty">No sections</td></tr>'}</tbody>
+                <tfoot>
+                    <tr class="doc-cost-row"><td colspan="2">Subtotal</td><td class="doc-amount">${currency(t.subtotal)}</td></tr>
+                    ${t.discount ? `<tr class="doc-cost-row"><td colspan="2">Discount (${t.discountRate}%)</td><td class="doc-amount">-${currency(t.discount)}</td></tr>` : ''}
+                    <tr class="doc-cost-row"><td colspan="2">Subtotal excl. VAT</td><td class="doc-amount">${currency(t.net)}</td></tr>
+                    <tr class="doc-cost-row"><td colspan="2">VAT @ ${t.vatRate}%</td><td class="doc-amount">${currency(t.vat)}</td></tr>
+                    <tr class="doc-cost-total"><td colspan="2">Total incl. VAT</td><td class="doc-amount">${currency(t.total)}</td></tr>
+                    <tr class="doc-cost-deposit"><td colspan="2">Deposit required (${t.depositRate}%)</td><td class="doc-amount">${currency(t.deposit)}</td></tr>
+                </tfoot>
+            </table>
+            <p class="doc-note">All prices are quoted in South African Rand and include VAT where stated. This quotation is valid for 30 days from the date of issue.</p>
+        </section>
+
+        ${supportingPhotos}`;
 }
 function calculateTotals() {
     const { callout, labour } = getLabourTotals();
