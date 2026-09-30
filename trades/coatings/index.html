@@ -612,209 +612,6 @@
                     </div>
 
 
-                    <!-- =========================================
-                         SUMMARY CARD
-                         ========================================= -->
-
-                    <aside class="summary-card">
-
-                        <!-- PRINT HEADER -->
-
-                        <div class="company-print-header">
-
-                            <img src="APClogo.jpg" alt="APC Architectural Performance Coatings">
-
-                            <span>
-                                ARCHITECTURAL PERFORMANCE COATINGS
-                            </span>
-
-                            <small>
-                                Reg No: 2025/816148/07<br>
-                                5 Louis Friedman Street, Central Lake Factory Park<br>
-                                Unit 7, Factoria, Krugersdorp
-                            </small>
-
-
-                            <div class="company-contact-print">
-
-                                <b>OFFICE</b><br>
-
-                                Prepared by:
-                                <span id="print-prepared-by">
-                                    Cheyenne
-                                </span>
-                                <br>
-
-                                Contact:
-                                <span id="print-contact">
-                                    010 597 6616
-                                </span>
-                                <br>
-
-                                Email:
-                                <span id="print-email">
-                                    info@agasouthafrica.co.za
-                                </span>
-                                <br>
-
-                                Tax reference:
-                                <span id="print-tax-number">
-                                    105 976 616
-                                </span>
-
-                            </div>
-
-                        </div>
-
-
-                        <!-- SUMMARY TOP -->
-
-                        <div class="summary-top">
-
-                            <span class="eyebrow">
-                                QUOTE SUMMARY
-                            </span>
-
-                            <span class="summary-date" id="quote-date"></span>
-
-                        </div>
-
-
-                        <div class="summary-customer" id="summary-customer">
-                            New customer
-                        </div>
-
-
-                        <div class="summary-address" id="summary-address">
-                            Add a service address
-                        </div>
-
-
-                        <div class="print-details" id="print-details"></div>
-
-
-                        <!-- SUMMARY LINES -->
-
-                        <div class="summary-lines">
-
-                            <div>
-                                <span>
-                                    Call-out
-                                </span>
-
-                                <strong id="summary-callout">
-                                    R 650.00
-                                </strong>
-                            </div>
-
-
-                            <div>
-                                <span>
-                                    Labour
-                                </span>
-
-                                <strong id="summary-labour">
-                                    R 1,500.00
-                                </strong>
-                            </div>
-
-
-                            <div>
-                                <span>
-                                    Materials
-                                </span>
-
-                                <strong id="summary-materials">
-                                    R 0.00
-                                </strong>
-                            </div>
-
-
-                            <div>
-                                <span>
-                                    Services &amp; site work
-                                </span>
-
-                                <strong id="summary-services">
-                                    R 0.00
-                                </strong>
-                            </div>
-
-                        </div>
-
-
-                        <!-- VAT -->
-
-                        <div class="vat-row">
-
-                            <label class="switch-label">
-
-                                <input id="vat-enabled" type="checkbox" checked>
-
-                                <span class="switch"></span>
-
-                                Include VAT
-
-                            </label>
-
-                            <span id="vat-rate-label">
-                                15%
-                            </span>
-
-                        </div>
-
-
-                        <!-- GRAND TOTAL -->
-
-                        <div class="grand-total">
-
-                            <span>
-                                Total incl. VAT
-                            </span>
-
-                            <strong id="grand-total">
-                                R 2,472.50
-                            </strong>
-
-                        </div>
-
-
-                        <!-- ACTION BUTTONS -->
-
-                        <button class="pdf-button" id="pdf-button" type="button">
-                            <span>
-                                View / save as PDF
-                            </span>
-
-                            <span>
-                                ⤓
-                            </span>
-                        </button>
-
-
-                        <button class="primary-button" id="save-quote" type="button">
-                            <span>
-                                Save quote
-                            </span>
-
-                            <span>
-                                →
-                            </span>
-                        </button>
-
-
-                        <button class="secondary-button" id="clear-quote" type="button">
-                            Clear form
-                        </button>
-
-
-                        <p class="summary-footnote">
-                            Prices are calculated in South African Rand.
-                            VAT is applied to the subtotal.
-                        </p>
-
-                    </aside>
-
 
                     <!-- =========================================
                          TERMS & CONDITIONS
@@ -1032,6 +829,241 @@
                             </div>
 
                         </section>
+
+                    </section>
+
+                    <!-- =========================================
+                         QUOTE SUMMARY (bottom, full width)
+                         ========================================= -->
+
+                    <section class="summary-section" aria-labelledby="summary-title">
+
+                        <!-- PRINT HEADER -->
+
+                        <div class="company-print-header">
+
+                            <img src="APClogo.jpg" alt="APC Architectural Performance Coatings">
+
+                            <span>
+                                ARCHITECTURAL PERFORMANCE COATINGS
+                            </span>
+
+                            <small>
+                                Reg No: 2025/816148/07<br>
+                                5 Louis Friedman Street, Central Lake Factory Park<br>
+                                Unit 7, Factoria, Krugersdorp
+                            </small>
+
+
+                            <div class="company-contact-print">
+
+                                <b>OFFICE</b><br>
+
+                                Prepared by:
+                                <span id="print-prepared-by">
+                                    Cheyenne
+                                </span>
+                                <br>
+
+                                Contact:
+                                <span id="print-contact">
+                                    010 597 6616
+                                </span>
+                                <br>
+
+                                Email:
+                                <span id="print-email">
+                                    info@agasouthafrica.co.za
+                                </span>
+                                <br>
+
+                                Tax reference:
+                                <span id="print-tax-number">
+                                    105 976 616
+                                </span>
+
+                            </div>
+
+                        </div>
+
+
+                        <div class="summary-section-header">
+
+                            <h3 id="summary-title">
+                                Quote Summary
+                            </h3>
+
+                            <span class="summary-date" id="quote-date"></span>
+
+                        </div>
+
+
+                        <div class="summary-customer" id="summary-customer">
+                            New customer
+                        </div>
+
+
+                        <div class="summary-address" id="summary-address">
+                            Add a service address
+                        </div>
+
+
+                        <div class="print-details" id="print-details"></div>
+
+
+                        <div class="quote-summary-layout">
+
+                            <div class="quote-summary-fields">
+
+                                <div class="form-group">
+                                    <span class="form-label">Call-out</span>
+                                    <strong id="summary-callout">R 650.00</strong>
+                                </div>
+
+
+                                <div class="form-group">
+                                    <span class="form-label">Labour</span>
+                                    <strong id="summary-labour">R 1,500.00</strong>
+                                </div>
+
+
+                                <div class="form-group">
+                                    <span class="form-label">Materials</span>
+                                    <strong id="summary-materials">R 0.00</strong>
+                                </div>
+
+
+                                <div class="form-group">
+                                    <span class="form-label">Services &amp; site work</span>
+                                    <strong id="summary-services">R 0.00</strong>
+                                </div>
+
+
+                                <div class="form-group">
+                                    <label for="quote-discount">Discount (%)</label>
+                                    <input type="number" id="quote-discount" min="0" max="100" step="0.1" value="0">
+                                </div>
+
+
+                                <div class="form-group">
+                                    <label for="quote-deposit">Deposit required (%)</label>
+                                    <input type="number" id="quote-deposit" min="0" max="100" step="0.1" value="50">
+                                </div>
+
+                            </div>
+
+
+                            <div class="quote-totals">
+
+                                <div class="quote-total-row">
+                                    <span>Call-out</span>
+                                    <strong id="totals-callout">R 650.00</strong>
+                                </div>
+
+                                <div class="quote-total-row">
+                                    <span>Labour</span>
+                                    <strong id="totals-labour">R 1,500.00</strong>
+                                </div>
+
+                                <div class="quote-total-row">
+                                    <span>Materials</span>
+                                    <strong id="totals-materials">R 0.00</strong>
+                                </div>
+
+                                <div class="quote-total-row">
+                                    <span>Services &amp; site work</span>
+                                    <strong id="totals-services">R 0.00</strong>
+                                </div>
+
+                                <div class="quote-total-row">
+                                    <span>Subtotal before discount</span>
+                                    <strong id="totals-subtotal">R 0.00</strong>
+                                </div>
+
+                                <div class="quote-total-row quote-total-discount">
+                                    <span>Discount</span>
+                                    <strong id="totals-discount">-R 0.00</strong>
+                                </div>
+
+                                <div class="quote-total-row">
+                                    <span>Net excluding VAT</span>
+                                    <strong id="totals-net">R 0.00</strong>
+                                </div>
+
+                                <div class="quote-total-row">
+                                    <span id="totals-vat-label">VAT @ 15%</span>
+                                    <strong id="totals-vat">R 0.00</strong>
+                                </div>
+
+                                <div class="quote-total-row quote-total-grand">
+                                    <span>Total incl. VAT</span>
+                                    <strong id="grand-total">R 2,472.50</strong>
+                                </div>
+
+                                <div class="quote-total-row quote-total-deposit">
+                                    <span>Deposit required</span>
+                                    <strong id="totals-deposit">R 0.00</strong>
+                                </div>
+
+                            </div>
+
+                        </div>
+
+
+                        <div class="vat-row">
+
+                            <label class="switch-label">
+
+                                <input id="vat-enabled" type="checkbox" checked>
+
+                                <span class="switch"></span>
+
+                                Include VAT
+
+                            </label>
+
+                            <span id="vat-rate-label">
+                                15%
+                            </span>
+
+                        </div>
+
+
+                        <div class="summary-actions">
+
+                            <button class="pdf-button" id="pdf-button" type="button">
+                                <span>
+                                    View / save as PDF
+                                </span>
+
+                                <span>
+                                    ⤓
+                                </span>
+                            </button>
+
+
+                            <button class="primary-button" id="save-quote" type="button">
+                                <span>
+                                    Save quote
+                                </span>
+
+                                <span>
+                                    →
+                                </span>
+                            </button>
+
+
+                            <button class="secondary-button" id="clear-quote" type="button">
+                                Clear form
+                            </button>
+
+
+                            <p class="summary-footnote">
+                                Prices are calculated in South African Rand.
+                                VAT is applied to the subtotal.
+                            </p>
+
+                        </div>
 
                     </section>
 

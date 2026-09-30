@@ -626,6 +626,178 @@ h2 {
     color: #9db5af
 }
 
+/* The letterhead is paper-only; hidden until the print stylesheet asks for it. */
+.company-print-header {
+    display: none
+}
+
+/* ---- bottom quote summary (AGA layout) ---- */
+
+.summary-section {
+    grid-column: 1 / -1;
+    background: var(--surface-light, #f7f9f8);
+    border: 1px solid var(--border, #d7e1ee);
+    border-radius: var(--radius-sm, 6px);
+    padding: 18px;
+    margin-top: 8px
+}
+
+.summary-section-header {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 14px;
+    margin-bottom: 6px
+}
+
+.summary-section-header h3 {
+    font-size: 15px;
+    font-weight: 700;
+    letter-spacing: .02em;
+    text-transform: uppercase;
+    color: var(--ink, #0d1f2d)
+}
+
+.summary-section .summary-customer,
+.summary-section .summary-address {
+    color: var(--ink, #0d1f2d);
+    background: none;
+    padding: 0;
+    border: 0
+}
+
+.summary-section .summary-customer {
+    font-weight: 700
+}
+
+.summary-section .summary-address {
+    margin-bottom: 14px;
+    color: var(--muted, #667)
+}
+
+.summary-section .summary-date {
+    color: var(--muted, #667);
+    font-size: 12px
+}
+
+.quote-summary-layout {
+    display: grid;
+    grid-template-columns: 1fr 360px;
+    gap: 22px;
+    align-items: start
+}
+
+.quote-summary-fields {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 16px
+}
+
+.quote-summary-fields .form-group {
+    display: flex;
+    flex-direction: column;
+    gap: 5px
+}
+
+.quote-summary-fields .form-group strong {
+    font-size: 15px;
+    font-variant-numeric: tabular-nums;
+    color: var(--ink, #0d1f2d)
+}
+
+.quote-summary-fields label,
+.quote-summary-fields .form-label {
+    font-size: 10.5px;
+    letter-spacing: .04em;
+    text-transform: uppercase;
+    color: var(--muted, #667)
+}
+
+.quote-summary-fields input {
+    padding: 11px 12px;
+    border: 1px solid var(--border, #d7e1ee);
+    border-radius: var(--radius-sm, 6px);
+    background: #fff;
+    font: inherit
+}
+
+.quote-totals {
+    background: #fff;
+    border: 1px solid var(--border, #d7e1ee);
+    border-radius: var(--radius-sm, 6px);
+    padding: 14px 16px
+}
+
+.quote-total-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: 14px;
+    padding: 7px 0;
+    font-size: 13px;
+    color: var(--muted, #667);
+    border-bottom: 1px dashed var(--border, #d7e1ee)
+}
+
+.quote-total-row:last-child {
+    border-bottom: 0
+}
+
+.quote-total-row strong {
+    font-variant-numeric: tabular-nums;
+    color: var(--ink, #0d1f2d);
+    white-space: nowrap
+}
+
+.quote-total-discount strong {
+    color: #b3261e
+}
+
+.quote-total-grand {
+    border-top: 2px solid var(--ink, #0d1f2d);
+    border-bottom: 0;
+    margin-top: 6px;
+    padding-top: 12px;
+    font-size: 15px;
+    font-weight: 700
+}
+
+.quote-total-grand strong {
+    font-size: 19px
+}
+
+.quote-total-deposit {
+    border-top: 1px solid var(--border, #d7e1ee);
+    padding-top: 12px;
+    font-weight: 600;
+    color: #1f6f43
+}
+
+.quote-total-deposit strong {
+    color: #1f6f43
+}
+
+.summary-section .vat-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin: 14px 0 10px;
+    color: var(--ink, #0d1f2d)
+}
+
+.summary-actions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 12px
+}
+
+.summary-actions .summary-footnote {
+    width: 100%;
+    margin: 0;
+    color: var(--muted, #667)
+}
+
 .summary-top {
     display: flex;
     justify-content: space-between
@@ -1187,6 +1359,18 @@ h2 {
         display: block
     }
 
+    .quote-summary-layout {
+        grid-template-columns: 1fr
+    }
+
+    .quote-summary-fields {
+        grid-template-columns: 1fr
+    }
+
+    .summary-section {
+        margin-top: 18px
+    }
+
     .summary-card {
         display: block !important;
         box-shadow: none;
@@ -1220,6 +1404,31 @@ h2 {
 
     .summary-card .grand-total strong {
         color: #000
+    }
+
+    /* The bottom summary now carries the quote totals, so it must stay on
+       paper. Only its interactive controls and input fields are dropped. */
+    .summary-section {
+        background: #fff;
+        border: 1px solid #ddd;
+        margin-top: 14px;
+        padding: 0
+    }
+
+    .summary-section .summary-actions .pdf-button,
+    .summary-section .summary-actions .primary-button,
+    .summary-section .summary-actions .secondary-button,
+    .summary-section .quote-summary-fields input,
+    .summary-section .vat-row {
+        display: none
+    }
+
+    .summary-section .quote-summary-fields {
+        display: none
+    }
+
+    .summary-section .summary-footnote {
+        color: #555
     }
 
     .topbar {

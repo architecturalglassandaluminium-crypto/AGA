@@ -1241,10 +1241,31 @@ function calculate() {
     $('summary-labour').textContent = currency(labour);
     $('summary-materials').textContent = currency(materialsTotal);
     $('summary-services').textContent = currency(servicesTotal);
-    $('grand-total').textContent = currency(subtotal + vat);
-    $('vat-rate-label').textContent = `${vatRate}%`;
+    renderQuoteTotals({ callout, labour, materialsTotal, servicesTotal, subtotal, vat, vatRate });
     updatePrintDetails({ callout, labour, materialsTotal, servicesTotal, subtotal, vat, total: subtotal + vat, vatRate });
     return { callout, labour, materialsTotal, servicesTotal, subtotal, vat, total: subtotal + vat, vatRate };
+}
+/* The bottom summary mirrors the AGA quote builder: a discount is taken off the
+   subtotal, VAT applies to the discounted net, and a deposit is shown on the total. */
+function renderQuoteTotals(totals) {
+    const discountRate = getNumber('quote-discount');
+    const discount = totals.subtotal * discountRate / 100;
+    const net = totals.subtotal - discount;
+    const vat = totals.vatRate * net / 100;
+    const total = net + vat;
+    const depositRate = getNumber('quote-deposit');
+    $('totals-callout').textContent = currency(totals.callout);
+    $('totals-labour').textContent = currency(totals.labour);
+    $('totals-materials').textContent = currency(totals.materialsTotal);
+    $('totals-services').textContent = currency(totals.servicesTotal);
+    $('totals-subtotal').textContent = currency(totals.subtotal);
+    $('totals-discount').textContent = `-${currency(discount)}`;
+    $('totals-net').textContent = currency(net);
+    $('totals-vat-label').textContent = `VAT @ ${totals.vatRate}%`;
+    $('totals-vat').textContent = currency(vat);
+    $('grand-total').textContent = currency(total);
+    $('totals-deposit').textContent = currency(total * depositRate / 100);
+    $('vat-rate-label').textContent = `${totals.vatRate}%`;
 }
 function updatePrintDetails(totals = calculateTotals()) {
     const customer = $('customer-name').value.trim() || 'New customer';

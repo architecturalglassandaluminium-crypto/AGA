@@ -516,10 +516,31 @@ function calculate() {
     $('summary-labour').textContent = currency(labour);
     $('summary-materials').textContent = currency(materialsTotal);
     $('summary-services').textContent = currency(servicesTotal);
-    $('grand-total').textContent = currency(subtotal + vat);
-    $('vat-rate-label').textContent = `${vatRate}%`;
+    renderQuoteTotals({ callout, labour, materialsTotal, servicesTotal, subtotal, vat, vatRate });
     updatePrintDetails({ callout, labour, materialsTotal, servicesTotal, subtotal, vat, total: subtotal + vat, vatRate });
     return { callout, labour, materialsTotal, servicesTotal, subtotal, vat, total: subtotal + vat, vatRate };
+}
+/* The bottom summary mirrors the AGA quote builder: a discount is taken off the
+   subtotal, VAT applies to the discounted net, and a deposit is shown on the total. */
+function renderQuoteTotals(totals) {
+    const discountRate = getNumber('quote-discount');
+    const discount = totals.subtotal * discountRate / 100;
+    const net = totals.subtotal - discount;
+    const vat = totals.vatRate * net / 100;
+    const total = net + vat;
+    const depositRate = getNumber('quote-deposit');
+    $('totals-callout').textContent = currency(totals.callout);
+    $('totals-labour').textContent = currency(totals.labour);
+    $('totals-materials').textContent = currency(totals.materialsTotal);
+    $('totals-services').textContent = currency(totals.servicesTotal);
+    $('totals-subtotal').textContent = currency(totals.subtotal);
+    $('totals-discount').textContent = `-${currency(discount)}`;
+    $('totals-net').textContent = currency(net);
+    $('totals-vat-label').textContent = `VAT @ ${totals.vatRate}%`;
+    $('totals-vat').textContent = currency(vat);
+    $('grand-total').textContent = currency(total);
+    $('totals-deposit').textContent = currency(total * depositRate / 100);
+    $('vat-rate-label').textContent = `${totals.vatRate}%`;
 }
 function updatePrintDetails(totals = calculateTotals()) {
     const customer = $('customer-name').value.trim() || 'New customer';
@@ -541,8 +562,7 @@ function calculateTotals() {
     const vatRate = Number($('vat-rate').value || VAT_DEFAULT);
     const vat = $('vat-enabled').checked ? subtotal * vatRate / 100 : 0;
     return { callout, labour, materialsTotal, servicesTotal, subtotal, vat, total: subtotal + vat, vatRate };
-}
-function renderServices() {
+}function renderServices() {
     $('service-list').innerHTML = services.map((service, index) => { const group = service.scenario || 'Additional services'; const previousGroup = index ? services[index - 1].scenario || 'Additional services' : ''; const heading = group === previousGroup ? '' : `<div class="service-group-label">${escapeHtml(group)}</div>`; return `${heading}<div class="material-row service-row" data-index="${index}"><select class="service-category" aria-label="Service category"><option value="">Select category</option>${serviceCategories.map(category => `<option ${service.category === category ? 'selected' : ''}>${escapeHtml(category)}</option>`).join('')}</select><select class="service-task" aria-label="Service task"><option value="">Select task</option>${getServiceTasks(service).map(task => `<option ${service.task === task ? 'selected' : ''}>${escapeHtml(task)}</option>`).join('')}</select>${unitSelect(getServiceUnit(service), `Unit for ${service.task || 'service'}`).replace('class="price-unit"', 'class="service-unit"')}<input class="service-quantity" type="number" min="1" step="1" value="${getServiceQuantity(service)}" aria-label="Service quantity"><span class="service-rate">${currency(getServiceRate(service))}</span><span class="service-total">${currency(getServiceRate(service) * getServiceQuantity(service))}</span><button class="remove-material" type="button" aria-label="Remove service">×</button></div>`; }).join('');
     $('service-empty').style.display = services.length ? 'none' : 'block';
     document.querySelectorAll('.service-row').forEach(row => { const index = Number(row.dataset.index); row.querySelector('.service-category').addEventListener('change', event => { services[index] = { ...services[index], category: event.target.value, task: '', unit: 'Each', quantity: 1, rate: 350 }; renderServices(); }); row.querySelector('.service-task').addEventListener('change', event => { services[index].task = event.target.value; services[index].unit = serviceUnits[event.target.value] || 'Each'; services[index].rate = serviceRates[event.target.value] || 350; renderServices(); }); row.querySelector('.service-unit').addEventListener('change', event => { services[index].unit = event.target.value; }); row.querySelector('.service-quantity').addEventListener('input', event => { services[index].quantity = getServiceQuantity({ quantity: event.target.value }); renderServices(); calculate(); }); row.querySelector('.remove-material').addEventListener('click', () => { services.splice(index, 1); renderServices(); calculate(); }); });
