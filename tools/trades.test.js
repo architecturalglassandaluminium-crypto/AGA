@@ -253,6 +253,100 @@ test('the embedded trade panel exists and starts hidden', () => {
     assert.match(tradeView[0], /\bhidden\b/);
 });
 
+/*
+   Each of the three companies shows its OWN logo and its OWN name.
+
+   The header used to carry the hard-coded letters "AGA" as text,
+   which was wrong twice over: there was no logo at all, and the name
+   stayed "Architectural Glass & Aluminium" even while a plumbing or
+   coatings quote was on screen. All three now come from one identity
+   table that setTrade() repaints on every switch.
+*/
+test('all three companies have a logo in the header identity table', () => {
+    const source = read(TRADES_JS);
+    const table = source.slice(
+        source.indexOf('TRADE_IDENTITY'),
+        source.indexOf('};', source.indexOf('TRADE_IDENTITY'))
+    );
+
+    for (const [trade, logo] of [
+        ['glass', 'logo.png'],
+        ['plumbing', 'trades/plumbing/APSlogo.png'],
+        ['coatings', 'trades/coatings/APClogo.jpg']
+    ]) {
+        assert.match(
+            table,
+            new RegExp(`${trade}:\\s*\\{[\\s\\S]*?logo:\\s*"${logo.replace(/[/.]/g, '\\$&')}"`),
+            `${trade} has no logo in TRADE_IDENTITY`
+        );
+    }
+
+    /* The logos are real files, not placeholders. */
+    for (const logo of [
+        path.join(ROOT, 'logo.png'),
+        path.join(ROOT, 'trades', 'plumbing', 'APSlogo.png'),
+        path.join(ROOT, 'trades', 'coatings', 'APClogo.jpg')
+    ]) {
+        assert.ok(fs.existsSync(logo), `${logo} does not exist`);
+    }
+});
+
+test('the header identity is repainted whenever the trade changes', () => {
+    const source = read(TRADES_JS);
+
+    /*
+       Without this call in setTrade(), the table above is read once
+       and never used: the header would keep showing whichever company
+       was current when the page loaded.
+    */
+    const setTrade = source.slice(
+        source.indexOf('function setTrade('),
+        source.indexOf('\n    function', source.indexOf('function setTrade('))
+    );
+    assert.match(
+        setTrade,
+        /applyTradeIdentity\(\s*trade\s*\)/,
+        'setTrade() never repaints the header identity'
+    );
+});
+
+/*
+   The floating switcher must not cover the quoting apps' own logos.
+
+   It was pinned to the top-left, which is exactly where both quoting
+   apps put their logo and menu in their header - so it sat over the
+   company's mark on every screen of both apps. It now sits bottom-
+   right, over blank space, and carries the selected company's logo.
+*/
+test('the floating switcher is out of the quoting apps logo corner', () => {
+    const css = read(STYLES_CSS);
+
+    const pill = css.match(/body\.trade-open \.app-header\s*\{([^}]*)\}/);
+    assert.ok(pill, 'no body.trade-open .app-header rule');
+    assert.match(pill[1], /position:\s*fixed/);
+
+    /*
+       Anchored bottom-right. Asserted by its anchor values rather
+       than by "not top-left", because the point is that it is
+       positively in a known-safe corner.
+    */
+    assert.match(pill[1], /bottom:\s*\d/);
+    assert.match(pill[1], /right:\s*\d/);
+    assert.match(pill[1], /top:\s*auto/);
+    assert.doesNotMatch(
+        pill[1],
+        /(?:^|[;\s])top:\s*\d/,
+        'the switcher is pinned to the top, over the apps own logo'
+    );
+
+    /* The logo rides along in the pill, so the company is always named. */
+    assert.match(
+        css,
+        /body\.trade-open \.app-header \.company-info\s*\{[^}]*display:\s*flex/,
+        'the company logo is hidden while a trade is open'
+    );
+});
+
 // ---------------------------------------------------------------------------
 // styles.css
 // ---------------------------------------------------------------------------

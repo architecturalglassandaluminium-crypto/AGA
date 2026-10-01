@@ -27,12 +27,30 @@
     <!-- HEADER -->
     <header class="app-header">
         <div class="header-content">
+            <!--
+                COMPANY IDENTITY
+
+                The logo, name and tagline all change with the selected
+                trade, so each one carries an id and trades.js rewrites
+                them in setTrade(). Glass & Aluminium is the default and
+                is written out in full here, so the page reads correctly
+                before any script runs.
+
+                The three logos are opaque files: AGA's has a grey field,
+                APS and APC's have white. All three are shown on a white
+                rounded plate (see .company-logo in styles.css) rather
+                than dropped straight onto the dark header, where a grey
+                rectangle would read as a mistake.
+            -->
             <div class="company-info">
-                <span class="company-mark" aria-hidden="true">AGA</span>
+                <span class="company-mark">
+                    <img class="company-logo" id="company-logo" src="logo.png" alt=""
+                        width="359" height="96">
+                </span>
                 <div class="company-text">
-                    <h1>Architectural Glass &amp; Aluminium</h1>
-                    <strong>Production &amp; Measurement System</strong>
-                    <span>Track every window from measurement to installation</span>
+                    <h1 id="company-name">Architectural Glass &amp; Aluminium</h1>
+                    <strong id="company-tagline">Production &amp; Measurement System</strong>
+                    <span id="company-summary">Track every window from measurement to installation</span>
                 </div>
             </div>
             <div class="header-status">

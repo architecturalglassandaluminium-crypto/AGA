@@ -175,18 +175,41 @@ img {
 }
 
 .company-mark {
+    /*
+       A plate, not a badge.
+
+       It used to hold the letters "AGA" as text on a translucent
+       chip. It now holds the company's actual logo, and the three
+       logo files are opaque: AGA's sits on a grey field, APS and
+       APC's on white. Laid straight onto this dark blue header, the
+       grey one would read as a mistake rather than a logo - so each
+       logo is shown on its own small white plate, which gives all
+       three a consistent edge whatever their background is.
+    */
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    width: 42px;
-    height: 42px;
-    border-radius: 11px;
-    background: rgba(255, 255, 255, 0.13);
-    border: 1px solid rgba(255, 255, 255, 0.22);
-    font-size: 15px;
-    font-weight: 800;
-    letter-spacing: 0.5px;
+    padding: 5px 9px;
+    border-radius: 8px;
+    background: #ffffff;
+    border: 1px solid rgba(255, 255, 255, .28);
     flex: 0 0 auto;
+    height: 44px
+}
+
+.company-logo {
+    display: block;
+    width: auto;
+    height: 100%;
+    /*
+       object-fit:contain keeps the aspect ratio whatever the file's
+       own proportions are. The three logos are very different shapes
+       - AGA is 359x96 (wide), APC is 652x292 (nearly square) - and a
+       fixed width would make one of them tower over the header.
+    */
+    max-width: 108px;
+    object-fit: contain;
+    object-position: center
 }
 
 .company-text {
@@ -6872,37 +6895,72 @@ img {
       With the app filling the window, a full-width header band would
       either cover the top of the quote or push it down - the opposite
       of the point. So while a trade is open the header collapses to a
-      small rounded pill in the top-left corner, sitting on top of the
-      embedded app (the trade view is z-index 50, the pill 60) and
-      showing only what the user needs to get out: the trade buttons
-      and the portfolio button.
+         small floating pill, sitting ON TOP of the embedded app (the trade
+         view is z-index 50, the pill 60) and showing only what the user
+         needs: which company they are in, and the way out.
 
-      Everything else in the header - the AGA wordmark, the company
-      details, the phone and email links, the sync badge, sign-out -
-      is hidden, because none of it belongs to the quoting app the
-      user is actually looking at.
+         Everything else in the header - the company details, the phone and
+         email links, the sync badge, sign-out - is hidden, because none of
+         it belongs to the quoting app the user is actually looking at.
 
-      It is not position:sticky here: the body does not scroll while a
-      trade is open (the embedded app scrolls internally), so the pill
-      only has to stay where it is put.
-   */
-   body.trade-open .app-header {
-       position: fixed;
-       top: 10px;
-       left: 10px;
-       right: auto;
-       z-index: 60;
-       width: auto;
-       border-radius: 999px;
-       box-shadow: 0 2px 12px rgba(0, 0, 0, .28)
-   }
+         WHY IT SITS IN THE BOTTOM CORNER
+         ---------------------------------
+         It was pinned to the top-left, which is the one place the pill must
+         not be: each quoting app opens with its OWN logo and menu in the
+         top-left of its header, and a floating control there covered the
+         company's mark on every screen of both apps. It is not a matter of
+         hiding it either - the switcher has to stay reachable while a trade
+         fills the window, or there is no way back out.
 
-   body.trade-open .app-header .company-info,
-   body.trade-open .app-header .header-contact,
-   body.trade-open .app-header .sync-badge,
-   body.trade-open .app-header .signout-button {
-       display: none
-   }
+         So it goes bottom-right, over the part of a quote page that is
+         blank space. It carries the selected company's logo, which means
+         the answer to "which company is this?" is on screen permanently
+         instead of being hidden away.
+
+         It is not position:sticky here: the body does not scroll while a
+         trade is open (the embedded app scrolls internally), so the pill
+         only has to stay where it is put.
+      */
+      body.trade-open .app-header {
+          position: fixed;
+          bottom: 14px;
+          right: 14px;
+          top: auto;
+          left: auto;
+          z-index: 60;
+          width: auto;
+          border-radius: 999px;
+          box-shadow: 0 2px 12px rgba(0, 0, 0, .28)
+      }
+
+      /*
+         The company details are hidden above, but the LOGO is not: it is
+         the one thing that says which of the three companies the quote
+         belongs to, and a quote is a document somebody signs. The mark
+         drops to a single small dot-sized plate here - this is an overlay
+         on someone else's app, not a masthead, so it stays compact.
+      */
+      body.trade-open .app-header .company-info {
+          display: flex;
+          flex: 0 0 auto
+      }
+
+      body.trade-open .app-header .company-text,
+      body.trade-open .app-header .header-contact,
+      body.trade-open .app-header .sync-badge,
+      body.trade-open .app-header .signout-button {
+          display: none
+      }
+
+      body.trade-open .company-mark {
+          height: 32px;
+          padding: 3px 7px;
+          border-radius: 6px
+      }
+
+      body.trade-open .company-logo {
+          max-width: 74px
+      }
 
    /*
       The header's own flex row collapses to the one thing left in it.
@@ -6971,9 +7029,10 @@ body.trade-open {
     }
 
     body.trade-open .app-header {
-        top: 8px;
-        left: 8px;
-        right: 8px
+        top: auto;
+        bottom: 10px;
+        right: 10px;
+        left: auto
     }
 }
 /* Three-company project portfolio */

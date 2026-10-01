@@ -58,6 +58,41 @@
     };
 
     /*
+       Glass & Aluminium's own identity.
+
+       This is the trade the page IS, so it needs no entry above -
+       TRADE_APPS only describes trades that live in an iframe. It is
+       listed here anyway because the header must be able to go BACK
+       to it, and because holding all three sets side by side is what
+       lets restoreTrade() paint the right one on load.
+
+       The logo files are opaque rather than transparent: AGA's sits
+       on a grey field, the other two on white. That is why the header
+       shows them on a white plate (styles.css .company-logo) instead
+       of straight onto the dark blue.
+    */
+    var TRADE_IDENTITY = {
+        glass: {
+            logo: "logo.png",
+            name: "Architectural Glass &amp; Aluminium",
+            tagline: "Production &amp; Measurement System",
+            summary: "Track every window from measurement to installation"
+        },
+        plumbing: {
+            logo: "trades/plumbing/APSlogo.png",
+            name: "Architectural Plumbing Services",
+            tagline: "Plumbing Quotation &amp; Pricing System",
+            summary: "Quote a plumbing job, then plan it from call-out to completion"
+        },
+        coatings: {
+            logo: "trades/coatings/APClogo.jpg",
+            name: "Architectural Performance Coatings",
+            tagline: "Construction Quotation System",
+            summary: "Quote coatings, building, electrical and site work, then plan it"
+        }
+    };
+
+    /*
        The production parts of the page that are hidden while a
        quoting trade is open. The header stays, because it carries
        the trade switcher the user needs to get back.
@@ -202,6 +237,48 @@
     }
 
     /* =========================================================
+   HEADER IDENTITY
+   ---------------------------------------------------------
+   The logo, name and tagline in the header belong to the SELECTED
+   trade, so they are repainted on every switch. Without this the
+   header kept saying "Architectural Glass & Aluminium" above a
+   plumbing quote.
+
+   The strings carry their own &amp; because they are written with
+   innerHTML: the company names all contain an ampersand, and using
+   textContent here would print a bare "&" on the page.
+   ========================================================= */
+
+    function applyTradeIdentity(trade) {
+        var identity = TRADE_IDENTITY[trade];
+        if (!identity) {
+            return;
+        }
+
+        var logo = byId("company-logo");
+        if (logo) {
+            /* Only swap the file when it actually changes: setting
+               src to its current value re-fetches the image, which
+               makes the logo flicker on every switch. */
+            if (logo.getAttribute("src") !== identity.logo) {
+                logo.setAttribute("src", identity.logo);
+            }
+        }
+
+        var fields = [
+            ["company-name", identity.name],
+            ["company-tagline", identity.tagline],
+            ["company-summary", identity.summary]
+        ];
+        fields.forEach(function (pair) {
+            var element = byId(pair[0]);
+            if (element) {
+                element.innerHTML = pair[1];
+            }
+        });
+    }
+
+    /* =========================================================
        SWITCHING
        ========================================================= */
 
@@ -212,6 +289,9 @@
         }
 
         currentTrade = trade;
+
+        applyTradeIdentity(trade);
+
         if (byId("portfolioButton")) {
             byId("portfolioButton").classList.toggle("active", trade === "portfolio");
             byId("portfolioButton").setAttribute("aria-pressed", trade === "portfolio" ? "true" : "false");
