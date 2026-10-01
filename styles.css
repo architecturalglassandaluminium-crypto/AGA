@@ -6783,14 +6783,19 @@ img {
 }
 
 /*
-   The embedded trade fills the screen below the header. The
-   header itself stays put, because it holds the switcher the
-   user needs to get back to the production app.
+   The embedded trade fills the WHOLE screen, header included.
+
+   The header itself stays reachable but stops being a full-width
+   band: while a trade is open it collapses to the small floating
+   switcher in the top corner, so the app below gets every pixel.
+   See the body.trade-open rules below.
 */
 .trade-view {
     width: 100%;
     /*
-       Full screen, not "the space below the header, guessed at".
+       Taken out of the flow rather than sized as the leftover of a
+       flex column, because with the header floating there is no
+       leftover to measure: the panel is simply the window.
 
        This was calc(100vh - 72px), and calc(100vh - 108px) on a
        narrow screen - two hand-typed numbers standing in for a
@@ -6801,10 +6806,13 @@ img {
        locked) or taller than it (the foot of the app pushed out
        of sight with no way to scroll to it).
 
-       Instead the trade view is the last row of a full-height
-       flex column, so it takes whatever the header leaves over
-       and no more. See the body.trade-open rules below.
+       Instead the trade view is fixed to the window and fills it
+       edge to edge, and the header becomes a floating switcher on
+       top of it. See the body.trade-open rules below.
     */
+    position: fixed;
+    inset: 0;
+    z-index: 50;
     height: auto;
     flex: 1 1 auto;
     min-height: 0;
@@ -6840,34 +6848,78 @@ img {
    document and the frame scroll together, which on a phone feels
    broken.
 
-   The frame is also made to fill the window exactly. This is a
-   column of [header | trade view] sized by flexbox, so the app
-   gets every pixel the header does not - on any screen, at any
-   zoom, with no magic number to keep in step with the header.
-*/
-body.trade-open {
-    overflow: hidden;
-    height: 100vh;
-    /*
-       dvh is the height actually available to the window, which
-       is smaller than vh on a phone whose address bar is showing.
-       vh is kept first as the fallback for anything that does not
-       know dvh.
-    */
-    height: 100dvh;
-    display: flex;
-    flex-direction: column;
-}
+   The frame is also made to fill the window exactly. It is
+      position:fixed with inset:0, so the app gets every pixel of the
+      window - on any screen, at any zoom, with no magic number to keep
+      in step with a header that is no longer in the way.
+   */
+   body.trade-open {
+       overflow: hidden;
+       height: 100vh;
+       /*
+          dvh is the height actually available to the window, which
+          is smaller than vh on a phone whose address bar is showing.
+          vh is kept first as the fallback for anything that does not
+          know dvh.
+       */
+       height: 100dvh;
+       display: block
+   }
 
-body.trade-open .app-header {
-    /*
-       Sticky does nothing inside a non-scrolling column and would
-       only fight the flex layout for the box, so it is dropped
-       while a trade is open.
-    */
-    position: static;
-    flex: 0 0 auto;
-}
+   /*
+      THE HEADER BECOMES A FLOATING SWITCHER
+
+      With the app filling the window, a full-width header band would
+      either cover the top of the quote or push it down - the opposite
+      of the point. So while a trade is open the header collapses to a
+      small rounded pill in the top-left corner, sitting on top of the
+      embedded app (the trade view is z-index 50, the pill 60) and
+      showing only what the user needs to get out: the trade buttons
+      and the portfolio button.
+
+      Everything else in the header - the AGA wordmark, the company
+      details, the phone and email links, the sync badge, sign-out -
+      is hidden, because none of it belongs to the quoting app the
+      user is actually looking at.
+
+      It is not position:sticky here: the body does not scroll while a
+      trade is open (the embedded app scrolls internally), so the pill
+      only has to stay where it is put.
+   */
+   body.trade-open .app-header {
+       position: fixed;
+       top: 10px;
+       left: 10px;
+       right: auto;
+       z-index: 60;
+       width: auto;
+       border-radius: 999px;
+       box-shadow: 0 2px 12px rgba(0, 0, 0, .28)
+   }
+
+   body.trade-open .app-header .company-info,
+   body.trade-open .app-header .header-contact,
+   body.trade-open .app-header .sync-badge,
+   body.trade-open .app-header .signout-button {
+       display: none
+   }
+
+   /*
+      The header's own flex row collapses to the one thing left in it.
+      Without this the hidden children would still occupy the gaps
+      their margins create, leaving a pill with a dead stretch in it.
+   */
+   body.trade-open .header-content {
+       display: flex;
+       align-items: center;
+       padding: 6px 10px;
+       gap: 8px
+   }
+
+   body.trade-open .header-status {
+       gap: 6px;
+       padding: 0
+   }
 
 /*
    On a phone the production nav becomes a fixed bar along the
@@ -6897,10 +6949,32 @@ body.trade-open {
     }
 
     /*
-       No height to override here any more: the panel is sized by
-       the flex column on body.trade-open, which measures the
-       header as it actually is.
+       No height to override here any more: the panel is fixed to the
+       window, so it covers everything without measuring a header.
+
+       The switcher is normally stretched across its own row on a
+       narrow screen. Inside the floating pill that would force the
+       pill to the full width of the window - which is the very
+       thing the pill exists to avoid - so the pill cancels it and
+       lets the buttons wrap instead.
     */
+    body.trade-open .trade-switcher {
+        order: 0;
+        width: auto;
+        flex-wrap: wrap;
+        justify-content: flex-start
+    }
+
+    body.trade-open .trade-button {
+        padding: 6px 11px;
+        font-size: 12.5px
+    }
+
+    body.trade-open .app-header {
+        top: 8px;
+        left: 8px;
+        right: 8px
+    }
 }
 /* Three-company project portfolio */
 .portfolio-button { border: 1px solid rgba(255,255,255,.4); }

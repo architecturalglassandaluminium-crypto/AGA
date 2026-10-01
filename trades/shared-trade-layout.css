@@ -23,7 +23,7 @@
    override it, which is why a few rules carry !important: the
    app stylesheets end with broad rules such as
 
-       body :not(...) { font-size: 12px !important }
+       body :not(...) { font-size: 15px !important }
 
    that would otherwise beat anything sensible written here.
 
@@ -62,7 +62,7 @@
     */
     width: 100%;
     min-height: 0;
-    padding: 12px 20px;
+    padding: 14px 22px;
     flex-direction: row;
     flex-wrap: wrap;
     align-items: center;
@@ -95,8 +95,8 @@
     */
     width: auto;
     height: auto;
-    max-height: 38px;
-    max-width: 150px;
+    max-height: 46px;
+    max-width: 170px;
     object-fit: contain
 }
 
@@ -129,18 +129,19 @@
     gap: 8px;
 
     /* Room for a comfortable tap target on a tablet. */
-    padding: 9px 13px;
-    min-height: 40px;
+    padding: 10px 15px;
+            min-height: 46px;
 
     border-radius: 6px;
     text-align: left;
 
     /*
        The app stylesheet ends with a blanket 12px !important, so
-       the menu needs its own !important to stay legible.
+               the menu needs its own !important to stay legible - and it
+               is written at 15px to match the rest of the app.
     */
-    font-size: 13px !important;
-    line-height: 1.25;
+    font-size: 15px !important;
+            line-height: 1.25;
 
     /*
        A long label ("Project planning") wraps inside the button
@@ -238,8 +239,8 @@
    mono labels, Arial for everything else - and the tails of
    each stylesheet force Arial over the lot with !important.
 
-   Everything now reads as Calibri 11, which is what matches
-   the Word documents the office quotes come out of.
+   Everything now reads as Calibri 15, which is what matches
+       the Word documents the office quotes come out of.
 
    Calibri is a Microsoft font: it is on Windows and on most
    Office installs, but NOT on Android or iOS. The list below
@@ -261,16 +262,17 @@
    straight up is what makes a row of columns wrap and
    break. They read more comfortably just under the target,
    and the .table-scroll wrapper added below keeps them on one
-   line. Everything not named in that list is a full 12px.
+   line. Everything not named in that list is a full 15px.
 
-   WHY 12px
-   --------
-   These apps are read on a laptop on site and on a phone in a van,
-   and 11px Calibri is small enough that a quantity or a rate has to
-   be checked twice. One point larger fixes that, and the cost tables
-   are still covered by their own smaller rule further down, so the
-   eleven-column rows keep their alignment.
-   ========================================================= */
+   WHY 15px
+       --------
+       These apps are read on a laptop on site and on a phone in a van,
+       and the old 12px Calibri was small enough that a quantity or a
+       rate had to be checked twice. The body is now 15px - large enough
+       to read comfortably from arm's length - and the cost tables are
+       still covered by their own smaller rule further down, so the
+       eleven-column rows keep their alignment.
+       ========================================================= */
 
    body,
    body * {
@@ -278,8 +280,8 @@
    }
 
    body {
-       font-size: 12px;
-       /*
+           font-size: 15px;
+           /*
           Calibri sits small for its point size next to Arial, so
           the body gets a little more room between lines than the
           app's default.
@@ -288,7 +290,7 @@
    }
 
 /*
-   Everything in the app is Calibri 11.
+   Everything in the app is Calibri 15.
 
    The :not() list is the short set of things that legitimately
    differ, and it has to be ONE rule. There were briefly two of
@@ -296,7 +298,7 @@
    so that the larger-field rule further down could win - but
    the first still matched every control and, being equal in
    weight, simply won on cascade order. The field text was
-   pinned back to 11px and the "larger text boxes" change was
+   pinned back to 12px and the "larger text boxes" change was
    reduced to padding alone.
 
    Rather than rely on two !important rules fighting, the
@@ -316,31 +318,31 @@ body :not(h1,
     input,
     textarea,
     select) {
-    font-size: 12px !important
+    font-size: 15px !important
 }
 
 /*
    Page and section headings stay above body text: they are the
    only thing separating one block of the form from the next,
-   and at 11px that difference disappears.
+       and at 15px that difference disappears.
 */
 h1 {
-    font-size: 26px !important
+    font-size: 34px !important
 }
 
-h2 {
-    font-size: 16px !important
+    h2 {
+    font-size: 22px !important
 }
 
-h3 {
-    font-size: 13.5px !important
+    h3 {
+    font-size: 18px !important
 }
 
 /*
    Wide tables (labour, materials, services) are laid out as
-   fixed-pixel grid columns. At a full 11px the longest price
-   and amount columns wrap and the rows lose their alignment,
-   so they sit just under it.
+       fixed-pixel grid columns. At the full 15px the longest price
+       and amount columns wrap and the rows lose their alignment,
+       so they sit a step under it.
 */
 .labour-headings,
 .labour-row,
@@ -350,7 +352,7 @@ h3 {
 .service-row,
 .scenario-service-headings,
     .scenario-editor-row {
-    font-size: 11.5px !important
+    font-size: 14px !important
 }
 
 /*
@@ -361,8 +363,9 @@ h3 {
    The min-width below is what makes the scroll real. Without
    it the grid columns simply shrink - a 1fr track happily goes
    to nothing - so the wrapper would never overflow and the
-   rows would squash instead. 820px is roughly the widest row
-   at its natural column sizes.
+   rows would squash instead. 1050px is roughly the widest row
+   at its natural column sizes - which at the larger body size
+    is wider than it used to be.
 */
 .table-scroll {
     overflow-x: auto;
@@ -376,7 +379,7 @@ h3 {
 .table-scroll>.material-headings,
 .table-scroll>.service-list,
 .table-scroll>.service-headings {
-    min-width: 820px
+    min-width: 1050px
 }
 
 /*
@@ -392,7 +395,7 @@ h3 {
 .quote-id,
 .view-note small,
 .company-contact-print span {
-    font-size: 12.5px !important
+    font-size: 14.5px !important
 }
 
 /* =========================================================
@@ -413,9 +416,9 @@ h3 {
 body .field input,
 body .field textarea,
 body .field select {
-    padding: 11px 12px !important;
+    padding: 12px 13px !important;
     /*
-       A step above the 12px body: a field the user has to read
+       A step above the 15px body: a field the user has to read
        back to check a measurement off a photo earns the extra.
 
        WHY "body .field input" AND NOT ".field input"
@@ -423,7 +426,7 @@ body .field select {
        Each app ends its own stylesheet with a blanket rule that
        sets a font-size on nearly everything:
 
-           body :not(h1, h2, .nav-icon, ...) { font-size: 12px !important }
+           body :not(h1, h2, .nav-icon, ...) { font-size: 15px !important }
 
        That list does NOT exclude input, textarea or select, so
        the rule matches a field and puts a size on it. Its
@@ -439,15 +442,15 @@ body .field select {
        (0,1,3), which wins. The field text is therefore the only
        rule that can actually set its size.
     */
-    font-size: 13.5px !important;
+    font-size: 16px !important;
     line-height: 1.45 !important;
-    min-height: 46px;
+    min-height: 54px;
 
     /*
         content-box keeps min-height meaning "the text area",
        not "padding + text", so the actual typing space is the
        size asked for. Without this the border-box default
-       eats 22px of it on every field.
+       eats 26px of it on every field.
     */
     box-sizing: content-box;
 
@@ -461,7 +464,7 @@ body .field select {
 
 .field textarea {
     /* A textarea is meant to be written in, so give it height. */
-    min-height: 96px;
+    min-height: 120px;
     resize: vertical
 }
 
@@ -470,7 +473,7 @@ body .field select {
    rather than being squeezed or clipped.
 */
 body .field {
-    font-size: 12px !important;
+    font-size: 15px !important;
     line-height: 1.35;
     white-space: normal;
     overflow-wrap: anywhere
@@ -491,10 +494,10 @@ body .scenario-panel input,
 body .scenario-panel textarea,
 body .scenario-panel select {
     /* Same reason as body .field input above. */
-    padding: 11px 12px !important;
-    font-size: 13.5px !important;
+    padding: 12px 13px !important;
+    font-size: 16px !important;
     line-height: 1.45 !important;
-    min-height: 46px;
+    min-height: 54px;
     box-sizing: content-box;
     white-space: normal;
     overflow-wrap: anywhere
@@ -603,12 +606,12 @@ body .scenario-panel select {
     */
     body .sidebar .nav .nav-item,
     body .sidebar .nav .nav-item:not(.active)::after {
-        font-size: 12px !important
+        font-size: 14px !important
     }
 
     .sidebar .nav-item {
-        padding: 8px 10px;
-        min-height: 40px;
+        padding: 9px 12px;
+        min-height: 44px;
         flex: 1 1 auto;
         min-width: 0;
         justify-content: center
@@ -636,11 +639,11 @@ body .scenario-panel select {
     /* Long form again, for the same reason as the 850px block. */
     body .sidebar .nav .nav-item,
     body .sidebar .nav .nav-item:not(.active)::after {
-        font-size: 12px !important
+        font-size: 14px !important
     }
 
     .sidebar .nav-item {
-        padding: 8px 9px;
+        padding: 9px 10px;
         gap: 5px;
         min-width: 0;
 
@@ -655,7 +658,7 @@ body .scenario-panel select {
     body .field input,
     body .field textarea,
     body .field select {
-        font-size: 13.5px !important
+        font-size: 16px !important
     }
 }
 

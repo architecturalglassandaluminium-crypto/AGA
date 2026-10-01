@@ -1,0 +1,955 @@
+<!-- =============================================================================
+     GENERIC QUOTATION - ALL COMPANIES
+     -----------------------------------------------------------------------------
+     A reference document showing the ONE quote format that every company uses:
+
+       | Trade  | Company                                  | Trades on             |
+       |--------|------------------------------------------|-----------------------|
+       | AGA    | Architectural Glass & Aluminium          | Glass & Aluminium     |
+       | APS    | Architectural Plumbing Services           | Plumbing              |
+       | APC    | Architectural Performance Coatings        | Construction          |
+
+     Each app already prints its own document in this shape:
+
+       1. Company letterhead (logo, name, reg no, address, office contact)
+       2. Cover meta     - Date / Client / Prepared by / Quotation no.
+       3. Scope of work  - what is being quoted, and for whom
+       4. Priced schedule - lettered sections, # / Description / Qty / Unit /
+                          Rate / Amount, with a section total per section
+       5. Costing summary - section totals, subtotal, discount, VAT, total,
+                          deposit
+       6. Notes & terms  - validity, exclusions, acceptance
+
+     That is the generic quote. This file is the paper version of it, with
+     placeholder content that any trade can be typed into, so a quote can be
+     issued by hand or by a system that has not been written yet.
+
+     WHAT IS DELIBERATELY ABSENT
+     ----------------------------
+     No scenario box. The quick-start "Job scenarios" panel was removed from
+     the quote forms in both quoting apps, so it has no place on the document
+     either. A scenario is a way of BUILDING a quote on screen; once priced,
+     its lines are just ordinary schedule lines and carry no trace of how
+     they were entered. Printing "Scenario: Install geyser" would put a
+     screen-authoring aid on a document the client reads as a priced offer.
+
+     The scenario LIBRARY still exists in both apps (Scenarios view) and is
+     still the fastest way to start a quote on screen. Removing it from the
+     document does not remove it from the workflow.
+
+     HOW TO USE THIS FILE
+     --------------------
+     Open it in a browser and print to PDF (Ctrl+P / Cmd+P). It carries its
+     own print stylesheet, so it needs no app, no server and no build step.
+     Replace the bracketed placeholders; everything else is already the
+     correct document furniture.
+     ============================================================================= -->
+
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Generic Quotation | AGA · APS · APC</title>
+
+    <style>
+        /* =========================================================
+           ONE PAGE, PRINT FIRST
+           ---------------------------------------------------------
+           Sized for A4 portrait with a 12mm margin, which is what
+           both trade apps print with. The type scale is in points
+           because this document is paper: a 9pt line on A4 is a
+           9pt line, whatever the screen happens to be.
+
+           The body font is Calibri with Carlito immediately after
+           it - the metric-compatible clone that ships with
+           LibreOffice and most Linux distributions - so the page
+           breaks identically on a machine that has no Microsoft
+           fonts. Ending the stack at Calibri alone would drop to
+           Times New Roman somewhere and re-flow the whole schedule.
+           ========================================================= */
+
+        @page {
+            size: A4;
+            margin: 12mm
+        }
+
+        :root {
+            --ink: #0f1c2b;
+            --muted: #55606e;
+            --line: #d7dee7;
+            --head: #eef3f8;
+            --paper: #ffffff
+        }
+
+        html,
+        body {
+            margin: 0;
+            padding: 0
+        }
+
+        body {
+            background: #e9edf2;
+            color: var(--ink);
+            font-family: Calibri, Carlito, "Segoe UI", Arial, sans-serif;
+            font-size: 10pt;
+            line-height: 1.4;
+            -webkit-print-color-adjust: exact;
+            print-color-adjust: exact
+        }
+
+        .sheet {
+            width: 186mm;
+            /* On screen the page is shown as a sheet of paper with a
+               shadow; in print the shadow and the grey surround go. */
+            margin: 10mm auto;
+            padding: 0;
+            background: var(--paper);
+            box-shadow: 0 2px 14px rgba(0, 0, 0, .18)
+        }
+
+        /* =========================================================
+           1. LETTERHEAD
+           ---------------------------------------------------------
+           The logo is optional. Every company has one, but they are
+           different files with different formats, so the generic
+           document leaves the slot empty and names the company in
+           text instead. A real quote drops its own logo in here.
+           ========================================================= */
+
+        .letterhead {
+            display: flex;
+            align-items: flex-start;
+            justify-content: space-between;
+            gap: 10mm;
+            padding-bottom: 3mm;
+            border-bottom: 2px solid var(--ink)
+        }
+
+        .letterhead-id {
+            min-width: 0
+        }
+
+        .letterhead-logo {
+            display: block;
+            max-width: 52mm;
+            max-height: 18mm;
+            margin-bottom: 2mm;
+            object-fit: contain
+        }
+
+        .letterhead-name {
+            margin: 0;
+            font-size: 15pt;
+            font-weight: 700;
+            letter-spacing: .01em;
+            line-height: 1.15;
+            text-transform: uppercase
+        }
+
+        .letterhead-reg {
+            margin: 1.5mm 0 0;
+            font-size: 8pt;
+            color: var(--muted);
+            line-height: 1.45
+        }
+
+        .letterhead-contact {
+            flex: 0 0 auto;
+            min-width: 52mm;
+            font-size: 8pt;
+            line-height: 1.5
+        }
+
+        .letterhead-contact b {
+            display: block;
+            font-size: 7.5pt;
+            letter-spacing: .09em;
+            text-transform: uppercase;
+            color: var(--muted);
+            margin-bottom: 1mm
+        }
+
+        .letterhead-contact strong {
+            font-weight: 700
+        }
+
+        /* =========================================================
+           2. TITLE BLOCK
+           ---------------------------------------------------------
+           The document is called a Quotation on every trade, so the
+           word is fixed and only the trade line under it varies.
+           ========================================================= */
+
+        .titleblock {
+            display: flex;
+            align-items: flex-end;
+            justify-content: space-between;
+            gap: 8mm;
+            padding: 5mm 0 4mm
+        }
+
+        .titleblock h1 {
+            margin: 0;
+            font-size: 22pt;
+            font-weight: 700;
+            line-height: 1.05;
+            letter-spacing: -.01em
+        }
+
+        .titleblock-sub {
+            margin: 1.5mm 0 0;
+            font-size: 10pt;
+            color: var(--muted)
+        }
+
+        .titleblock-id {
+            flex: 0 0 auto;
+            text-align: right
+        }
+
+        .titleblock-id .label {
+            display: block;
+            font-size: 7.5pt;
+            letter-spacing: .09em;
+            text-transform: uppercase;
+            color: var(--muted)
+        }
+
+        .titleblock-id strong {
+            display: block;
+            font-size: 13pt;
+            font-weight: 700;
+            margin: .5mm 0 1mm
+        }
+
+        .chip {
+            display: inline-block;
+            padding: .8mm 2.4mm;
+            border: 1px solid var(--line);
+            border-radius: 2px;
+            font-size: 8pt;
+            color: var(--muted);
+            background: var(--head)
+        }
+
+        /* =========================================================
+           3. SECTIONS
+           ========================================================= */
+
+        .section {
+            margin-top: 6mm;
+            break-inside: avoid-page
+        }
+
+        .section-title {
+            margin: 0 0 2.5mm;
+            padding-bottom: 1.5mm;
+            border-bottom: 1px solid var(--line);
+            font-size: 11pt;
+            font-weight: 700;
+            letter-spacing: .01em
+        }
+
+        /* The client detail grid: a label/value pair per cell, in two
+           columns, so a short quote still looks deliberate. */
+        .detail-grid {
+            width: 100%;
+            border-collapse: separate;
+            border-spacing: 0;
+            font-size: 9pt
+        }
+
+        .detail-grid th,
+        .detail-grid td {
+            padding: 1.6mm 2mm;
+            text-align: left;
+            vertical-align: top;
+            border-bottom: 1px solid var(--line)
+        }
+
+        .detail-grid th {
+            width: 26mm;
+            font-weight: 700;
+            color: var(--ink);
+            background: #f7f9fb
+        }
+
+        .scope-text {
+            margin: 0;
+            font-size: 9.5pt;
+            line-height: 1.5
+        }
+
+        .client-line {
+            margin: 2mm 0 0;
+            font-size: 8.5pt;
+            color: var(--muted)
+        }
+
+        /* =========================================================
+           4. THE PRICED SCHEDULE
+           ---------------------------------------------------------
+           This is the part that has to survive being read on a
+           phone and checked with a ruler against a drawing.
+
+           Six columns, in the order the office reads them: what it
+           is, what it is for, how many, in what unit, at what rate,
+           and what it comes to. Money is right-aligned because
+           amounts are compared down the column, not read across
+           the row.
+
+           A lettered section head and its total row are what let a
+           client see the shape of the quote - "most of this is
+           materials" - without adding up the rows themselves.
+           ========================================================= */
+
+        .schedule {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 8.5pt
+        }
+
+        .schedule thead th {
+            padding: 1.8mm 2mm;
+            text-align: left;
+            font-weight: 700;
+            background: var(--head);
+            border-top: 1px solid var(--line);
+            border-bottom: 1px solid var(--line);
+            white-space: nowrap
+        }
+
+        .schedule tbody td {
+            padding: 1.6mm 2mm;
+            border-bottom: 1px solid #eef1f5;
+            vertical-align: top
+        }
+
+        .schedule .num {
+            width: 8mm;
+            text-align: right;
+            font-variant-numeric: tabular-nums;
+            color: var(--muted)
+        }
+
+        .schedule .qty {
+            width: 12mm;
+            text-align: right;
+            font-variant-numeric: tabular-nums
+        }
+
+        .schedule .unit {
+            width: 16mm
+        }
+
+        .schedule .money {
+            width: 24mm;
+            text-align: right;
+            font-variant-numeric: tabular-nums;
+            white-space: nowrap
+        }
+
+        .schedule .desc {
+            min-width: 46mm
+        }
+
+        .section-head td {
+            padding-top: 3mm !important;
+            font-weight: 700;
+            font-size: 9pt;
+            background: #fbfcfd;
+            border-bottom: 1px solid var(--line)
+        }
+
+        .section-total td {
+            padding-top: 1.4mm !important;
+            padding-bottom: 2.4mm !important;
+            font-weight: 700;
+            border-bottom: 1px solid var(--line)
+        }
+
+        .section-total .label {
+            text-align: right;
+            color: var(--muted);
+            font-weight: 400
+        }
+
+        /* =========================================================
+           5. COSTING SUMMARY
+           ---------------------------------------------------------
+           Totals sit bottom-right, in the same money column as the
+           schedule above, so the eye runs down one edge of the page
+           rather than hunting for a second set of figures.
+           ========================================================= */
+
+        .costing {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 9pt;
+            break-inside: avoid
+        }
+
+        .costing th {
+            padding: 1.8mm 2mm;
+            text-align: left;
+            font-weight: 700;
+            background: var(--head);
+            border-top: 1px solid var(--line);
+            border-bottom: 1px solid var(--line)
+        }
+
+        .costing td {
+            padding: 1.6mm 2mm;
+            border-bottom: 1px solid #eef1f5
+        }
+
+        .costing .label {
+            width: 62mm
+        }
+
+        .costing .money {
+            width: 34mm;
+            text-align: right;
+            font-variant-numeric: tabular-nums;
+            white-space: nowrap
+        }
+
+        .costing tr.rule td {
+            border-top: 1px solid var(--line)
+        }
+
+        .costing .grand td {
+            padding-top: 2.4mm !important;
+            font-size: 11pt;
+            font-weight: 700;
+            border-top: 2px solid var(--ink);
+            border-bottom: 1px solid var(--ink)
+        }
+
+        .costing .deposit td {
+            font-weight: 700
+        }
+
+        .note {
+            margin: 3mm 0 0;
+            font-size: 8pt;
+            color: var(--muted);
+            line-height: 1.5
+        }
+
+        /* =========================================================
+           6. NOTES & TERMS
+           ---------------------------------------------------------
+           Start on a fresh page. A quote's terms are what the client
+           signs against, and a page break through them - leaving two
+           lines stranded at the top of a sheet - is the most common
+           way a quote looks careless.
+           ========================================================= */
+
+        .terms {
+            break-before: page;
+            page-break-before: always
+        }
+
+        .terms-title {
+            margin: 0 0 3mm;
+            padding-bottom: 1.5mm;
+            border-bottom: 2px solid var(--ink);
+            font-size: 13pt;
+            font-weight: 700
+        }
+
+        .terms ol {
+            margin: 0 0 4mm;
+            padding-left: 5mm;
+            font-size: 9pt;
+            line-height: 1.6
+        }
+
+        .terms ol li {
+            margin-bottom: 1.2mm
+        }
+
+        .terms h3 {
+            margin: 4mm 0 1.5mm;
+            font-size: 10pt;
+            font-weight: 700
+        }
+
+        /* Acceptance: two ruled blocks, because a signature is the
+           one thing on the document that has to be handwritten and
+           therefore cannot be a text box. */
+        .acceptance {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10mm;
+            margin-top: 8mm
+        }
+
+        .signature-block {
+            font-size: 8.5pt
+        }
+
+        .signature-rule {
+            margin-top: 14mm;
+            border-bottom: 1px solid var(--ink)
+        }
+
+        .signature-block span {
+            display: block;
+            padding-top: 1.2mm;
+            font-size: 8pt;
+            color: var(--muted)
+        }
+
+        /* =========================================================
+           PRINT
+           ========================================================= */
+
+        @media print {
+            body {
+                background: #fff
+            }
+
+            .sheet {
+                width: auto;
+                margin: 0;
+                box-shadow: none
+            }
+        }
+    </style>
+</head>
+
+<body>
+
+    <article class="sheet">
+
+        <!-- =========================================================
+             1. LETTERHEAD
+             ---------------------------------------------------------
+             The logo line is commented out on purpose. Drop the
+             company's own image in and it takes the slot:
+
+               <img class="letterhead-logo" src="APSlogo.png" alt="">
+
+             ========================================================= -->
+
+        <header class="letterhead">
+
+            <div class="letterhead-id">
+
+                <!-- <img class="letterhead-logo" src="APSlogo.png" alt=""> -->
+
+                <p class="letterhead-name">
+                    Architectural Glass &amp; Aluminium
+                </p>
+
+                <p class="letterhead-reg">
+                    Reg No: 2025/816148/07<br>
+                    5 Louis Friedman Street, Central Lake Factory Park<br>
+                    Unit 7, Factoria, Krugersdorp
+                </p>
+
+            </div>
+
+            <div class="letterhead-contact">
+                <b>Office</b>
+                Prepared by: <strong>[Prepared by]</strong><br>
+                Contact: <strong>[Contact number]</strong><br>
+                Email: <strong>[Email address]</strong><br>
+                Tax reference: <strong>[Tax reference]</strong>
+            </div>
+
+        </header>
+
+        <!-- =========================================================
+             2. TITLE BLOCK
+             ========================================================= -->
+
+        <div class="titleblock">
+
+            <div>
+                <h1>
+                    Quotation
+                </h1>
+                <p class="titleblock-sub">
+                    [Scope line - e.g. Supply and installation of aluminium windows and doors]
+                </p>
+            </div>
+
+            <div class="titleblock-id">
+                <span class="label">
+                    Quotation no.
+                </span>
+                <strong>
+                    [0000]
+                </strong>
+                <span class="chip">
+                    Valid until [date]
+                </span>
+            </div>
+
+        </div>
+
+        <!-- =========================================================
+             3. CLIENT DETAIL
+             ========================================================= -->
+
+        <section class="section">
+            <table class="detail-grid">
+                <tr>
+                    <th>Date</th>
+                    <td>[YYYY-MM-DD]</td>
+                    <th>Prepared by</th>
+                    <td>[Prepared by]</td>
+                </tr>
+                <tr>
+                    <th>Client</th>
+                    <td>[Client name]</td>
+                    <th>Contact</th>
+                    <td>[Contact number]</td>
+                </tr>
+                <tr>
+                    <th>Project</th>
+                    <td>[Project name]</td>
+                    <th>Reference</th>
+                    <td>[Client reference]</td>
+                </tr>
+                <tr>
+                    <th>Site address</th>
+                    <td colspan="3">
+                        [Site address]
+                    </td>
+                </tr>
+            </table>
+        </section>
+
+        <!-- =========================================================
+             4. SCOPE OF WORK
+             ========================================================= -->
+
+        <section class="section">
+            <h2 class="section-title">
+                Scope of work
+            </h2>
+            <p class="scope-text">
+                [Describe the work being quoted, in the order it will be done.
+                Where the client has been sent a drawing or a schedule, name it
+                here so the two documents cannot disagree later.]
+            </p>
+            <p class="client-line">
+                Prepared for [Client name] · [Contact number] · [Site address]
+            </p>
+        </section>
+
+        <!-- =========================================================
+             5. PRICED SCHEDULE
+             ---------------------------------------------------------
+             The lettered sections are the shape of the quote: A is
+             what the client asked for, B and C are what it takes to
+             deliver it. Every priced line belongs to exactly one
+             section, and every section carries its own total.
+
+             No scenario appears here, and none should. A scenario is
+             a screen aid for filling the form; on paper it would be
+             noise the client has to read past to reach the price.
+             ========================================================= -->
+
+        <section class="section">
+            <h2 class="section-title">
+                Priced schedule
+            </h2>
+
+            <table class="schedule">
+                <thead>
+                    <tr>
+                        <th class="num">#</th>
+                        <th class="desc">Description</th>
+                        <th class="qty">Qty</th>
+                        <th class="unit">Unit</th>
+                        <th class="money">Rate (R)</th>
+                        <th class="money">Amount (R)</th>
+                    </tr>
+                </thead>
+
+                <tbody>
+
+                    <tr class="section-head">
+                        <td>A</td>
+                        <td colspan="5">
+                            Preliminaries &amp; labour
+                        </td>
+                    </tr>
+                    <tr>
+                        <td class="num">1</td>
+                        <td class="desc">
+                            [Labour item - e.g. Site establishment and setting out]
+                        </td>
+                        <td class="qty">1</td>
+                        <td class="unit">Sum</td>
+                        <td class="money">R 0.00</td>
+                        <td class="money">R 0.00</td>
+                    </tr>
+                    <tr>
+                        <td class="num">2</td>
+                        <td class="desc">
+                            [Labour item - e.g. Installation to first floor level]
+                        </td>
+                        <td class="qty">1</td>
+                        <td class="unit">Sum</td>
+                        <td class="money">R 0.00</td>
+                        <td class="money">R 0.00</td>
+                    </tr>
+                    <tr class="section-total">
+                        <td></td>
+                        <td class="label">
+                            Section A total
+                        </td>
+                        <td colspan="3"></td>
+                        <td class="money">R 0.00</td>
+                    </tr>
+
+                    <tr class="section-head">
+                        <td>B</td>
+                        <td colspan="5">
+                            Materials
+                        </td>
+                    </tr>
+                    <tr>
+                        <td class="num">3</td>
+                        <td class="desc">
+                            [Material - e.g. 600 Series Top Hung 0.9 × 1.2m, Charcoal]
+                        </td>
+                        <td class="qty">12</td>
+                        <td class="unit">Each</td>
+                        <td class="money">R 0.00</td>
+                        <td class="money">R 0.00</td>
+                    </tr>
+                    <tr>
+                        <td class="num">4</td>
+                        <td class="desc">
+                            [Material - e.g. Glazing bead and seal set]
+                        </td>
+                        <td class="qty">12</td>
+                        <td class="unit">Each</td>
+                        <td class="money">R 0.00</td>
+                        <td class="money">R 0.00</td>
+                    </tr>
+                    <tr class="section-total">
+                        <td></td>
+                        <td class="label">
+                            Section B total
+                        </td>
+                        <td colspan="3"></td>
+                        <td class="money">R 0.00</td>
+                    </tr>
+
+                    <tr class="section-head">
+                        <td>C</td>
+                        <td colspan="5">
+                            Services &amp; site work
+                        </td>
+                    </tr>
+                    <tr>
+                        <td class="num">5</td>
+                        <td class="desc">
+                            [Service - e.g. Remove and cart away existing units]
+                        </td>
+                        <td class="qty">12</td>
+                        <td class="unit">Each</td>
+                        <td class="money">R 0.00</td>
+                        <td class="money">R 0.00</td>
+                    </tr>
+                    <tr>
+                        <td class="num">6</td>
+                        <td class="desc">
+                            [Service - e.g. Supply and fit rubber weather seal]
+                        </td>
+                        <td class="qty">12</td>
+                        <td class="unit">Each</td>
+                        <td class="money">R 0.00</td>
+                        <td class="money">R 0.00</td>
+                    </tr>
+                    <tr class="section-total">
+                        <td></td>
+                        <td class="label">
+                            Section C total
+                        </td>
+                        <td colspan="3"></td>
+                        <td class="money">R 0.00</td>
+                    </tr>
+
+                </tbody>
+            </table>
+        </section>
+
+        <!-- =========================================================
+             6. COSTING SUMMARY
+             ---------------------------------------------------------
+             The section totals above are repeated here so the page
+             can be checked without adding anything up, and the
+             document ends on the one figure the client is looking
+             for: the total, and the deposit that secures the job.
+             ========================================================= -->
+
+        <section class="section">
+            <h2 class="section-title">
+                Costing summary
+            </h2>
+
+            <table class="costing">
+                <thead>
+                    <tr>
+                        <th class="label">Section</th>
+                        <th class="money">Amount (R)</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td class="label">
+                            A &nbsp;Preliminaries &amp; labour
+                        </td>
+                        <td class="money">R 0.00</td>
+                    </tr>
+                    <tr>
+                        <td class="label">
+                            B &nbsp;Materials
+                        </td>
+                        <td class="money">R 0.00</td>
+                    </tr>
+                    <tr>
+                        <td class="label">
+                            C &nbsp;Services &amp; site work
+                        </td>
+                        <td class="money">R 0.00</td>
+                    </tr>
+                </tbody>
+                <tfoot>
+                    <tr class="rule">
+                        <td class="label">
+                            Subtotal
+                        </td>
+                        <td class="money">R 0.00</td>
+                    </tr>
+                    <tr>
+                        <td class="label">
+                            Discount ([0]%)
+                        </td>
+                        <td class="money">-R 0.00</td>
+                    </tr>
+                    <tr>
+                        <td class="label">
+                            Subtotal excl. VAT
+                        </td>
+                        <td class="money">R 0.00</td>
+                    </tr>
+                    <tr>
+                        <td class="label">
+                            VAT @ [15]%
+                        </td>
+                        <td class="money">R 0.00</td>
+                    </tr>
+                    <tr class="grand">
+                        <td class="label">
+                            Total incl. VAT
+                        </td>
+                        <td class="money">R 0.00</td>
+                    </tr>
+                    <tr class="deposit">
+                        <td class="label">
+                            Deposit required ([50]%)
+                        </td>
+                        <td class="money">R 0.00</td>
+                    </tr>
+                </tfoot>
+            </table>
+
+            <p class="note">
+                All prices are quoted in South African Rand and include VAT where
+                stated. This quotation is valid for 30 days from the date of issue.
+            </p>
+        </section>
+
+        <!-- =========================================================
+             7. NOTES & TERMS
+             ---------------------------------------------------------
+             On their own page. The trade-specific numbers - validity
+             days, deposit, exclusions - are placeholders here because
+             they differ per company; the wording is the wording the
+             office already uses.
+             ========================================================= -->
+
+        <section class="section terms">
+            <h2 class="terms-title">
+                Notes &amp; terms
+            </h2>
+
+            <ol>
+                <li>
+                    This quotation is valid for [30] days from the date of
+                    issue, after which prices are subject to review.
+                </li>
+                <li>
+                    Prices are in South African Rand and are inclusive of VAT
+                    at [15]%, unless stated otherwise on this document.
+                </li>
+                <li>
+                    A deposit of [50]% is payable on acceptance. The balance is
+                    due within [30] days of completion.
+                </li>
+                <li>
+                    Quantities are measured from the drawings or the site
+                    measurements supplied by the client. Should the actual
+                    quantity differ, the client will be advised and the
+                    variation priced at the rates above.
+                </li>
+                <li>
+                    The work is excluded from this quotation: [preparation of
+                    opening reveals, structural work, electrical supply to the
+                    point of connection, builder's work and making good].
+                </li>
+                <li>
+                    Access to the work area, including working space and the
+                    means of access, is to be provided by the client.
+                </li>
+                <li>
+                    This quotation does not include [council or body-registrar
+                    certificates], and any such work will be quoted separately.
+                </li>
+                <li>
+                    No work will commence until this quotation has been
+                    accepted in writing and the deposit has been received.
+                </li>
+            </ol>
+
+            <h3>
+                Acceptance
+            </h3>
+            <p class="note">
+                Acceptance of this quotation confirms agreement to the scope and
+                terms above, and authorises the company to proceed.
+            </p>
+
+            <div class="acceptance">
+                <div class="signature-block">
+                    <div class="signature-rule"></div>
+                    <span>
+                        Authorised signature
+                    </span>
+                </div>
+                <div class="signature-block">
+                    <div class="signature-rule"></div>
+                    <span>
+                        Name, date and company
+                    </span>
+                </div>
+            </div>
+        </section>
+
+    </article>
+
+</body>
+
+</html>

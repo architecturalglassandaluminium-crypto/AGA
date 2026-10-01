@@ -24,7 +24,7 @@
          larger, and text wraps instead of being clipped.
          See the comment block at the top of the file.
     -->
-    <link rel="stylesheet" href="../shared-trade-layout.css?v=5">
+    <link rel="stylesheet" href="../shared-trade-layout.css?v=6">
 
     <title>Pipewise Quote Calculator</title>
 </head>
@@ -430,167 +430,17 @@
 
                         <!-- =====================================
                              JOB SCENARIOS
+
+                             The quick-start scenario box has been
+                             removed from the quote form. The
+                             scenario LIBRARY is still reachable from
+                             the Scenarios view in the menu, and is
+                             still used when building scenarios -
+                             only the box that dropped a scenario
+                             onto this quote has gone, so the quote
+                             page now reads customer → labour →
+                             materials → services in one column.
                              ===================================== -->
-
-                        <section class="scenario-panel" aria-labelledby="scenario-title">
-
-                            <div>
-
-                                <span class="eyebrow">
-                                    QUICK START
-                                </span>
-
-                                <h2 id="scenario-title">
-                                    Job scenarios
-                                </h2>
-
-                                <p>
-                                    Start with a common job, then remove
-                                    anything you do not need.
-                                </p>
-
-                            </div>
-
-
-                            <div class="scenario-controls">
-
-                                <select id="scenario-select" aria-label="Job scenario">
-
-                                    <option value="">
-                                        Select a job scenario
-                                    </option>
-
-
-                                    <optgroup label="Drainage &amp; water supply">
-
-                                        <option value="underground-pipe">
-                                            Replace underground pipe
-                                        </option>
-
-                                        <option value="blocked-drain">
-                                            Unblock drain or sewer
-                                        </option>
-
-                                        <option value="unblock-toilet">
-                                            Unblock toilet
-                                        </option>
-
-                                        <option value="unblock-sewer">
-                                            Unblock sewer line
-                                        </option>
-
-                                        <option value="collapsed-sewer">
-                                            Collapsed sewer pipe
-                                        </option>
-
-                                        <option value="main-water-pipe">
-                                            Replace main water pipe
-                                        </option>
-
-                                        <option value="outside-tap">
-                                            Install outside tap
-                                        </option>
-
-                                        <option value="water-meter">
-                                            Replace water meter
-                                        </option>
-
-                                    </optgroup>
-
-
-                                    <optgroup label="Geysers &amp; pumps">
-
-                                        <option value="geyser-install">
-                                            Install geyser
-                                        </option>
-
-                                        <option value="geyser-leak">
-                                            Repair geyser leak
-                                        </option>
-
-                                        <option value="geyser-element">
-                                            Replace geyser element
-                                        </option>
-
-                                        <option value="pressure-pump">
-                                            Install pressure pump
-                                        </option>
-
-                                    </optgroup>
-
-
-                                    <optgroup label="Bathrooms &amp; fixtures">
-
-                                        <option value="bathroom-install">
-                                            Bathroom installation
-                                        </option>
-
-                                        <option value="replace-toilet">
-                                            Replace toilet
-                                        </option>
-
-                                        <option value="install-toilet">
-                                            Install new toilet
-                                        </option>
-
-                                        <option value="replace-basin">
-                                            Replace basin
-                                        </option>
-
-                                        <option value="replace-bath">
-                                            Replace bath
-                                        </option>
-
-                                        <option value="replace-shower">
-                                            Replace shower
-                                        </option>
-
-                                    </optgroup>
-
-
-                                    <optgroup label="Leaks &amp; access">
-
-                                        <option value="leak-repair">
-                                            Repair water leak
-                                        </option>
-
-                                        <option value="wall-leak">
-                                            Repair leak inside wall
-                                        </option>
-
-                                        <option value="floor-leak">
-                                            Repair leak under floor
-                                        </option>
-
-                                        <option value="paving-access">
-                                            Access pipe under paving
-                                        </option>
-
-                                        <option value="concrete-access">
-                                            Access pipe under concrete
-                                        </option>
-
-                                    </optgroup>
-
-
-                                    <optgroup label="Site work">
-
-                                        <option value="excavation-only">
-                                            Plumbing excavation only
-                                        </option>
-
-                                    </optgroup>
-
-                                </select>
-
-
-                                <button class="primary-button compact" id="add-scenario" type="button">
-                                    Add scenario
-                                </button>
-
-                            </div>
-
-                        </section>
 
 
                         <!-- =====================================

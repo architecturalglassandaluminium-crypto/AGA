@@ -269,9 +269,30 @@ test('a hidden trade frame is actually hidden', () => {
     assert.match(css, /\.trade-frame\[hidden\]\s*\{[^}]*display:\s*none/);
 });
 
-test('the trade panel fills the space below the header', () => {
+test('the trade panel fills the WHOLE screen, not just below the header', () => {
     const css = read(STYLES_CSS);
+
     assert.match(css, /\.trade-view\s*\{/);
+
+    /*
+       The app is taken out of the flow and pinned to the window with
+       inset:0. Sizing it as "the rest of a flex column" would depend
+       on the header's real height, which is exactly the number this
+       used to get wrong.
+    */
+    const view = css.match(/\.trade-view\s*\{([^}]*)\}/);
+    assert.ok(view, '.trade-view has no rule');
+    assert.match(view[1], /position:\s*fixed/);
+    assert.match(view[1], /inset:\s*0/);
+
+    /*
+       With the app filling the window, the header can no longer be a
+       full-width band on top of it - it becomes a small floating pill
+       so the trade buttons stay reachable without costing the app any
+       of the screen.
+    */
+    assert.match(css, /body\.trade-open \.app-header\s*\{[^}]*position:\s*fixed/);
+
     assert.match(css, /\.trade-frame\s*\{/);
 });
 
@@ -393,6 +414,96 @@ test('the coatings app wires its planning and cloud controls', () => {
         );
     }
 });
+
+/*
+   The quick-start scenario box is gone from both quote forms.
+
+   It was a way of BUILDING a quote on screen - pick a job type, get its
+   services and materials dropped onto the form. Once priced, those lines
+   are ordinary schedule lines and carry no trace of how they were
+   entered, so the box had no place on the form and none on the printed
+   document.
+
+   The scenario LIBRARY is a different thing and stays: it is still a
+   view, still maintained, and is how scenario templates are edited. Both
+   halves of that have to be asserted, because removing the box and
+   removing the library are opposite mistakes.
+*/
+for (const trade of ['plumbing', 'coatings']) {
+    test(`the ${trade} quote form has no quick-start scenario box`, () => {
+        const html = read(path.join(ROOT, 'trades', trade, 'index.html'));
+
+        assert.doesNotMatch(
+            html,
+            /class="scenario-panel"/,
+            'the scenario box is still on the quote form'
+        );
+        assert.doesNotMatch(
+            html,
+            /id="scenario-select"/,
+            'the scenario picker is still on the quote form'
+        );
+        assert.doesNotMatch(
+            html,
+            /id="add-scenario"/,
+            'the Add scenario button is still on the quote form'
+        );
+
+        /* The library survives: the nav button and the editor view. */
+        assert.match(
+            html,
+            /id="scenarios-view"/,
+            'the scenario library view was removed with the box'
+        );
+        assert.match(
+            html,
+            /id="scenario-editor-select"/,
+            'the scenario editor was removed with the box'
+        );
+    });
+
+    test(`the ${trade} app survives the missing scenario picker`, () => {
+        const source = read(path.join(ROOT, 'trades', trade, 'app.js'));
+
+        /*
+           The picker is gone from the page, but the app code still
+           refers to it. Unguarded, $(...) returns null and
+           syncCustomScenarioOptions() throws on its first
+           querySelectorAll - which runs at boot, so the whole app
+           would fail to start. Both sync functions must therefore
+           bail out on a missing select, and the Add scenario button
+           must no longer be wired unconditionally.
+        */
+        const code = source.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.*$/gm, '');
+
+        for (const fn of ['syncMasterScenarioOptions', 'syncCustomScenarioOptions']) {
+            const start = code.indexOf(`function ${fn}(`);
+            assert.notEqual(start, -1, `${fn} is missing`);
+            const body = code.slice(start, code.indexOf('\n}', start));
+            assert.match(
+                body,
+                /if \(!select\) return/,
+                `${fn} still assumes #scenario-select exists`
+            );
+        }
+
+        /*
+           The Add scenario button is gone from the page. Wiring it
+           unconditionally means $('add-scenario') returns null at
+           boot and the click binding throws, so the whole app fails
+           to start. The binding may exist, but only behind a
+           presence check.
+        */
+        const wiring = code.match(/.*\$\('add-scenario'\)\.addEventListener.*/);
+        if (wiring) {
+            assert.match(
+                wiring[0],
+                /^if \(\$\('add-scenario'\)\)/,
+                'the Add scenario button is wired without checking the button exists'
+            );
+        }
+    });
+}
 
 // ---------------------------------------------------------------------------
 // Trade data must not cross over
