@@ -6789,8 +6789,25 @@ img {
 */
 .trade-view {
     width: 100%;
-    height: calc(100vh - 72px);
-    min-height: 480px;
+    /*
+       Full screen, not "the space below the header, guessed at".
+
+       This was calc(100vh - 72px), and calc(100vh - 108px) on a
+       narrow screen - two hand-typed numbers standing in for a
+       header whose real height varies with the company name, the
+       phone number and the wrap point. Whichever was wrong, the
+       panel was either shorter than the window (a strip of page
+       below the frame that never scrolls, because the body is
+       locked) or taller than it (the foot of the app pushed out
+       of sight with no way to scroll to it).
+
+       Instead the trade view is the last row of a full-height
+       flex column, so it takes whatever the header leaves over
+       and no more. See the body.trade-open rules below.
+    */
+    height: auto;
+    flex: 1 1 auto;
+    min-height: 0;
     background: #0d1b2e;
 }
 
@@ -6822,9 +6839,49 @@ img {
    the embedded app scrolls internally instead. Without this the
    document and the frame scroll together, which on a phone feels
    broken.
+
+   The frame is also made to fill the window exactly. This is a
+   column of [header | trade view] sized by flexbox, so the app
+   gets every pixel the header does not - on any screen, at any
+   zoom, with no magic number to keep in step with the header.
 */
 body.trade-open {
     overflow: hidden;
+    height: 100vh;
+    /*
+       dvh is the height actually available to the window, which
+       is smaller than vh on a phone whose address bar is showing.
+       vh is kept first as the fallback for anything that does not
+       know dvh.
+    */
+    height: 100dvh;
+    display: flex;
+    flex-direction: column;
+}
+
+body.trade-open .app-header {
+    /*
+       Sticky does nothing inside a non-scrolling column and would
+       only fight the flex layout for the box, so it is dropped
+       while a trade is open.
+    */
+    position: static;
+    flex: 0 0 auto;
+}
+
+/*
+   On a phone the production nav becomes a fixed bar along the
+   bottom, and the body is given 72px of bottom padding so the
+   last row of a production screen can scroll clear of it.
+
+   That clearance is not wanted here. The bar is one of the two
+   regions showTrade() hides, so it is off screen, and its 72px
+   was being taken off the panel instead - which is why the app
+   stopped short of the bottom of the window on exactly the
+   screens where filling the window matters most.
+*/
+body.trade-open {
+    padding-bottom: 0
 }
 
 @media (max-width: 900px) {
@@ -6839,9 +6896,11 @@ body.trade-open {
         font-size: 11px;
     }
 
-    .trade-view {
-        height: calc(100vh - 108px);
-    }
+    /*
+       No height to override here any more: the panel is sized by
+       the flex column on body.trade-open, which measures the
+       header as it actually is.
+    */
 }
 /* Three-company project portfolio */
 .portfolio-button { border: 1px solid rgba(255,255,255,.4); }

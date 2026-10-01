@@ -139,7 +139,7 @@
        The app stylesheet ends with a blanket 12px !important, so
        the menu needs its own !important to stay legible.
     */
-    font-size: 12px !important;
+    font-size: 13px !important;
     line-height: 1.25;
 
     /*
@@ -171,13 +171,15 @@
 /* The content starts directly under the header band. */
 .main-content {
     /*
-       The app capped this at 1340px, which on a wide screen left
-       a lopsided gap once the sidebar was gone. Centred reads
-       correctly now that the menu is not holding the left edge.
+       No cap at all. The app capped this at 1340px, which on a wide
+       monitor left a lopsided gap once the sidebar was gone and,
+       inside the AGA frame, wasted width the trade apps were already
+       given. These two apps are opened to do one thing on a big
+       screen, so they use the whole of it.
     */
-    max-width: 1400px;
-    margin: 0 auto;
-    padding-top: 22px;
+    max-width: none;
+    margin: 0;
+    padding: 22px 26px 40px;
     /*
        The wide cost tables scroll inside .table-scroll rather
        than widening this container, which is what keeps the
@@ -188,7 +190,49 @@
 }
 
 /* =========================================================
-   2. ONE FONT: CALIBRI 11
+   1b. ONE COLUMN, TOP TO BOTTOM
+   ---------------------------------------------------------
+   The quote page was a two-column grid, [form | 310px rail],
+   the rail having once held a running "summary card" pinned
+   beside the form. That card is gone - the summary is a block
+   in the normal flow at the foot of the page - but the grid
+   itself was left behind, so:
+
+     - the form was squeezed into whatever the rail left over,
+       and on a wide screen a third of the window sat empty;
+     - .quote-terms, which follows the form, was auto-placed
+       into the rail rather than under the form.
+
+   A single column puts the page back in reading order: the
+   form, then the summary, with the summary last. The cost
+   tables keep their own horizontal scroll, so dropping the
+   rail costs them nothing.
+   ========================================================= */
+
+.workspace-grid {
+    grid-template-columns: minmax(0, 1fr)
+}
+
+.form-column {
+    /*
+       The 730px cap belonged to the two-column layout, where it
+       kept the form beside the rail. Full width now: a field the
+       user types into is easier to aim at on a tablet.
+    */
+    max-width: none
+}
+
+/*
+   The summary is the last thing on the page and is reached by
+   scrolling, so it is given room to breathe rather than being
+   tucked up against the block above it.
+*/
+.summary-section {
+    margin-top: 28px
+}
+
+/* =========================================================
+   2. ONE FONT: CALIBRI 12
    ---------------------------------------------------------
    Both apps carry a stack of faces - 'DM Mono' for the small
    mono labels, Arial for everything else - and the tails of
@@ -212,28 +256,36 @@
    !important so they beat the app's own !important tail
    rules, whatever order the two files end up loaded in.
 
-   Sizes go in half-pixel steps deliberately: the app styles
+   Sizes go in half-point steps deliberately: the app styles
    dense cost tables at 8-10px for wide rows, and forcing those
-   straight to 11px is what makes a row of columns wrap and
+   straight up is what makes a row of columns wrap and
    break. They read more comfortably just under the target,
    and the .table-scroll wrapper added below keeps them on one
-   line. Everything not named in that list is a full 11px.
+   line. Everything not named in that list is a full 12px.
+
+   WHY 12px
+   --------
+   These apps are read on a laptop on site and on a phone in a van,
+   and 11px Calibri is small enough that a quantity or a rate has to
+   be checked twice. One point larger fixes that, and the cost tables
+   are still covered by their own smaller rule further down, so the
+   eleven-column rows keep their alignment.
    ========================================================= */
 
-body,
-body * {
-    font-family: Calibri, Carlito, "Segoe UI", "Helvetica Neue", Arial, sans-serif !important
-}
+   body,
+   body * {
+       font-family: Calibri, Carlito, "Segoe UI", "Helvetica Neue", Arial, sans-serif !important
+   }
 
-body {
-    font-size: 11px;
-    /*
-       Calibri sits small for its point size next to Arial, so
-       the body gets a little more room between lines than the
-       app's default.
-    */
-    line-height: 1.45
-}
+   body {
+       font-size: 12px;
+       /*
+          Calibri sits small for its point size next to Arial, so
+          the body gets a little more room between lines than the
+          app's default.
+       */
+       line-height: 1.45
+   }
 
 /*
    Everything in the app is Calibri 11.
@@ -264,7 +316,7 @@ body :not(h1,
     input,
     textarea,
     select) {
-    font-size: 11px !important
+    font-size: 12px !important
 }
 
 /*
@@ -273,15 +325,15 @@ body :not(h1,
    and at 11px that difference disappears.
 */
 h1 {
-    font-size: 24px !important
+    font-size: 26px !important
 }
 
 h2 {
-    font-size: 15px !important
+    font-size: 16px !important
 }
 
 h3 {
-    font-size: 12.5px !important
+    font-size: 13.5px !important
 }
 
 /*
@@ -297,8 +349,8 @@ h3 {
 .service-headings,
 .service-row,
 .scenario-service-headings,
-.scenario-editor-row {
-    font-size: 10.5px !important
+    .scenario-editor-row {
+    font-size: 11.5px !important
 }
 
 /*
@@ -340,7 +392,7 @@ h3 {
 .quote-id,
 .view-note small,
 .company-contact-print span {
-    font-size: 11.5px !important
+    font-size: 12.5px !important
 }
 
 /* =========================================================
@@ -358,24 +410,41 @@ h3 {
    enlarging them would break the table layout.
    ========================================================= */
 
-.field input,
-.field textarea,
-.field select {
+body .field input,
+body .field textarea,
+body .field select {
     padding: 11px 12px !important;
     /*
-       A step above the 11px body: a field the user has to read
+       A step above the 12px body: a field the user has to read
        back to check a measurement off a photo earns the extra.
 
-       No specificity trick is needed here - the blanket rule
-       above excludes input/textarea/select by name, so this is
-       the only rule setting a size on them.
+       WHY "body .field input" AND NOT ".field input"
+       ----------------------------------------------
+       Each app ends its own stylesheet with a blanket rule that
+       sets a font-size on nearly everything:
+
+           body :not(h1, h2, .nav-icon, ...) { font-size: 12px !important }
+
+       That list does NOT exclude input, textarea or select, so
+       the rule matches a field and puts a size on it. Its
+       specificity is not what it looks like either: :not()
+       takes the specificity of its most specific argument, and
+       the most specific one here is ".text-button span", so the
+       whole selector works out at (0,1,2) - which BEATS a plain
+       ".field input" at (0,1,1). A !important does not beat a
+       !important; specificity decides, and this file is loaded
+       later for nothing.
+
+       Prefixing with body adds the element selector back, giving
+       (0,1,3), which wins. The field text is therefore the only
+       rule that can actually set its size.
     */
-    font-size: 12.5px !important;
+    font-size: 13.5px !important;
     line-height: 1.45 !important;
-    min-height: 42px;
+    min-height: 46px;
 
     /*
-       content-box keeps min-height meaning "the text area",
+        content-box keeps min-height meaning "the text area",
        not "padding + text", so the actual typing space is the
        size asked for. Without this the border-box default
        eats 22px of it on every field.
@@ -400,8 +469,8 @@ h3 {
    The label above each field: allowed to wrap onto two lines
    rather than being squeezed or clipped.
 */
-.field {
-    font-size: 11px !important;
+body .field {
+    font-size: 12px !important;
     line-height: 1.35;
     white-space: normal;
     overflow-wrap: anywhere
@@ -415,16 +484,17 @@ h3 {
 }
 
 /* The settings and scenario panels use the same field styling. */
-.settings-panel input,
-.settings-panel textarea,
-.settings-panel select,
-.scenario-panel input,
-.scenario-panel textarea,
-.scenario-panel select {
+body .settings-panel input,
+body .settings-panel textarea,
+body .settings-panel select,
+body .scenario-panel input,
+body .scenario-panel textarea,
+body .scenario-panel select {
+    /* Same reason as body .field input above. */
     padding: 11px 12px !important;
-    font-size: 12.5px !important;
+    font-size: 13.5px !important;
     line-height: 1.45 !important;
-    min-height: 42px;
+    min-height: 46px;
     box-sizing: content-box;
     white-space: normal;
     overflow-wrap: anywhere
@@ -533,12 +603,12 @@ h3 {
     */
     body .sidebar .nav .nav-item,
     body .sidebar .nav .nav-item:not(.active)::after {
-        font-size: 11px !important
+        font-size: 12px !important
     }
 
     .sidebar .nav-item {
         padding: 8px 10px;
-        min-height: 38px;
+        min-height: 40px;
         flex: 1 1 auto;
         min-width: 0;
         justify-content: center
@@ -566,7 +636,7 @@ h3 {
     /* Long form again, for the same reason as the 850px block. */
     body .sidebar .nav .nav-item,
     body .sidebar .nav .nav-item:not(.active)::after {
-        font-size: 11px !important
+        font-size: 12px !important
     }
 
     .sidebar .nav-item {
@@ -582,10 +652,10 @@ h3 {
         justify-content: flex-start
     }
 
-    .field input,
-    .field textarea,
-    .field select {
-        font-size: 12.5px !important
+    body .field input,
+    body .field textarea,
+    body .field select {
+        font-size: 13.5px !important
     }
 }
 
