@@ -504,6 +504,77 @@ body .scenario-panel select {
 }
 
 /* =========================================================
+   3b. THE SCENARIO BAR
+   ---------------------------------------------------------
+   One compact row that applies a scenario template to the quote
+   in front of the user: pick a job type, press Add, and its
+   services and materials land on the quote.
+
+   It replaces a large panel that used to sit between the materials
+   and services sections, which interrupted the form and pushed the
+   pricing tables apart. As a single row it reads as a shortcut
+   rather than a section of the quote.
+
+   The label sits ABOVE the select rather than beside it. A single
+   row has to work at 380px and at 1920px, and a label in the flex
+   row is what forces the select narrow on a tablet - where this is
+   actually used.
+   ========================================================= */
+
+.scenario-bar {
+    display: flex;
+    align-items: flex-end;
+    gap: 10px;
+    flex-wrap: wrap;
+    margin: 14px 0;
+    padding: 12px 14px;
+    border: 1px solid var(--line, #d9d9d9);
+    border-radius: 8px;
+    background: rgba(127, 127, 127, .05)
+}
+
+.scenario-bar-field {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    flex: 1 1 320px;
+    min-width: 0
+}
+
+.scenario-bar-label {
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: .06em;
+    text-transform: uppercase;
+    opacity: .62
+}
+
+/*
+   The bar's controls get the same treatment as ordinary fields, so
+   they are as large and as legible as everything else on the form.
+   The selectors are prefixed with body for the reason set out above
+   the .field input rule.
+*/
+body .scenario-bar select,
+body .scenario-bar .primary-button {
+    padding: 11px 12px !important;
+    font-size: 13.5px !important;
+    line-height: 1.45 !important;
+    min-height: 46px;
+    box-sizing: content-box
+}
+
+body .scenario-bar .primary-button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    white-space: nowrap;
+    cursor: pointer;
+    border-radius: 4px;
+    border: 1px solid transparent
+}
+
+/* =========================================================
    4. NOTHING IS CLIPPED
    ---------------------------------------------------------
    The app cuts off several text elements with an ellipsis
@@ -659,6 +730,20 @@ body .scenario-panel select {
     body .field textarea,
     body .field select {
         font-size: 16px !important
+    }
+
+    /*
+       The scenario bar is a single row that has to fit a narrow
+       screen. Left as a flex row it would squeeze the select down
+       to nothing, so the button drops onto its own full-width line.
+    */
+    .scenario-bar {
+        flex-direction: column;
+        align-items: stretch
+    }
+
+    body .scenario-bar .primary-button {
+        width: 100%
     }
 }
 

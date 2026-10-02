@@ -19,7 +19,7 @@
          larger, and text wraps instead of being clipped.
          See the comment block at the top of the file.
     -->
-    <link rel="stylesheet" href="../shared-trade-layout.css?v=6">
+    <link rel="stylesheet" href="../shared-trade-layout.css?v=7">
 
     <title>APC Architectural Performance Coatings — Quote Calculator</title>
 </head>
@@ -428,15 +428,11 @@
                         <!-- =====================================
                              JOB SCENARIOS
 
-                             The quick-start scenario box has been
-                             removed from the quote form. The
-                             scenario LIBRARY is still reachable from
-                             the Scenarios view in the menu, and is
-                             still used when building scenarios -
-                             only the box that dropped a scenario
-                             onto this quote has gone, so the quote
-                             page now reads customer → labour →
-                             materials → services in one column.
+                             The scenario bar itself now sits below
+                             the services table, as a single compact
+                             row rather than the large panel that used
+                             to interrupt the form. The library is
+                             still edited from the Scenarios view.
                              ===================================== -->
 
 
@@ -496,6 +492,53 @@
                             </div>
 
                         </section>
+
+
+                        <!-- =====================================
+                             SCENARIO QUICK ADD
+                             ------------------------------------------------------------
+                             A compact bar, not the large panel that
+                             used to sit here. It does one thing:
+                             pick a scenario, and its services and
+                             materials are added to this quote.
+
+                             It was removed wholesale in an earlier
+                             change and is now back, smaller, because
+                             a scenario is the fastest way to start
+                             a quote from a job type - and APC carries
+                             a library of well over a hundred of them
+                             that could otherwise only be reached by
+                             hand, one line at a time.
+
+                             The full library is still EDITED from the
+                             Scenarios view in the menu; this is only
+                             the way to apply one.
+                             ===================================== -->
+
+                        <div class="scenario-bar">
+
+                            <label class="scenario-bar-field" for="scenario-select">
+
+                                <span class="scenario-bar-label">
+                                    Start from a scenario
+                                </span>
+
+                                <select id="scenario-select"
+                                    aria-label="Add a job scenario to this quote">
+
+                                    <option value="">
+                                        Select a job scenario
+                                    </option>
+
+                                </select>
+
+                            </label>
+
+                            <button class="primary-button compact" id="add-scenario" type="button">
+                                Add scenario
+                            </button>
+
+                        </div>
 
 
                         <!-- =====================================

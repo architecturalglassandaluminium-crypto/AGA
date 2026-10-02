@@ -657,14 +657,13 @@ function renderServices() {
     document.querySelectorAll('.service-row').forEach(row => { const index = Number(row.dataset.index); row.querySelector('.service-category').addEventListener('change', event => { services[index] = { ...services[index], category: event.target.value, task: '', unit: 'Each', quantity: 1, rate: 350 }; renderServices(); }); row.querySelector('.service-task').addEventListener('change', event => { services[index].task = event.target.value; services[index].unit = serviceUnits[event.target.value] || 'Each'; services[index].rate = serviceRates[event.target.value] || 350; renderServices(); }); row.querySelector('.service-unit').addEventListener('change', event => { services[index].unit = event.target.value; }); row.querySelector('.service-quantity').addEventListener('input', event => { services[index].quantity = getServiceQuantity({ quantity: event.target.value }); renderServices(); calculate(); }); row.querySelector('.remove-material').addEventListener('click', () => { services.splice(index, 1); renderServices(); calculate(); }); });
 }
 /*
-   The quick-start scenario box was removed from the quote form, so
-   #scenario-select and #add-scenario are gone from the page. Both
-   functions used to write into that select; the scenario LIBRARY
-   itself (the Scenarios view) is untouched and still works, it just
-   no longer has a picker on the quote page to feed.
+   The scenario bar on the quote form: a compact row with the library
+   picker and the Add scenario button. It applies a template to the
+   quote in front of the user - the scenario LIBRARY itself (the
+   Scenarios view) is untouched and still works.
 
-   Every write is guarded on the select existing rather than assumed
-   to: a missing element must not stop the rest of the app booting.
+   Every write is still guarded on the select existing: a missing
+   element must not stop the rest of the app booting.
 */
 function syncMasterScenarioOptions() { ['scenario-select'].forEach(selectId => { const select = $(selectId); if (!select) return; select.querySelectorAll('[data-master-scenario]').forEach(optionGroup => optionGroup.remove()); const categories = [...new Set(masterScenarioLibrary.map(([category]) => category))]; categories.forEach(category => { const group = document.createElement('optgroup'); group.label = category; group.dataset.masterScenario = 'true'; masterScenarioLibrary.filter(([libraryCategory]) => libraryCategory === category).forEach(([, name], index) => { const option = document.createElement('option'); option.value = `library-${masterScenarioLibrary.findIndex(([, scenarioName]) => scenarioName === name) + 1}`; option.textContent = name; group.append(option); }); select.append(group); }); }); }
 function syncCustomScenarioOptions() { ['scenario-select'].forEach(selectId => { const select = $(selectId); if (!select) return; select.querySelectorAll('[data-custom-scenario]').forEach(option => option.remove()); let group = [...select.querySelectorAll('optgroup')].find(optionGroup => optionGroup.label === 'Custom scenarios'); if (!group) { group = document.createElement('optgroup'); group.label = 'Custom scenarios'; select.append(group); } customScenarios.forEach(scenario => { const option = document.createElement('option'); option.value = scenario.id; option.textContent = scenario.name; option.dataset.customScenario = 'true'; group.append(option); }); }); }
@@ -738,7 +737,7 @@ function renderLabourItems() {
     $('labour-list').innerHTML = labourItems.map((item, index) => `<div class="labour-row" data-index="${index}"><span>${escapeHtml(item.description)}</span><span>${escapeHtml(item.unit)}</span><input class="labour-quantity" type="number" min="0" step="1" value="${getValue(item.quantity)}" aria-label="Quantity for ${escapeHtml(item.description)}"><input class="labour-rate" type="number" min="0" step="0.01" value="${getValue(item.rate)}" aria-label="Cost per day for ${escapeHtml(item.description)}"><strong>${currency(getValue(item.quantity) * getValue(item.rate))}</strong></div>`).join('');
     document.querySelectorAll('.labour-row').forEach(row => { const index = Number(row.dataset.index); row.querySelector('.labour-quantity').addEventListener('input', event => { labourItems[index].quantity = getValue(event.target.value); renderLabourItems(); calculate(); }); row.querySelector('.labour-rate').addEventListener('input', event => { labourItems[index].rate = getValue(event.target.value); renderLabourItems(); calculate(); }); });
 }
-function addScenario() { const select = $('scenario-select'); if (!select) return; const scenario = scenarios[select.value]; if (!scenario) { showToast('Select a job scenario first'); return; } const scenarioName = select.selectedOptions[0].textContent.trim(); services.push(...scenario.services.map(service => ({ ...service, scenario: scenarioName }))); materials.push(...scenario.materials.map(material => ({ ...material }))); renderMaterials(); renderServices(); calculate(); showToast('Scenario added. Remove any items you do not need.'); }
+function addScenario() { const select = $('scenario-select'); if (!select) return; const scenario = scenarios[select.value]; if (!scenario) { showToast('Select a job scenario first'); return; } const scenarioName = select.selectedOptions[0].textContent.trim(); services.push(...scenario.services.map(service => ({ ...service, scenario: scenarioName }))); materials.push(...scenario.materials.map(material => ({ ...material }))); renderMaterials(); renderServices(); calculate(); showToast(`Scenario "${scenarioName}" added. Remove any items you do not need.`); $('scenario-select').value = ''; }
 function renderMaterials() {
     $('material-list').innerHTML = materials.map((material, index) => `
     <div class="material-row" data-index="${index}">
@@ -2754,10 +2753,12 @@ syncMasterScenarioOptions();
 syncCustomScenarioOptions();
 $('add-material').addEventListener('click', () => { materials.push({ category: '', type: '', size: '', quantity: 1, description: '', cost: 0, markup: MATERIAL_MARKUP }); renderMaterials(); document.querySelector('.material-category:last-of-type')?.focus(); });
 $('add-service').addEventListener('click', () => { services.push({ category: '', task: '', quantity: 1, rate: 350, scenario: 'Additional services' }); renderServices(); document.querySelector('.service-category:last-of-type')?.focus(); });
-/* The Add scenario button lived in the removed quick-start box, so there
-   is nothing left to wire it to. The scenario library is still edited
-   through the Scenarios view. */
-if ($('add-scenario')) $('add-scenario').addEventListener('click', addScenario);
+/* The scenario bar applies a template to the quote in front of the
+   user. Both sync functions above fill this select with the library
+   and any custom scenarios, so it is wired unconditionally now that
+   it is back on the page - the guards stay as a safety net for a
+   quote view that is rendered without it. */
+$('add-scenario').addEventListener('click', addScenario);
 /* ---- scenario library editor ---- */
 $('scenario-editor-select').addEventListener('change', event => { selectedScenarioId = event.target.value; renderScenarioEditor(); });
 $('add-scenario-service').addEventListener('click', addScenarioService);
