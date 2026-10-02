@@ -9,7 +9,14 @@
     --ink: #0d2b52;
     --muted: #33507a;
     --line: #b6c2d2;
-    --paper: #eef6fc;
+    /*
+       The page background is now the SAME pale blue-grey the
+       plumbing app uses (#f4f8fc). These two apps are otherwise
+       identical, and a page tint is the one thing that was left
+       reading as a difference between them - the eye picks up a
+       background shift long before it picks up a border colour.
+    */
+    --paper: #f4f8fc;
     --white: #fff;
     --mint: #dbe7f6;
     --mint-strong: #8fb2dc;
@@ -23,7 +30,17 @@
     --navy: #16406f;
     --navy-deep: #0d2b52;
     --black: #0d2b52;
-    --shadow: 0 18px 45px rgba(13, 43, 82, .18)
+    --shadow: 0 18px 45px rgba(13, 43, 82, .18);
+    /*
+       --coral is the accent name this app's stylesheet has always
+       used. It is aligned with the shared design system's brand
+       blue - the same colour as the plumbing app's --coral - so
+       the two cannot drift apart again. It is what the primary
+       button, the active nav state and the totals are drawn from.
+    */
+    --coral: #1d4ed8;
+    --coral-dark: #1e40af;
+    --ui-focus-ring: 0 0 0 3px rgba(29, 78, 216, .38)
 }
 
 * {
@@ -117,8 +134,21 @@ textarea {
 }
 
 .sidebar {
-    background: linear-gradient(180deg, var(--light-blue) 0%, var(--light-blue-strong) 100%);
-    color: var(--navy-deep);
+    /*
+       This was a pale blue gradient. The plumbing app's band is a
+       dark navy, so the two apps - which are otherwise now
+       identical - opened with opposite-looking headers: one dark,
+       one light. Dark navy is the one kept, because it is the
+       production app's own header colour (styles.css
+       .app-header), so all three companies now open on the same
+       header.
+
+       A dark band also carries white text at high contrast, which a
+       pale one cannot without the text turning into a dark grey
+       that reads as disabled.
+    */
+    background: var(--ink);
+    color: var(--white);
     width: 220px;
     padding: 24px 20px 20px;
     display: flex;
@@ -149,7 +179,8 @@ textarea {
 
 .sidebar-kicker {
     font: 11px 'DM Mono', monospace;
-    color: var(--navy-deep);
+    /* Light, because the band is now dark. See .nav-item below. */
+    color: #9fb4d0;
     letter-spacing: .12em;
     margin: 48px 0 14px
 }
@@ -162,7 +193,12 @@ textarea {
 .nav-item {
     border: 0;
     background: transparent;
-    color: var(--navy-deep);
+    /*
+       Light, because the band is now the same dark navy the
+       plumbing app uses. This was --navy-deep, which on a dark band
+       is near-invisible - it was correct when the band was pale.
+    */
+    color: #cbd8e8;
     text-align: left;
     padding: 10px 11px;
     border-radius: 5px;
@@ -174,29 +210,41 @@ textarea {
 
 .nav-item:hover,
 .nav-item.active {
-    background: var(--silver);
-    color: var(--navy-deep)
+    /*
+       This was SILVER, the same problem as the primary button: a
+       grey active state reads as inactive on a menu bar. It is now
+       the brand blue's dark step, matching the plumbing app and the
+       production app, so the active menu item is part of the same
+       system as the buttons.
+
+       Hover and active are deliberately the same surface - hovering
+       the item you are already on is not new information.
+    */
+    background: var(--coral-dark);
+    color: var(--white)
 }
 
 .nav-icon {
     font-size: 20px;
     line-height: 14px;
     width: 18px;
-    color: var(--navy-deep)
+    color: #a8c0e0
 }
 
 .nav-count {
     font: 11px 'DM Mono', monospace;
     margin-left: auto;
-    background: var(--navy-deep);
-    color: var(--silver);
+    /* Light-on-dark, matching the plumbing app's count badge. */
+    background: #cbd8e8;
+    color: var(--ink);
     padding: 3px 7px;
     border-radius: 10px
 }
 
 .sidebar-footer {
     margin-top: auto;
-    color: var(--navy-deep);
+    /* Light, because the band is dark. See .nav-item above. */
+    color: #9fb4d0;
     display: flex;
     align-items: center;
     gap: 9px;
@@ -207,7 +255,7 @@ textarea {
     width: 8px;
     height: 8px;
     border-radius: 50%;
-    background: var(--navy-deep)
+    background: #9fb4d0
 }
 
 .main-content {
@@ -943,22 +991,35 @@ h2 {
 }
 
 .primary-button {
-    background: var(--silver);
-    color: var(--navy-deep);
+    /*
+       This was SILVER. A grey button reads as disabled, so the main
+       action on every screen - Add scenario, Save scenario, Save
+       quote, Print - looked unavailable when it was not.
+
+       It now uses the shared brand blue, like the plumbing app and
+       the production app.
+    */
+    background: var(--coral);
+    color: white;
     display: inline-flex;
     align-items: center;
     justify-content: center;
     gap: 8px
 }
 
+/*
+   The hover used to turn the button WHITE, which on a pale page is
+   barely a button at all. It now darkens to the same blue, so the
+   text keeps its contrast and the button stays one object.
+*/
 .primary-button:hover {
-    background: var(--white)
+    background: var(--coral-dark)
 }
 
 .secondary-button {
     background: transparent;
-    color: var(--navy-deep);
-    border: 1px solid var(--navy-deep);
+    color: var(--coral-dark);
+    border: 1px solid var(--coral-dark);
     margin-top: 10px
 }
 

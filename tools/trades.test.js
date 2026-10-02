@@ -322,30 +322,189 @@ test('the header identity is repainted whenever the trade changes', () => {
 test('the floating switcher is out of the quoting apps logo corner', () => {
     const css = read(STYLES_CSS);
 
-    const pill = css.match(/body\.trade-open \.app-header\s*\{([^}]*)\}/);
-    assert.ok(pill, 'no body.trade-open .app-header rule');
-    assert.match(pill[1], /position:\s*fixed/);
-
     /*
-       Anchored bottom-right. Asserted by its anchor values rather
-       than by "not top-left", because the point is that it is
-       positively in a known-safe corner.
+       The switcher is now a plain static bar across the top, in the
+       normal flow: header first, app second.
+
+       This is asserted as being in flow rather than as not floating,
+       because both earlier shapes failed in the same way and neither
+       can be caught by checking a corner:
+
+         - a floating pill over the top-left covered the quoting
+           app's own logo and menu;
+         - a fixed bar laid over the top of the app hid the quoting
+           app's own header behind it - the same fault, elsewhere.
+
+       In flow, body.trade-open is a flex column and the app is the
+       last row, so neither covers the other and flexbox measures the
+       header rather than a hand-typed number standing in for it.
     */
-    assert.match(pill[1], /bottom:\s*\d/);
-    assert.match(pill[1], /right:\s*\d/);
-    assert.match(pill[1], /top:\s*auto/);
-    assert.doesNotMatch(
-        pill[1],
-        /(?:^|[;\s])top:\s*\d/,
-        'the switcher is pinned to the top, over the apps own logo'
+    assert.match(
+        css,
+        /body\.trade-open\s*\{[^}]*display:\s*flex[^}]*flex-direction:\s*column/,
+        'body.trade-open is not a flex column, so the bar and app cannot stack'
+    );
+    assert.match(
+        css,
+        /\.trade-view\s*\{[^}]*flex:\s*1 1 auto/,
+        'the app is not the flexible row, so it cannot take the space under the bar'
     );
 
-    /* The logo rides along in the pill, so the company is always named. */
+    /*
+       And the bar must NOT be an overlay: position:fixed or absolute
+       on the header puts it on top of the app's own header.
+    */
+    const pill = css.match(/body\.trade-open \.app-header\s*\{([^}]*)\}/);
+    assert.ok(pill, 'no body.trade-open .app-header rule');
+    assert.match(
+        pill[1],
+        /position:\s*static/,
+        'the switcher bar is positioned, so it overlays the quoting apps own header'
+    );
+    assert.doesNotMatch(pill[1], /position:\s*(fixed|absolute)/);
+
+    /* The logo rides along in the bar, so the company is always named. */
     assert.match(
         css,
         /body\.trade-open \.app-header \.company-info\s*\{[^}]*display:\s*flex/,
         'the company logo is hidden while a trade is open'
     );
+});
+
+/*
+   ONE LOOK ACROSS ALL THREE COMPANIES
+
+   The three apps each had their own palette and their own button
+   behaviour, and the button behaviour was the part that actually
+   caused trouble: APS's primary button turned ORANGE on hover, and
+   APC's primary button was SILVER. A grey main action reads as
+   disabled, and a colour change on hover reads as a change of
+   state - and orange is the colour these apps use for warnings.
+
+   All three are now drawn from one set of tokens, defined in the file
+   both trade apps load last.
+*/
+const SHARED_TRADE_CSS = path.join(ROOT, 'trades', 'shared-trade-layout.css');
+
+for (const trade of ['plumbing', 'coatings']) {
+    test(`the ${trade} app uses the shared button colours`, () => {
+        const css = read(path.join(ROOT, 'trades', trade, 'styles.css'));
+
+        /* One brand blue, under the name each app already used. */
+        assert.match(
+            css,
+            /--coral:\s*#1d4ed8/,
+            'the app accent is not the shared brand blue'
+        );
+        assert.match(
+            css,
+            /--coral-dark:\s*#1e40af/,
+            'the app has no shared dark brand step'
+        );
+
+        /*
+           The active menu item. APC's was silver - a grey active
+           state on a menu bar reads as inactive - and APS's was a
+           dark slate-green that belonged to no other control.
+        */
+        const active = css.match(/\.nav-item:hover,\s*\.nav-item\.active\s*\{([^}]*)\}/);
+        assert.ok(active, 'no .nav-item.active rule');
+        assert.match(
+            active[1],
+            /background:\s*var\(--coral-dark\)/,
+            'the active menu item is not the shared brand dark step'
+        );
+
+        /*
+           The sidebar band. It was a dark navy on one app and a pale
+           blue gradient on the other, so two otherwise-identical
+           apps opened on opposite-looking headers.
+        */
+        const sidebar = css.match(/\.sidebar\s*\{([^}]*)\}/);
+        assert.ok(sidebar, 'no .sidebar rule');
+        assert.match(
+            sidebar[1],
+            /background:\s*var\(--ink\)/,
+            'the header band is not the shared navy'
+        );
+    });
+}
+
+test('the shared trade layout defines one button system', () => {
+    const css = read(SHARED_TRADE_CSS);
+
+    assert.match(css, /--brand:\s*#1d4ed8/, 'the shared brand colour is missing');
+
+    /*
+       Hover must darken the SAME colour, not change it. This is the
+       specific defect that was fixed: white on that orange was about
+       3:1, which fails WCAG AA for normal text outright, and a silver
+       button reading as grey on grey was worse.
+    */
+    const hover = css.match(
+        /body \.primary-button:hover,\s*\nbody button\.primary-button:hover\s*\{([^}]*)\}/
+    );
+    assert.ok(hover, 'no .primary-button:hover rule');
+    assert.match(
+        hover[1],
+        /background:\s*var\(--ui-primary-hover\)/,
+        'the primary button hover does not darken the brand colour'
+    );
+    assert.doesNotMatch(
+        hover[1],
+        /#d8674e|#e\d{5}|silver|white/i,
+        'the primary button hover still changes colour'
+    );
+
+    /*
+       box-sizing: border-box, because the apps set content-box on
+       controls so a min-height means the text area - without this
+       the buttons inherited it and rendered 70px tall.
+    */
+    const primary = css.match(
+        /body \.primary-button,\s*\nbody button\.primary-button\s*\{([^}]*)\}/
+    );
+    assert.ok(primary, 'no .primary-button rule');
+    assert.match(
+        primary[1],
+        /box-sizing:\s*border-box/,
+        'the primary button inherits content-box and overflows its min-height'
+    );
+
+    /* A visible focus ring on every interactive surface. */
+    assert.match(css, /\.primary-button:focus-visible/);
+    assert.match(css, /--ui-focus:/);
+
+    /* Buttons are interaction, not information: none belongs on paper. */
+    const print = css.slice(css.lastIndexOf('@media print'));
+    assert.match(
+        print,
+        /\.primary-button[\s\S]*?display:\s*none/,
+        'buttons would print on the quote'
+    );
+});
+
+test('the production app shares the trade apps brand colour', () => {
+    const css = read(STYLES_CSS);
+
+    /*
+       The production app's --accent drives its own buttons. It was
+       #2563eb, close enough to the trade apps' blue to read as the
+       same colour but not exactly - close enough that a mismatch
+       looks like a mistake rather than a choice.
+    */
+    assert.match(
+        css,
+        /--accent:\s*#1d4ed8/,
+        'the production app accent is not the shared brand blue'
+    );
+    assert.match(css, /--ui-primary:\s*#1d4ed8/);
+
+    /* The switcher needs a tap target, and a visible focus ring. */
+    const button = css.match(/\.trade-button\s*\{([^}]*)\}/);
+    assert.ok(button, 'no .trade-button rule');
+    assert.match(button[1], /min-height:\s*3\dpx/, 'the switcher button is under 36px');
+    assert.match(css, /\.trade-button:focus-visible/);
 });
 
 // ---------------------------------------------------------------------------
@@ -364,31 +523,45 @@ test('a hidden trade frame is actually hidden', () => {
     assert.match(css, /\.trade-frame\[hidden\]\s*\{[^}]*display:\s*none/);
 });
 
-test('the trade panel fills the WHOLE screen, not just below the header', () => {
+test('the trade panel takes the screen under the static switcher bar', () => {
     const css = read(STYLES_CSS);
 
     assert.match(css, /\.trade-view\s*\{/);
+    assert.match(css, /\.trade-frame\s*\{/);
 
     /*
-       The app is taken out of the flow and pinned to the window with
-       inset:0. Sizing it as "the rest of a flex column" would depend
-       on the header's real height, which is exactly the number this
-       used to get wrong.
+       This used to assert position:fixed and inset:0 - the panel
+       covering the entire window, with the header as a floating
+       overlay on top of it. That turned out to be wrong twice over:
+       the overlay covered the quoting app's own header, and the app
+       got no header at all.
+
+       The panel is now the flexible last row of a column headed by
+       the switcher bar, so it fills the space that is left over and
+       no more. Flexbox measures the bar, so its varying height
+       (company name, wrap point) needs no hard-coded number - which
+       was the original objection to this approach, and no longer
+       applies now the header is a real element in the flow again.
     */
     const view = css.match(/\.trade-view\s*\{([^}]*)\}/);
     assert.ok(view, '.trade-view has no rule');
-    assert.match(view[1], /position:\s*fixed/);
-    assert.match(view[1], /inset:\s*0/);
+    assert.match(view[1], /flex:\s*1 1 auto/);
+    assert.match(view[1], /min-height:\s*0/);
 
     /*
-       With the app filling the window, the header can no longer be a
-       full-width band on top of it - it becomes a small floating pill
-       so the trade buttons stay reachable without costing the app any
-       of the screen.
+       Asserted on the property list only, with comments stripped.
+       The block comment above explains WHY the panel is not fixed,
+       and it names the property in doing so - so matching the raw
+       text finds the prose and fails a rule that is actually
+       correct.
     */
-    assert.match(css, /body\.trade-open \.app-header\s*\{[^}]*position:\s*fixed/);
-
-    assert.match(css, /\.trade-frame\s*\{/);
+    const declared = view[1].replace(/\/\*[\s\S]*?\*\//g, '');
+    assert.doesNotMatch(
+        declared,
+        /position:\s*fixed/,
+        'the panel is fixed to the window, so it sits under the bar'
+    );
+    assert.doesNotMatch(declared, /inset:\s*0/);
 });
 
 // ---------------------------------------------------------------------------

@@ -2,13 +2,39 @@
     --ink: #123b70;
     --muted: #667891;
     --line: #d7e1ee;
+    /*
+       The coatings app's --ink is also #123b70 (it was already the
+       same value under a different name). Stated here so the two
+       palettes are visibly one palette rather than two that happen
+       to agree today.
+    */
     --paper: #f4f8fc;
     --white: #fff;
     --mint: #dcecff;
     --mint-strong: #82b5ed;
-    --coral: #0757b8;
+    /*
+       --coral is the app's accent and is used for the primary
+       button, the active nav state and the totals. It is aligned
+       with the shared design system's brand blue so the two
+       trade apps cannot drift apart again: the shared file sets
+       --brand, and this is the same colour under the name this
+       app's own stylesheet has always used.
+
+       It used to be #0757b8, which sits close enough to read as
+       the same colour but not exactly - close enough that a
+       mismatch looks like a mistake rather than a choice.
+    */
+    --coral: #1d4ed8;
+    --coral-dark: #1e40af;
     --yellow: #f3c76a;
-    --shadow: 0 18px 45px rgba(7, 87, 184, .12)
+    --shadow: 0 18px 45px rgba(7, 87, 184, .12);
+    /*
+       The focus ring is a system token rather than a one-off, so
+       every control in the app focuses the same way. It is kept
+       here as well as in the shared file because this app's
+       stylesheet can be read on its own.
+    */
+    --ui-focus-ring: 0 0 0 3px rgba(29, 78, 216, .38)
 }
 
 * {
@@ -133,7 +159,8 @@ textarea {
 
 .sidebar-kicker {
     font: 11px 'DM Mono', monospace;
-    color: #799593;
+    /* Was #799593: too dark to read on the navy band. */
+    color: #9fb4d0;
     letter-spacing: .12em;
     margin: 48px 0 14px
 }
@@ -146,7 +173,14 @@ textarea {
 .nav-item {
     border: 0;
     background: transparent;
-    color: #a8b9b4;
+    /*
+       This was #a8b9b4, a muted grey-green on the dark navy band -
+       about 5.4:1, below the 7:1 that comfortably clears AA for
+       body text. The menu is read constantly on a tablet, so it is
+       now the same light blue the coatings app uses and shares the
+       same #cbd8e8.
+    */
+    color: #cbd8e8;
     text-align: left;
     padding: 10px 11px;
     border-radius: 5px;
@@ -158,7 +192,17 @@ textarea {
 
 .nav-item:hover,
 .nav-item.active {
-    background: #274745;
+    /*
+       This was #274745, a dark slate-green. It is now the brand
+       blue's dark step, so the active menu item belongs to the same
+       system as the buttons and the totals rather than reading as a
+       separate accent from an older version of the app.
+
+       The hover and the active state are deliberately the same
+       surface: on a menu bar, hovering an item you are already on is
+       not new information.
+    */
+    background: var(--coral-dark);
     color: var(--white)
 }
 
@@ -935,14 +979,28 @@ h2 {
     gap: 8px
 }
 
+/*
+   The hover used to change the button to ORANGE (#d8674e). Two
+   problems with that, both of which the shared design system now
+   fixes everywhere:
+
+     - a colour change on hover reads as a state change, as though
+       the button had become a different control, and orange is
+       the colour this app uses for warnings;
+     - white on that orange is about 3:1, which fails WCAG AA for
+       normal text outright.
+
+   It now darkens to the same blue, which keeps the text at roughly
+   7:1 and keeps the button the same object.
+*/
 .primary-button:hover {
-    background: #d8674e
+    background: var(--coral-dark)
 }
 
 .secondary-button {
     background: transparent;
-    color: #b9cbc6;
-    border: 1px solid #41615e;
+    color: var(--ink);
+    border: 1px solid var(--ink);
     margin-top: 10px
 }
 

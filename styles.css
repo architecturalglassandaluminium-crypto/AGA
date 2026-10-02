@@ -18,9 +18,33 @@
     --primary-dark: #0d2747;
     --primary-light: #1e5aa8;
     --secondary: #334155;
-    --accent: #2563eb;
-    --accent-dark: #1d4ed8;
-    --accent-soft: #eaf1fe;
+    /*
+       The accent, and with it every button, is the same brand blue
+       the two quoting apps use (--brand in trades/shared-trade-
+       layout.css). It was #2563eb, close enough to read as the same
+       colour but not exactly - close enough that a mismatch between
+       the apps looks like a mistake rather than a choice.
+    */
+    --accent: #1d4ed8;
+    --accent-dark: #1e40af;
+    --accent-soft: #eef3ff;
+
+    /* The shared button system. Defined here as well as in the
+       shared trade layout so each app's stylesheet stands alone. */
+    --brand: #1d4ed8;
+    --brand-dark: #1e40af;
+    --brand-soft: #eef3ff;
+    --brand-ring: rgba(29, 78, 216, .38);
+    --ui-primary: #1d4ed8;
+    --ui-primary-hover: #1e40af;
+    --ui-primary-ink: #ffffff;
+    --ui-secondary-bg: #ffffff;
+    --ui-secondary-ink: #1e40af;
+    --ui-secondary-line: #1d4ed8;
+    --ui-danger: #b42318;
+    --ui-radius: 8px;
+    --ui-shadow: 0 1px 2px rgba(15, 23, 42, .08);
+    --ui-shadow-hover: 0 2px 6px rgba(15, 23, 42, .14);
 
     --success: #15803d;
     --success-soft: #e7f6ec;
@@ -702,34 +726,57 @@ img {
 
 /* =========================================================
    BUTTONS
-========================================================= */
+
+   These are the same three roles the two quoting apps use - a
+   primary action, a real alternative, and a quiet text action - so
+   they are defined from the same tokens. The colours, radii and
+   44px minimum height match trades/shared-trade-layout.css, which
+   carries the trade apps' copy of this system.
+
+   The shadow is deliberately small. The old one was a 12px blue
+   glow, which reads as a glow on a light background rather than as
+   a raised surface.
+   ========================================================= */
 
 .primary-button {
     display: inline-flex;
     align-items: center;
     justify-content: center;
     gap: 8px;
-    border: none;
-    border-radius: var(--radius-sm);
-    padding: 10px 18px;
+    border: 1px solid transparent;
+    border-radius: var(--ui-radius, 8px);
+    padding: 11px 18px;
+    min-height: 44px;
     font-weight: 700;
     font-size: 14px;
-    background: var(--accent);
-    color: white;
-    box-shadow: 0 4px 12px rgba(37, 99, 235, 0.24);
-    transition: background 0.18s ease, transform 0.1s ease, box-shadow 0.18s ease;
+    background: var(--ui-primary, var(--accent));
+    color: var(--ui-primary-ink, #fff);
+    box-shadow: var(--ui-shadow, 0 1px 2px rgba(15, 23, 42, .08));
+    transition: background .15s ease, box-shadow .15s ease, transform .05s ease;
     text-decoration: none;
     white-space: nowrap;
 }
 
 .primary-button:hover {
-    background: var(--accent-dark);
-    box-shadow: 0 6px 16px rgba(37, 99, 235, 0.32);
+    background: var(--ui-primary-hover, var(--accent-dark));
+    box-shadow: var(--ui-shadow-hover, 0 2px 6px rgba(15, 23, 42, .14));
 }
 
 .primary-button:active {
-    transform: scale(0.97);
-    box-shadow: 0 2px 6px rgba(37, 99, 235, 0.24);
+    transform: translateY(1px);
+    box-shadow: var(--ui-shadow, 0 1px 2px rgba(15, 23, 42, .08));
+}
+
+/*
+   Every interactive surface gets a visible focus ring. This app is
+   used on a tablet on site, where the alternative to a focus ring is
+   a lost cursor - and without an explicit rule the browser default
+   is suppressed by the border-radius/box-shadow reset below.
+*/
+.primary-button:focus-visible,
+.secondary-button:focus-visible {
+    outline: none;
+    box-shadow: 0 0 0 3px rgba(29, 78, 216, .38);
 }
 
 .primary-button .icon,
@@ -743,20 +790,23 @@ img {
     align-items: center;
     justify-content: center;
     gap: 8px;
-    border: 1px solid var(--border);
-    border-radius: var(--radius-sm);
-    padding: 9px 15px;
-    font-weight: 600;
+    border: 1px solid var(--ui-secondary-line, var(--border));
+    border-radius: var(--ui-radius, 8px);
+    padding: 11px 18px;
+    min-height: 44px;
+    font-weight: 700;
     font-size: 14px;
-    background: white;
-    color: var(--secondary);
-    transition: background 0.18s ease, border-color 0.18s ease, color 0.18s ease;
+    background: var(--ui-secondary-bg, white);
+    color: var(--ui-secondary-ink, var(--secondary));
+    box-shadow: var(--ui-shadow, 0 1px 2px rgba(15, 23, 42, .08));
+    transition: background .15s ease, box-shadow .15s ease;
     text-decoration: none;
     white-space: nowrap;
 }
 
 .secondary-button:hover {
-    background: var(--surface-light);
+    background: var(--brand-soft, var(--surface-light));
+    box-shadow: var(--ui-shadow-hover, 0 2px 6px rgba(15, 23, 42, .14));
 }
 
 .form-actions {
@@ -6784,41 +6834,68 @@ img {
 .trade-button {
     border: 0;
     background: transparent;
-    color: rgba(255, 255, 255, 0.78);
+    color: rgba(255, 255, 255, 0.82);
     border-radius: 999px;
-    padding: 5px 13px;
-    font-size: 11.5px;
+    padding: 7px 14px;
+    font-size: 12.5px;
     font-weight: 700;
     letter-spacing: 0.01em;
     white-space: nowrap;
     cursor: pointer;
-    transition: background 0.15s ease, color 0.15s ease;
+    /*
+       A 36px minimum: the switcher was 5px/11.5px padding, which is
+       about 28px tall - well under a comfortable tap target for a
+       control a user has to hit every time they change company.
+    */
+    min-height: 36px;
+    transition: background 0.15s ease, color 0.15s ease
 }
 
 .trade-button:hover {
-    background: rgba(255, 255, 255, 0.14);
-    color: white;
+    background: rgba(255, 255, 255, 0.16);
+    color: white
+}
+
+/*
+   A visible focus ring on every interactive surface. These are field
+   apps used on a tablet, where the alternative to a focus ring is a
+   lost cursor.
+*/
+.trade-button:focus-visible {
+    outline: none;
+    box-shadow: 0 0 0 3px rgba(255, 255, 255, .34)
 }
 
 .trade-button.active {
     background: white;
-    color: var(--accent-dark, #1d4ed8);
+    color: var(--accent-dark, #1e40af);
+    font-weight: 800
 }
 
 /*
-   The embedded trade fills the WHOLE screen, header included.
+   The embedded trade fills the screen below the header bar.
 
-   The header itself stays reachable but stops being a full-width
-   band: while a trade is open it collapses to the small floating
-   switcher in the top corner, so the app below gets every pixel.
-   See the body.trade-open rules below.
+   The header itself stays put, because it holds the switcher the
+   user needs to get back to the production app.
 */
 .trade-view {
     width: 100%;
     /*
-       Taken out of the flow rather than sized as the leftover of a
-       flex column, because with the header floating there is no
-       leftover to measure: the panel is simply the window.
+       The last row of a full-height flex column, so it takes
+       whatever the header leaves over and no more.
+
+       This is the approach the file used before the header became a
+       static bar, and the earlier objection to it - that it depended
+       on measuring the header - does not apply any more: the header
+       is a real element in the flow again, so flexbox measures it
+       for us, at any zoom and on any screen, with no hand-typed
+       number to keep in step with it.
+
+       The important consequence is that the app is NOT covered. A
+       position:fixed bar sitting on top of the app hides the
+       quoting app's own header - its logo and its menu - behind it,
+       which is the same fault the floating pill had. In flow, the
+       app starts below the bar and its own header is visible.
 
        This was calc(100vh - 72px), and calc(100vh - 108px) on a
        narrow screen - two hand-typed numbers standing in for a
@@ -6828,14 +6905,7 @@ img {
        below the frame that never scrolls, because the body is
        locked) or taller than it (the foot of the app pushed out
        of sight with no way to scroll to it).
-
-       Instead the trade view is fixed to the window and fills it
-       edge to edge, and the header becomes a floating switcher on
-       top of it. See the body.trade-open rules below.
     */
-    position: fixed;
-    inset: 0;
-    z-index: 50;
     height: auto;
     flex: 1 1 auto;
     min-height: 0;
@@ -6885,81 +6955,107 @@ img {
           vh is kept first as the fallback for anything that does not
           know dvh.
        */
-       height: 100dvh;
-       display: block
+           height: 100dvh;
+           /*
+              A column of [header bar | app]. The app takes whatever the
+              header leaves over, so the two never overlap.
+           */
+           display: flex;
+           flex-direction: column
+       }
+
+   /*
+      THE HEADER IS A STATIC BAR AT THE TOP
+
+      A plain bar across the top of the page, above the embedded app,
+      always in the same place and always visible. It keeps the
+      selected company's logo, so "which company am I in?" is
+      answered on every screen.
+
+      IT IS IN THE FLOW, NOT A FLOATING OVERLAY. Two earlier shapes
+      both failed:
+
+        - a floating pill in the top-left covered the quoting app's
+          own logo and menu, which is what the user came to see;
+        - a fixed bar laid over the top of the app hid the quoting
+          app's own header behind it - the same fault, in a
+          different place.
+
+      In the flow, the header is the first row of a full-height
+      column and the app takes the rest, so both are visible at once
+      and neither covers the other. Flexbox measures the header, so
+      its real height - which varies with the company name and the
+      wrap point - needs no hard-coded number.
+   */
+   body.trade-open .app-header {
+       position: static;
+       flex: 0 0 auto;
+       z-index: auto;
+       width: auto;
+       border-radius: 0;
+       border-bottom: 1px solid rgba(255, 255, 255, .16);
+       box-shadow: 0 2px 10px rgba(0, 0, 0, .22)
    }
 
    /*
-      THE HEADER BECOMES A FLOATING SWITCHER
-
-      With the app filling the window, a full-width header band would
-      either cover the top of the quote or push it down - the opposite
-      of the point. So while a trade is open the header collapses to a
-         small floating pill, sitting ON TOP of the embedded app (the trade
-         view is z-index 50, the pill 60) and showing only what the user
-         needs: which company they are in, and the way out.
-
-         Everything else in the header - the company details, the phone and
-         email links, the sync badge, sign-out - is hidden, because none of
-         it belongs to the quoting app the user is actually looking at.
-
-         WHY IT SITS IN THE BOTTOM CORNER
-         ---------------------------------
-         It was pinned to the top-left, which is the one place the pill must
-         not be: each quoting app opens with its OWN logo and menu in the
-         top-left of its header, and a floating control there covered the
-         company's mark on every screen of both apps. It is not a matter of
-         hiding it either - the switcher has to stay reachable while a trade
-         fills the window, or there is no way back out.
-
-         So it goes bottom-right, over the part of a quote page that is
-         blank space. It carries the selected company's logo, which means
-         the answer to "which company is this?" is on screen permanently
-         instead of being hidden away.
-
-         It is not position:sticky here: the body does not scroll while a
-         trade is open (the embedded app scrolls internally), so the pill
-         only has to stay where it is put.
-      */
-      body.trade-open .app-header {
-          position: fixed;
-          bottom: 14px;
-          right: 14px;
-          top: auto;
-          left: auto;
-          z-index: 60;
-          width: auto;
-          border-radius: 999px;
-          box-shadow: 0 2px 12px rgba(0, 0, 0, .28)
-      }
+      The company details are hidden above, but the LOGO is not: it is
+      the one thing that says which of the three companies the quote
+      belongs to, and a quote is a document somebody signs.
+   */
+   body.trade-open .app-header .company-info {
+       display: flex;
+       flex: 0 0 auto
+   }
 
       /*
-         The company details are hidden above, but the LOGO is not: it is
-         the one thing that says which of the three companies the quote
-         belongs to, and a quote is a document somebody signs. The mark
-         drops to a single small dot-sized plate here - this is an overlay
-         on someone else's app, not a masthead, so it stays compact.
-      */
-      body.trade-open .app-header .company-info {
-          display: flex;
-          flex: 0 0 auto
-      }
+         Hidden while a trade is open: the sync badge belongs to the
+         production app's own storage, and reporting "Works offline"
+         above a plumbing quote that saves to the plumber's localStorage
+         is a statement about something the user is not looking at.
 
+         Note the selector: the badge sits inside .header-status, not
+         .company-info, so listing it under .company-info hid nothing -
+         which is why it stayed visible in the first version of the bar.
+      */
       body.trade-open .app-header .company-text,
       body.trade-open .app-header .header-contact,
-      body.trade-open .app-header .sync-badge,
       body.trade-open .app-header .signout-button {
           display: none
       }
 
+      body.trade-open .sync-badge {
+          display: none
+      }
+
       body.trade-open .company-mark {
-          height: 32px;
-          padding: 3px 7px;
+          height: 34px;
+          padding: 3px 8px;
           border-radius: 6px
       }
 
       body.trade-open .company-logo {
-          max-width: 74px
+          max-width: 92px
+      }
+
+      /*
+         A full-width bar needs its inner row capped and centred, or the
+         switcher drifts to the far edge of a wide monitor while the app
+         content below it stays where the app put it.
+      */
+      body.trade-open .header-content {
+          display: flex;
+          align-items: center;
+          padding: 7px 18px;
+          gap: 14px;
+          max-width: 1500px;
+          margin: 0 auto;
+          width: 100%
+      }
+
+      body.trade-open .header-status {
+          gap: 8px;
+          padding: 0;
+          margin-left: auto
       }
 
    /*
@@ -7011,10 +7107,9 @@ body.trade-open {
        window, so it covers everything without measuring a header.
 
        The switcher is normally stretched across its own row on a
-       narrow screen. Inside the floating pill that would force the
-       pill to the full width of the window - which is the very
-       thing the pill exists to avoid - so the pill cancels it and
-       lets the buttons wrap instead.
+       narrow screen. In the bar that would be fine - there is room
+       for a full-width row - so the pill's old cancellation of that
+       rule is dropped here, and the buttons wrap instead.
     */
     body.trade-open .trade-switcher {
         order: 0;
@@ -7024,15 +7119,8 @@ body.trade-open {
     }
 
     body.trade-open .trade-button {
-        padding: 6px 11px;
-        font-size: 12.5px
-    }
-
-    body.trade-open .app-header {
-        top: auto;
-        bottom: 10px;
-        right: 10px;
-        left: auto
+        padding: 7px 12px;
+        font-size: 13px
     }
 }
 /* Three-company project portfolio */

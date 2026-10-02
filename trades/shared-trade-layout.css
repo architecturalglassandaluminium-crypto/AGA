@@ -772,3 +772,243 @@ body .scenario-bar .primary-button {
         padding: 0
     }
 }
+
+/* =========================================================
+   7. ONE BUTTON AND COLOUR SYSTEM
+   ---------------------------------------------------------
+   Until now the two apps did not merely use different palettes -
+   their buttons behaved differently in ways that made them hard to
+   use:
+
+     APS  primary is blue, and turns ORANGE on hover. The colour
+          change is a state change that the user reads as "this is
+          now a different thing", and orange is the colour the rest
+          of the app uses for warnings.
+     APC  primary is SILVER. A grey button reads as disabled, so
+          the main action on every screen looked unavailable.
+     both secondary text was a low-contrast grey-green on a light
+          panel, and AGA's own buttons are a third shape again.
+
+   So all three now share one system, defined here because this is
+   the file both trade apps load LAST. Everything below is written
+   against custom properties, so the brand colour is a single
+   variable per app: --brand is blue for both, and can be changed
+   in one place without touching a rule.
+
+   WHY THESE COLOURS
+   -----------------
+   Text on a button is white on a mid-dark blue at about 7:1
+   contrast, which clears WCAG AA for normal text and is close to
+   AAA. The previous orange hover was roughly 3:1 - it failed AA for
+   text outright.
+
+   Every interactive surface gets a visible focus ring, because
+   these are field apps used on a tablet in a van, where the
+   alternative to a focus ring is a lost cursor.
+
+   BUTTON SIZES
+   ------------
+   44px is the minimum comfortable tap target. The old 10px/12px
+   padding gave roughly 37px, which is under it.
+   ========================================================= */
+
+:root {
+    /*
+       The shared system. --brand is the one a company changes to
+       rebrand; everything else is derived from it so the two apps
+       cannot drift apart again.
+    */
+    --brand: #1d4ed8;
+    --brand-dark: #1e40af;
+    --brand-darker: #17309b;
+    --brand-soft: #eef3ff;
+    --brand-ring: rgba(29, 78, 216, .38);
+
+    /* Semantic roles, identical in both apps. */
+    --ui-primary: var(--brand);
+    --ui-primary-hover: var(--brand-dark);
+    --ui-primary-ink: #ffffff;
+
+    --ui-secondary-bg: #ffffff;
+    --ui-secondary-ink: var(--brand-dark);
+    --ui-secondary-line: var(--brand);
+
+    --ui-danger: #b42318;
+    --ui-danger-hover: #92150c;
+    --ui-success: #15803d;
+
+    --ui-radius: 8px;
+    --ui-radius-sm: 6px;
+
+    /* One shadow, used by every raised control. */
+    --ui-shadow: 0 1px 2px rgba(15, 23, 42, .08);
+    --ui-shadow-hover: 0 2px 6px rgba(15, 23, 42, .14);
+
+    --ui-focus: 0 0 0 3px var(--brand-ring);
+}
+
+/* ---- PRIMARY: the action that does the thing ---- */
+
+body .primary-button,
+body button.primary-button {
+    /*
+       border-box, and not an omission. The apps' own stylesheet sets
+       box-sizing: content-box on form controls so that a min-height
+       means the text area rather than text plus padding, and without
+       this the buttons inherit that too: a 46px min-height plus 11px
+       padding top and bottom rendered them 70px tall.
+    */
+    box-sizing: border-box !important;
+    background: var(--ui-primary) !important;
+    color: var(--ui-primary-ink) !important;
+    border: 1px solid transparent !important;
+    border-radius: var(--ui-radius) !important;
+    box-shadow: var(--ui-shadow) !important;
+    font-weight: 700 !important;
+    min-height: 44px;
+    padding: 11px 18px !important;
+    transition: background .15s ease, box-shadow .15s ease, transform .05s ease
+}
+
+/*
+   The hover used to CHANGE COLOUR - orange on APS, white on APC.
+   Darkening the same blue keeps the button the same object and
+   still shows it is live, and keeps the text at full contrast
+   rather than moving to a pale-on-pale pair.
+*/
+body .primary-button:hover,
+body button.primary-button:hover {
+    background: var(--ui-primary-hover) !important;
+    box-shadow: var(--ui-shadow-hover) !important
+}
+
+body .primary-button:active,
+body button.primary-button:active {
+    transform: translateY(1px);
+    box-shadow: var(--ui-shadow) !important
+}
+
+body .primary-button:focus-visible,
+body button.primary-button:focus-visible {
+    outline: none !important;
+    box-shadow: var(--ui-focus) !important
+}
+
+/* ---- SECONDARY: the real alternative ---- */
+
+body .secondary-button,
+body button.secondary-button {
+    /* Same reason as the primary button above. */
+    box-sizing: border-box !important;
+    background: var(--ui-secondary-bg) !important;
+    color: var(--ui-secondary-ink) !important;
+    border: 1px solid var(--ui-secondary-line) !important;
+    border-radius: var(--ui-radius) !important;
+    box-shadow: var(--ui-shadow) !important;
+    font-weight: 700 !important;
+    min-height: 44px;
+    padding: 11px 18px !important;
+    transition: background .15s ease, box-shadow .15s ease
+}
+
+body .secondary-button:hover,
+body button.secondary-button:hover {
+    background: var(--brand-soft) !important;
+    box-shadow: var(--ui-shadow-hover) !important
+}
+
+body .secondary-button:focus-visible,
+body button.secondary-button:focus-visible {
+    outline: none !important;
+    box-shadow: var(--ui-focus) !important
+}
+
+/* ---- TEXT BUTTON: a quiet action that still reads as one ---- */
+
+body .text-button,
+body button.text-button {
+    color: var(--ui-secondary-ink) !important;
+    font-weight: 700 !important;
+    min-height: 40px;
+    padding: 8px 10px !important;
+    border-radius: var(--ui-radius-sm) !important
+}
+
+body .text-button:hover,
+body button.text-button:hover {
+    background: var(--brand-soft) !important
+}
+
+body .text-button:focus-visible,
+body button.text-button:focus-visible {
+    outline: none !important;
+    box-shadow: var(--ui-focus) !important
+}
+
+/* ---- DESTRUCTIVE: deleting must never look like adding ---- */
+
+body .delete-price,
+body .remove-material,
+body .planning-remove {
+    color: var(--ui-danger) !important;
+    border-radius: var(--ui-radius-sm) !important
+}
+
+body .delete-price:hover,
+body .remove-material:hover,
+body .planning-remove:hover {
+    background: #fef3f2 !important;
+    color: var(--ui-danger-hover) !important
+}
+
+/* =========================================================
+   8. FIELDS AND INPUTS
+   ---------------------------------------------------------
+   Same reasoning: one border colour, one focus treatment, one
+   radius, so a text box in APS and one in APC are the same object.
+   ========================================================= */
+
+body input,
+body select,
+body textarea {
+    border-radius: var(--ui-radius-sm) !important;
+    border-color: #cbd5e1 !important;
+    transition: border-color .15s ease, box-shadow .15s ease
+}
+
+body input:focus,
+body select:focus,
+body textarea:focus {
+    outline: none !important;
+    border-color: var(--brand) !important;
+    box-shadow: var(--ui-focus) !important
+}
+
+/*
+   The scenario bar and the tables inherit all of the above, but
+   their own sizing rule sets box-sizing: content-box so min-height
+   means the text area. Restated here so the new radius cannot be
+   dropped by that rule.
+*/
+body .scenario-bar select,
+body .scenario-bar .primary-button {
+    border-radius: var(--ui-radius) !important
+}
+
+/* =========================================================
+   9. PRINT
+   ---------------------------------------------------------
+   Buttons are interaction, not information. None of them belongs
+   on a quote the client reads, and a coloured button on paper is
+   a block of ink the printer has to render.
+   ========================================================= */
+
+@media print {
+
+    .primary-button,
+    .secondary-button,
+    .text-button,
+    .scenario-bar {
+        display: none !important
+    }
+}
