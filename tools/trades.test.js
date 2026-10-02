@@ -18,6 +18,7 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
+const vm = require('node:vm');
 
 const ROOT = path.resolve(__dirname, '..');
 const TRADES_JS = path.join(ROOT, 'trades.js');
@@ -1250,6 +1251,244 @@ const PLUMBING_APP = path.join(ROOT, 'trades', 'plumbing', 'app.js');
 const COATINGS_APP = path.join(ROOT, 'trades', 'coatings', 'app.js');
 const PLUMBING_HTML = path.join(ROOT, 'trades', 'plumbing', 'index.html');
 const COATINGS_HTML = path.join(ROOT, 'trades', 'coatings', 'index.html');
+
+/*
+   APC's SCENARIO LIBRARY COVERAGE
+   --------------------------------
+   A scenario is only as good as the tasks it can reach. Two things
+   have to hold for every task in a scenario:
+
+     1. it has a rate, and
+     2. it is in a catalogue category.
+
+   The reason this is tested rather than trusted: the scenario builder
+   falls back to a flat R350 for an unpriced task -
+
+       rate: serviceRates[task] || 350
+
+   - and a task with no catalogue entry appears in a scenario but
+   cannot be picked by hand afterwards. Neither is an error the user
+   ever sees. Both just produce a quote that is quietly wrong.
+
+   The library is a module-local const, so it cannot be imported. It
+   is evaluated straight out of the source text instead, which is
+   exact for literals and needs no browser.
+
+   SCOPE, AND WHY IT IS NOT WIDER
+   ------------------------------
+   These two tests cover the ELECTRICAL and CONSTRUCTION scenarios -
+   the work this change was asked for. They deliberately do not assert
+   the whole library: the handyman, plastering and coatings scenarios
+   carry around 190 unpriced and un-catalogued tasks that predate this
+   work. Asserting the whole library would fail the build on debt
+   nobody asked to settle here, and hiding that debt inside this
+   change would be worse. It is real and should be priced in its own
+   pass.
+*/
+const SCENARIO_CATEGORIES_IN_SCOPE = [
+    'Electrical Work',
+    'Building Work',
+    'Construction Services',
+    'Site Safety & Access'
+];
+
+function inScopeScenarios() {
+    return coatingLibrary.filter(([category]) =>
+        SCENARIO_CATEGORIES_IN_SCOPE.includes(category)
+    );
+}
+function evalLiteral(source, name, opener) {
+    const at = source.indexOf(`const ${name} = ${opener}`);
+    if (at < 0) return null;
+    const open = source.indexOf(opener, source.indexOf('=', at));
+
+    const closeCh = opener === '{' ? '}' : ']';
+    let depth = 0;
+    let end = -1;
+    for (let i = open; i < source.length; i++) {
+        if (source[i] === opener) depth++;
+        else if (source[i] === closeCh) {
+            depth--;
+            if (depth === 0) {
+                end = i;
+                break;
+            }
+        }
+    }
+    if (end < 0) return null;
+
+    /* Evaluate the literal text as an expression. */
+    const sandbox = { value: undefined };
+    vm.createContext(sandbox);
+    const text = source.slice(open, end + 1);
+    vm.runInContext(`value = ${text}`, sandbox, { filename: name });
+    return sandbox.value;
+}
+
+const coatingsSource = read(COATINGS_APP);
+const coatingLibrary = evalLiteral(coatingsSource, 'masterScenarioLibrary', '[');
+const coatingRates = evalLiteral(coatingsSource, 'serviceRates', '{');
+
+/* The catalogue is a literal that is then extended by .push() calls. */
+function coatingCatalogue() {
+    const set = new Set();
+    Object.values(evalLiteral(coatingsSource, 'serviceCatalogue', '{')).forEach(
+        (list) => list.forEach((task) => set.add(task))
+    );
+
+    /*    The .push() calls. Both bracket and dot access occur - the
+       catalogue is written as serviceCatalogue.Restoration.push(...) as
+       well as serviceCatalogue['Additional labour'].push(...) - and the
+       scan has to match either, or a category is silently dropped from
+       the catalogue the test sees.
+
+       Only literal lists are added; a runtime push such as
+       serviceCatalogue[category].push(task) is not a literal and is
+       skipped rather than throwing the whole scan out.
+    */
+    const re = /serviceCatalogue(?:\[[^\]]+\]|\.\w+)\.push\(/g;
+    let m;
+    while ((m = re.exec(coatingsSource))) {
+        const open = coatingsSource.indexOf('(', m.index + m[0].length - 1);
+        let depth = 0;
+        let end = -1;
+        for (let i = open; i < coatingsSource.length; i++) {
+            if (coatingsSource[i] === '(') depth++;
+            else if (coatingsSource[i] === ')') {
+                depth--;
+                if (depth === 0) {
+                    end = i;
+                    break;
+                }
+            }
+        }
+        if (end < 0) continue;
+        const box = { value: undefined };
+        vm.createContext(box);
+        try {
+            vm.runInContext(
+                `value = [${coatingsSource.slice(open + 1, end)}]`,
+                box
+            );
+        } catch (error) {
+            continue;
+        }
+        box.value.forEach((task) => set.add(task));
+    }
+    return set;
+}
+
+test('every task an APC scenario can reach is priced', () => {
+    assert.ok(coatingLibrary, 'could not read masterScenarioLibrary');
+    assert.ok(coatingRates, 'could not read serviceRates');
+
+    const unpriced = [];
+    inScopeScenarios().forEach(([, name, tasks]) => {
+        tasks.split('|').forEach((task) => {
+            if (coatingRates[task] === undefined) {
+                unpriced.push(`${task} (${name})`);
+            }
+        });
+    });
+
+    assert.deepEqual(
+        unpriced,
+        [],
+        `these scenario tasks fall back to the flat R350: ${unpriced.join(', ')}`
+    );
+});
+
+test('every task an APC scenario can reach is in a catalogue', () => {
+    const catalogue = coatingCatalogue();
+    const uncatalogued = new Set();
+
+    inScopeScenarios().forEach(([, , tasks]) => {
+        tasks.split('|').forEach((task) => {
+            if (!catalogue.has(task)) uncatalogued.add(task);
+        });
+    });
+
+    assert.deepEqual(
+        [...uncatalogued],
+        [],
+        `these tasks appear in a scenario but cannot be picked by hand: ${[...uncatalogued].join(', ')}`
+    );
+});
+
+test('the APC library covers electrical and construction work', () => {
+    const names = coatingLibrary.map(([, name]) => name);
+    const all = coatingLibrary.flatMap(([, , tasks]) => tasks.split('|'));
+
+    /*
+       The gap this closes: these tasks were listed in the catalogue
+       and most were priced, but NO scenario could produce them, so
+       the office could price them one line at a time and could not
+       start a job from a scenario.
+    */
+    for (const task of [
+        'Replace faulty light fitting',
+        'Install dimmer switch',
+        'Install extractor fan',
+        'Install outdoor or garden light',
+        'Install security or flood light',
+        'Install electric fence energiser',
+        'Install geyser electrical connection',
+        'Install stove or oven point',
+        'Install pool or gate motor connection',
+        'Install prepaid electricity meter'
+    ]) {
+        assert.ok(
+            all.includes(task),
+            `no APC scenario can reach the electrical task "${task}"`
+        );
+    }
+
+    for (const task of [
+        'Build braai or fireplace',
+        'Lay floor or wall screed',
+        'Cast concrete lintel',
+        'Fit garage door',
+        'Lay foundation',
+        'Close up doorway or opening',
+        'Fit waterproofing membrane',
+        'Install roof trusses',
+        'Build tiled shower or recess',
+        'Lay tiles or paving'
+    ]) {
+        assert.ok(
+            all.includes(task),
+            `no APC scenario can reach the building task "${task}"`
+        );
+    }
+
+    /* And the work the company quotes that the catalogue lacked. */
+    for (const fragment of [
+        /braai|fireplace/i,
+        /screed/i,
+        /lintel/i,
+        /garage door/i,
+        /tiled shower/i,
+        /rainwater/i,
+        /bathroom/i,
+        /kitchen/i,
+        /washing machine/i,
+        /water heater/i,
+        /scaffolding/i,
+        /health and safety/i,
+        /dimmer/i,
+        /extractor/i,
+        /outdoor or garden/i,
+        /electric fence/i,
+        /prepaid/i,
+        /data/i,
+        /refrigeration/i
+    ]) {
+        assert.ok(
+            names.some((name) => fragment.test(name)),
+            `no APC scenario matches ${fragment}`
+        );
+    }
+});
 
 test('Leroy Merlin is a store in both quoting apps', () => {
     /**

@@ -541,7 +541,7 @@ const serviceCatalogue = {
     'Additional labour': ['Move soil', 'Remove building rubble', 'Load or unload materials', 'Clean work area', 'Protect work area', 'Cart away rubble'],
     Equipment: ['Jackhammer hire', 'Ground compactor hire', 'Excavator hire', 'Core drill hire', 'Scaffolding hire', 'Brick saw hire'],
     'General handyman': ['General repair work', 'Hang doors and fit hardware', 'Fit door locks and handles', 'Fit shelving and brackets', 'Assemble flat-pack furniture', 'Mount TV or wall bracket', 'Hang pictures and mirrors', 'Fit curtain rails and blinds', 'Fit skirtings and architraves', 'Fit cornices and trims', 'Repair cupboard doors and hinges', 'Fit cupboard and counter tops', 'Seal gaps and apply silicone', 'General maintenance inspection', 'Small repairs and odd jobs', 'Replace floor or wall boards', 'Make safe and secure premises'],
-    'Electrical work': ['Electrical call-out and inspection', 'Issue electrical Certificate of Compliance (COC)', 'Test and certify installation', 'Install plug point or socket outlet', 'Move or replace plug point', 'Install light fitting', 'Install ceiling or downlight', 'Install light switch', 'Install dimmer switch', 'Install security or flood light', 'Install outdoor or garden light', 'Install electric fence energiser', 'Install distribution board', 'Replace circuit breaker', 'Install earth leakage unit', 'Replace faulty wiring', 'Install new wiring circuit', 'Trace and repair electrical fault', 'Install extractor fan', 'Install geyser electrical connection', 'Install stove or oven point', 'Install pool or gate motor connection', 'Install prepaid electricity meter', 'Bond and earth installation', 'Replace faulty light fitting', 'Repair doorbell or intercom', 'Inspect and repair DB board'],
+    'Electrical work': ['Electrical call-out and inspection', 'Issue electrical Certificate of Compliance (COC)', 'Test and certify installation', 'Install plug point or socket outlet', 'Move or replace plug point', 'Install light fitting', 'Install ceiling or downlight', 'Install light switch', 'Install dimmer switch', 'Install security or flood light', 'Install outdoor or garden light', 'Install electric fence energiser', 'Install distribution board', 'Replace circuit breaker', 'Install earth leakage unit', 'Replace faulty wiring', 'Install new wiring circuit', 'Trace and repair electrical fault', 'Install extractor fan', 'Install geyser electrical connection', 'Install stove or oven point', 'Install pool or gate motor connection', 'Install prepaid electricity meter', 'Bond and earth installation', 'Replace faulty light fitting', 'Repair doorbell or intercom', 'Inspect and repair DB board', 'Install air-conditioning or refrigeration circuit', 'Install data point or network outlet', 'Install earthing spikes', 'Test data outlet', 'Remove faulty light fitting', 'Reconnect and terminate', 'Prepare cable route'],
     'Building work': ['Building call-out and inspection', 'Lay brickwork', 'Build new wall', 'Build half-brick wall', 'Build retaining wall', 'Build garden or boundary wall', 'Close up doorway or opening', 'Open up new doorway', 'Fit lintel or beam', 'Brick or block up window', 'Lay floor or wall screed', 'Cast concrete slab', 'Cast concrete lintel', 'Build foundation or footing', 'Install roof trusses', 'Fit roof sheeting or tiles', 'Fit ceilings', 'Install window or door frame', 'Fit window or door', 'Fit steel or wooden door', 'Fit garage door', 'Build braai or fireplace', 'Lay tiles or paving', 'Fit waterproofing membrane', 'Build tiled shower or recess'],
     'Coatings & painting': ['Coatings call-out and inspection', 'Prepare and clean surface', 'High-pressure cleaning', 'Sand and abrade surface', 'Apply primer or sealer coat', 'Apply first coat', 'Apply second or final coat', 'Apply waterproofing coating', 'Apply epoxy floor coating', 'Apply roof waterproofing coating', 'Apply damp-proof coating', 'Apply protective clear coat', 'Apply texture or decorative coating', 'Spray application of coating', 'Roller application of coating', 'Brush application of detail work', 'Repair cracks before coating', 'Treat mould or algae', 'Cure and protect new coating', 'Touch up damaged coating', 'Apply line marking or road marking', 'Apply anti-corrosion coating', 'Apply fire-retardant coating', 'Coating warranty inspection'],
     'Plastering & skimming': ['Plastering call-out and inspection', 'Plaster interior wall', 'Plaster exterior wall', 'Plaster new brickwork', 'Skim coat existing wall', 'Skim coat ceiling', 'Plaster ceiling', 'Patch and repair plaster', 'Crack repair and plastering', 'Fill and plaster chase', 'Plaster over old paint', 'Bag and paint wall finish', 'Fit plaster beading and corner beads', 'Plaster mouldings or cornice repairs', 'Re-plaster damaged wall section', 'Plaster around window or door', 'Plaster around electrical box', 'Prepare wall for painting', 'Screed wall for tiling', 'Rub down and smooth plaster']
@@ -552,10 +552,141 @@ serviceCatalogue['Breaking & access'].push('Remove tiles', 'Open or chase wall',
 serviceCatalogue.Restoration.push('Close wall', 'Plaster wall', 'Replace tiles', 'Paint touch-up', 'Reinstate paving or concrete', 'Reinstall paving', 'Level paving');
 serviceCatalogue['Additional labour'].push('Mark excavation area', 'Protect surrounding area', 'Remove rubble', 'Clean area', 'Seal wall opening');
 serviceCatalogue['General handyman'].push('Install towel rail or accessory', 'Repair squeaky door or hinge', 'Replace door handle', 'Fix loose handle or fitting', 'Replace flyscreen', 'Fit gate latch or hinge', 'Weatherproof door or window', 'Fit floor trim or threshold', 'Seal and waterproof shower', 'Patch and repair drywall', 'Paint touch-up after repair', 'Fit and repair gate', 'Repair fence or paling', 'Clear and clean gutters');
-serviceCatalogue['Building work'].push('Lay foundation', 'Set out and mark building lines', 'Mix and pour concrete', 'Erect brickwork to line', 'Build pillars and columns', 'Set window and door sills', 'Fit damp-proof course', 'Point and finish brickwork', 'Strip existing structure', 'Demolish and remove structure', 'Cart away building rubble');
+serviceCatalogue['Building work'].push('Lay foundation', 'Set out and mark building lines', 'Mix and pour concrete', 'Erect brickwork to line', 'Build pillars and columns', 'Set window and door sills', 'Fit damp-proof course', 'Point and finish brickwork', 'Strip existing structure', 'Demolish and remove structure', 'Cart away building rubble', 'Prepare concrete area', 'Brick up and finish', 'Fit flue or chimney', 'Fit kitchen units and worktop', 'Fit garage door');
 serviceCatalogue['Coatings & painting'].push('Surface preparation', 'Fill and level surface', 'Mask and protect areas', 'Mix and prepare coating', 'Apply coating to wall', 'Apply coating to ceiling', 'Apply coating to floor', 'Apply coating to exterior', 'Apply coating to metal surface', 'Apply coating to concrete', 'Apply coating to plaster', 'Apply coating to wood', 'Apply intumescent coating', 'Apply membrane coating', 'Inspect coating thickness', 'Final coating inspection', 'Clean and demobilise site');
 serviceCatalogue['Plastering & skimming'].push('Apply plaster to wall', 'Apply skim coat', 'Level and float plaster', 'Finish plaster edge', 'Wet and dry polish plaster', 'Repair plaster cracks', 'Repair plaster damp damage', 'Plaster around conduits', 'Apply bonding agent', 'Close chase and plaster');
-const serviceRates = { 'Backfill trench': 400, 'Compact or stamp ground': 350, 'Remove paving': 450, 'Repair concrete': 550, 'Repair tiles': 450, 'Clean work area': 250, 'Jackhammer hire': 750, 'Ground compactor hire': 650, 'Excavator hire': 1800, 'General repair work': 450, 'General maintenance inspection': 550, 'Small repairs and odd jobs': 450, 'Hang doors and fit hardware': 550, 'Fit shelving and brackets': 450, 'Assemble flat-pack furniture': 500, 'Mount TV or wall bracket': 650, 'Fit curtain rails and blinds': 450, 'Fit skirtings and architraves': 550, 'Electrical call-out and inspection': 750, 'Issue electrical Certificate of Compliance (COC)': 2500, 'Test and certify installation': 1200, 'Install plug point or socket outlet': 550, 'Install light fitting': 450, 'Install ceiling or downlight': 500, 'Install light switch': 450, 'Install security or flood light': 650, 'Install distribution board': 1800, 'Replace circuit breaker': 550, 'Install earth leakage unit': 950, 'Replace faulty wiring': 650, 'Install new wiring circuit': 850, 'Trace and repair electrical fault': 750, 'Install extractor fan': 750, 'Install stove or oven point': 950, 'Install geyser electrical connection': 950, 'Building call-out and inspection': 750, 'Lay brickwork': 650, 'Build new wall': 950, 'Build half-brick wall': 750, 'Build retaining wall': 1200, 'Close up doorway or opening': 950, 'Open up new doorway': 1200, 'Cast concrete slab': 1500, 'Build foundation or footing': 1400, 'Fit ceilings': 850, 'Install window or door frame': 850, 'Fit window or door': 950, 'Plastering call-out and inspection': 650, 'Plaster interior wall': 550, 'Plaster exterior wall': 650, 'Skim coat existing wall': 500, 'Skim coat ceiling': 550, 'Plaster ceiling': 650, 'Patch and repair plaster': 550, 'Repair plaster cracks': 450, 'Re-plaster damaged wall section': 850, 'Prepare wall for painting': 450, 'Coatings call-out and inspection': 750, 'Prepare and clean surface': 450, 'High-pressure cleaning': 650, 'Sand and abrade surface': 500, 'Apply primer or sealer coat': 550, 'Apply first coat': 600, 'Apply second or final coat': 600, 'Apply waterproofing coating': 850, 'Apply epoxy floor coating': 1200, 'Apply roof waterproofing coating': 1400, 'Apply damp-proof coating': 900, 'Apply texture or decorative coating': 950, 'Spray application of coating': 750, 'Roller application of coating': 650, 'Touch up damaged coating': 450, 'Repair cracks before coating': 550, 'Treat mould or algae': 500,
+/*
+   Tasks introduced by the electrical and construction scenarios. They
+   have to be IN a catalogue as well as priced: the scenario builder
+   sets a category from libraryCategoryMap, and the services table
+   filters its task list by that category. A task that is priced but
+   not catalogued shows up in a scenario but cannot be re-picked by
+   hand afterwards, which is the more annoying of the two faults.
+*/
+serviceCatalogue['Electrical work'].push('Isolate supply', 'Isolate circuit', 'Plan circuit route', 'Connect and terminate', 'Test circuit', 'Restore supply', 'Chase wall or install trunking', 'Remove existing board', 'Remove existing fitting', 'Inspect distribution board', 'Test earth leakage unit', 'Test earth continuity', 'Test bonding', 'Inspect circuits', 'Replace faulty component', 'Bond and earth installation', 'Install new wiring circuit');
+serviceCatalogue['Building work'].push('Excavate footing', 'Excavate trench', 'Build garden or boundary wall', 'Build pillars and columns', 'Fit waterproofing membrane', 'Build tiled shower or recess', 'Install sanitaryware and fittings', 'Lay floor screed', 'Lay floor tiling', 'Grout and seal tiling', 'Waterproof wet area before tiling', 'Cure concrete elements', 'Apply waterproofing coating', 'Apply second or final coat', 'Prepare and clean surface');
+serviceCatalogue.Restoration.push('Install gutter and downpipe system', 'Install rainwater tank and pump', 'Test water flow', 'Fit kitchen units and worktop');
+serviceCatalogue['Additional labour'].push('Set out and mark site boundary', 'Erect temporary fencing or hoarding', 'Install site board and signage', 'Establish material laydown area', 'Provide scaffolding design', 'Erect scaffolding and access platforms', 'Inspect and tag scaffolding', 'Adjust or extend platforms', 'Health and safety officer attendance', 'Health and safety file and records', 'Inspect site compliance', 'Dismantle and demobilise site', 'Daily site cleaning and housekeeping');
+/*
+   The remaining scenario tasks that had a rate but no catalogue entry.
+   A task in this state appears inside a scenario but cannot be picked
+   by hand from the services table afterwards, which is the more
+   annoying of the two faults: the quote looks complete and cannot be
+   corrected.
+
+   Several were already priced and listed in the original catalogue -
+   the compliance ones especially, which predate the scenario library
+   and were carried in by the library rather than the other way round.
+*/
+serviceCatalogue['Electrical work'].push('Complete certificate of compliance', 'Inspect socket outlets', 'Inspect light fittings', 'Issue test report', 'Plan cable route');
+serviceCatalogue['Building work'].push('Inspect roof structure', 'Replace damaged roof timber', 'Replace roof sheet', 'Seal roof penetrations', 'Check gutter and downpipe', 'Measure opening', 'Fit window or door frame', 'Seal window frame', 'Mark opening', 'Set out ceiling height', 'Install ceiling brandering', 'Install mesh reinforcement', 'Level and finish concrete', 'Cure concrete', 'Excavate and prepare footing', 'Install drainage weep holes', 'Backfill and compact', 'Fit ridge and barge cappings', 'Seal roof penetrations and flashings');
+serviceCatalogue['Coatings & painting'].push('Lay wall tiling', 'Level and flatten substrate');
+serviceCatalogue.Restoration.push('Install gutter and downpipe system', 'Install rainwater tank and pump', 'Test water flow');
+serviceCatalogue['General handyman'].push('Adjust alignment', 'Load test', 'Site setup', 'Record findings');
+const serviceRates = {
+    /* =====================================================================
+       ELECTRICAL - EVERY TASK THE SCENARIOS CAN NOW REACH
+       ---------------------------------------------------------------------
+       Each rate is a labour rate in Rand for a two-person crew's
+       time on site, not a price per fitting. Where a task is
+       legitimately per-item the rate is the item price and the unit
+       below says so.
+
+       A task with no rate silently becomes R350 in the scenario
+       builder (see the masterScenarioLibrary.forEach below), so an
+       unpriced task is not an error the user ever sees - it is just
+       a quote that quietly comes out too cheap. Every task reachable
+       from a scenario is priced here instead, and tools/coatings.test.js
+       fails the build if one is not.
+       ===================================================================== */
+    'Remove faulty light fitting': 350, 'Reconnect and terminate': 450,
+    'Install earthing spikes': 650, 'Test data outlet': 550,
+    'Install data point or network outlet': 850,
+    'Install air-conditioning or refrigeration circuit': 1400,
+    'Prepare cable route': 450,
+    // Construction & building tasks the scenarios now reach.
+    'Prepare concrete area': 550, 'Brick up and finish': 650,
+    'Fit flue or chimney': 1250, 'Fit kitchen units and worktop': 1800,
+    'Fit garage door': 1600,
+    // Site safety and access, charged as visible lines.
+    'Provide scaffolding design': 1800, 'Inspect and tag scaffolding': 950,
+    'Adjust or extend platforms': 650, 'Erect scaffolding and access platforms': 950,
+    'Health and safety file and records': 850, 'Inspect site compliance': 950,
+    'Health and safety officer attendance': 950,
+    'Dismantle and demobilise site': 1400,
+    'Daily site cleaning and housekeeping': 350,
+    // Rainwater and services.
+    'Install gutter and downpipe system': 1250,
+    'Install rainwater tank and pump': 2200,
+    'Test water flow': 250,
+    // Electrical completion tasks used by the new electrical scenarios.
+    'Isolate supply': 350, 'Plan circuit route': 450, 'Install new wiring circuit': 850,
+    'Connect and terminate': 450, 'Test circuit': 350, 'Restore supply': 250,
+    'Isolate circuit': 250, 'Chase wall or install trunking': 650,
+    'Remove existing board': 850, 'Remove existing fitting': 350,
+    'Inspect distribution board': 650, 'Test earth leakage unit': 550,
+    'Test earth continuity': 450, 'Test bonding': 450, 'Inspect circuits': 650,
+    'Replace faulty component': 650,
+    // Building completion tasks used by the new building scenarios.
+    'Excavate footing': 850, 'Build pillars and columns': 950,
+    'Build garden or boundary wall': 1250, 'Excavate trench': 850,
+    'Excavate soil': 350, 'Fit waterproofing membrane': 950,
+    'Build tiled shower or recess': 3200, 'Install sanitaryware and fittings': 2200,
+    'Lay floor screed': 750, 'Lay floor tiling': 750,
+    'Waterproof wet area before tiling': 950,
+    'Grout and seal tiling': 650, 'Apply waterproofing coating': 750,
+    'Cure concrete elements': 350, 'Apply second or final coat': 450,
+    'Prepare and clean surface': 450,
+    // Site establishment tasks used by the new safety scenarios.
+    'Set out and mark site boundary': 650,
+    'Erect temporary fencing or hoarding': 450,
+    'Install site board and signage': 350,
+    'Establish material laydown area': 350,
+    'Fit kitchen units and worktop': 1800,
+    /*
+       Tasks already used by the pre-existing Building Work scenarios
+       (roof repair, openings, retaining walls) but never given a rate,
+       plus the ones my new building scenarios reach. They all fell
+       back to the flat R350, so a retaining wall and a braai were
+       quoted at the same price as a half-hour of site setup.
+    */
+    'Bond and earth installation': 950,
+    'Install drainage weep holes': 450,
+    'Backfill and compact': 550,
+    'Fit steel or wooden door': 1350,
+    'Fit window or door frame': 950,
+    'Plaster around window or door': 850,
+    'Make good damaged area': 650,
+    'Inspect roof structure': 950,
+    'Replace damaged roof timber': 1450,
+    'Replace roof sheet': 750,
+    'Seal roof penetrations': 650,
+    'Check gutter and downpipe': 450,
+    'Seal window frame': 550,
+    'Replace faulty light fitting': 850,
+    'Install outdoor or garden light': 1250,
+    'Install electric fence energiser': 1650,
+    'Install pool or gate motor connection': 1850,
+    'Install prepaid electricity meter': 1950,
+    'Plan cable route': 450,
+    'Chase wall for cable or pipe': 650,
+    'Excavate and prepare footing': 850,
+    'Build braai or fireplace': 5500,
+    'Lay floor or wall screed': 750,
+    'Level and flatten substrate': 650,
+    'Cast concrete lintel': 1650,
+    'Set window and door sills': 450,
+    'Cure and protect new coating': 350,
+    'Install roof trusses': 1450,
+    'Fit ridge and barge cappings': 750,
+    'Seal roof penetrations and flashings': 850,
+    'Lay wall tiling': 800,
+    'Lay tiles or paving': 850,
+    /* ---------------------------------------------------------------------
+       Everything below this line was already priced; it is left exactly
+       as it was.
+       --------------------------------------------------------------------- */
+    'Backfill trench': 400, 'Compact or stamp ground': 350, 'Remove paving': 450, 'Repair concrete': 550, 'Repair tiles': 450, 'Clean work area': 250, 'Jackhammer hire': 750, 'Ground compactor hire': 650, 'Excavator hire': 1800, 'General repair work': 450, 'General maintenance inspection': 550, 'Small repairs and odd jobs': 450, 'Hang doors and fit hardware': 550, 'Fit shelving and brackets': 450, 'Assemble flat-pack furniture': 500, 'Mount TV or wall bracket': 650, 'Fit curtain rails and blinds': 450, 'Fit skirtings and architraves': 550, 'Electrical call-out and inspection': 750, 'Issue electrical Certificate of Compliance (COC)': 2500, 'Test and certify installation': 1200, 'Install plug point or socket outlet': 550, 'Install light fitting': 450, 'Install ceiling or downlight': 500, 'Install light switch': 450, 'Install security or flood light': 650, 'Install distribution board': 1800, 'Replace circuit breaker': 550, 'Install earth leakage unit': 950, 'Replace faulty wiring': 650, 'Install new wiring circuit': 850, 'Trace and repair electrical fault': 750, 'Install extractor fan': 750, 'Install stove or oven point': 950, 'Install geyser electrical connection': 950, 'Building call-out and inspection': 750, 'Lay brickwork': 650, 'Build new wall': 950, 'Build half-brick wall': 750, 'Build retaining wall': 1200, 'Close up doorway or opening': 950, 'Open up new doorway': 1200, 'Cast concrete slab': 1500, 'Build foundation or footing': 1400, 'Fit ceilings': 850, 'Install window or door frame': 850, 'Fit window or door': 950, 'Plastering call-out and inspection': 650, 'Plaster interior wall': 550, 'Plaster exterior wall': 650, 'Skim coat existing wall': 500, 'Skim coat ceiling': 550, 'Plaster ceiling': 650, 'Patch and repair plaster': 550, 'Repair plaster cracks': 450, 'Re-plaster damaged wall section': 850, 'Prepare wall for painting': 450, 'Coatings call-out and inspection': 750, 'Prepare and clean surface': 450, 'High-pressure cleaning': 650, 'Sand and abrade surface': 500, 'Apply primer or sealer coat': 550, 'Apply first coat': 600, 'Apply second or final coat': 600, 'Apply waterproofing coating': 850, 'Apply epoxy floor coating': 1200, 'Apply roof waterproofing coating': 1400, 'Apply damp-proof coating': 900, 'Apply texture or decorative coating': 950, 'Spray application of coating': 750, 'Roller application of coating': 650, 'Touch up damaged coating': 450, 'Repair cracks before coating': 550, 'Treat mould or algae': 500,
     // Common planning/setup and completion tasks used across the scenario library.
     'Inspection': 450, 'Site inspection': 550, 'Call-out and inspection': 650, 'Assess repair scope': 450,
     'Measure opening': 250, 'Measure location': 250, 'Set out and mark building lines': 650, 'Mark work area': 250,
@@ -871,9 +1002,91 @@ const masterScenarioLibrary = [
     ['Wet Trades & Tiling', 'Tile a wet area', 'Waterproof wet area before tiling|Level and flatten substrate|Lay wall tiling|Lay floor tiling|Fix tiles to wet areas|Grout and seal tiling|Install sanitaryware and fittings'],
     ['Wet Trades & Tiling', 'Floor screed and tiling', 'Screed floors|Level and flatten substrate|Lay floor tiling|Grout and seal tiling|Fit skirting and trims'],
     ['Hard Landscaping', 'Paving and driveway construction', 'Excavate and prepare kerb line|Install kerbs and edgings|Lay interlocking paving|Build block paving driveway|Install drainage channels|Lay topsoil and grass'],
-    ['Hard Landscaping', 'Retaining and garden walls', 'Excavate and prepare kerb line|Build gabion or stone wall|Construct retaining planter|Build block paving driveway|Lay topsoil and grass|Install irrigation sleeves']
+    ['Hard Landscaping', 'Retaining and garden walls', 'Excavate and prepare kerb line|Build gabion or stone wall|Construct retaining planter|Build block paving driveway|Lay topsoil and grass|Install irrigation sleeves'],
+    /* =====================================================================
+       ELECTRICAL WORK - COMPLETING THE CATALOGUE
+       ---------------------------------------------------------------------
+       The catalogue listed every one of these tasks and priced most of
+       them, but no scenario could produce them: they were only ever
+       reachable one line at a time from the services table, so the
+       office could price a job by hand but could not start it from a
+       scenario. Each group below is a job that arrives as a whole.
+
+       The nine tasks this closes, all previously unreachable from any
+       scenario:
+
+         Replace faulty light fitting   Install extractor fan
+         Install dimmer switch          Install geyser electrical connection
+         Install outdoor or garden light Install stove or oven point
+         Install electric fence energiser Install pool or gate motor connection
+         Install prepaid electricity meter
+       ===================================================================== */
+    ['Electrical Work', 'Replace a faulty light fitting', 'Electrical call-out and inspection|Isolate circuit|Remove faulty light fitting|Replace faulty light fitting|Reconnect and terminate|Test operation|Restore supply|Clean work area'],
+    ['Electrical Work', 'Install dimmer switch', 'Electrical call-out and inspection|Isolate circuit|Plan circuit route|Install new wiring circuit|Install dimmer switch|Connect and terminate|Test operation|Restore supply'],
+    ['Electrical Work', 'Install extractor or ventilation fan', 'Electrical call-out and inspection|Isolate circuit|Plan circuit route|Install extractor fan|Connect and terminate|Test operation|Restore supply|Clean work area'],
+    ['Electrical Work', 'Install outdoor or garden lighting', 'Electrical call-out and inspection|Plan circuit route|Install new wiring circuit|Install outdoor or garden light|Connect and terminate|Test operation|Restore supply'],
+    ['Electrical Work', 'Install security or flood lighting', 'Electrical call-out and inspection|Isolate circuit|Plan circuit route|Install new wiring circuit|Install security or flood light|Connect and terminate|Test operation|Restore supply'],
+    ['Electrical Work', 'Install electric fence energiser', 'Electrical call-out and inspection|Plan circuit route|Install new wiring circuit|Install electric fence energiser|Connect and terminate|Install earthing spikes|Test operation|Restore supply'],
+    ['Electrical Work', 'Install geyser electrical connection', 'Electrical call-out and inspection|Isolate supply|Install geyser electrical connection|Connect and terminate|Install earth leakage unit|Test and certify installation|Restore supply'],
+    ['Electrical Work', 'Install stove or oven point', 'Electrical call-out and inspection|Isolate circuit|Plan circuit route|Install new wiring circuit|Install stove or oven point|Connect and terminate|Test circuit|Restore supply'],
+    ['Electrical Work', 'Install pool or gate motor connection', 'Electrical call-out and inspection|Plan circuit route|Install new wiring circuit|Install pool or gate motor connection|Connect and terminate|Install earth leakage unit|Test and certify installation|Restore supply'],
+    ['Electrical Work', 'Install prepaid electricity meter', 'Electrical call-out and inspection|Isolate supply|Install prepaid electricity meter|Connect and terminate|Install earth leakage unit|Bond and earth installation|Test and certify installation|Restore supply'],
+    /* =====================================================================
+       ELECTRICAL - REFRIGERATION, DATA AND SOLAR
+       ---------------------------------------------------------------------
+       Work a construction company quotes regularly but the catalogue
+       did not carry at all, so nothing could be priced without a
+       manually typed line.
+       ===================================================================== */
+    ['Electrical Work', 'Air-conditioning or refrigeration circuit', 'Electrical call-out and inspection|Isolate circuit|Plan circuit route|Install new wiring circuit|Install air-conditioning or refrigeration circuit|Connect and terminate|Test circuit|Restore supply'],
+    ['Electrical Work', 'Data and network cabling', 'Electrical call-out and inspection|Plan cable route|Chase wall for cable or pipe|Install new wiring circuit|Install data point or network outlet|Connect and terminate|Test operation|Test data outlet|Clean work area'],
+    ['Electrical Work', 'Install electric oven and hob circuit', 'Electrical call-out and inspection|Isolate circuit|Plan circuit route|Install new wiring circuit|Install stove or oven point|Install extractor fan|Connect and terminate|Test circuit|Restore supply'],
+    ['Electrical Work', 'Electrical upgrade to LED lighting', 'Electrical call-out and inspection|Inspect distribution board|Isolate circuit|Remove existing fitting|Replace faulty light fitting|Install ceiling or downlight|Test operation|Restore supply|Issue test report'],
+    /* =====================================================================
+       CONSTRUCTION & BUILDING - COMPLETING THE CATALOGUE
+       ---------------------------------------------------------------------
+       The same gap on the building side. These ten catalogue tasks
+       were priced and listed but no scenario could produce them:
+
+         Build braai or fireplace      Lay floor or wall screed
+         Cast concrete lintel          Fit garage door
+         Lay foundation                Lay tiles or paving
+         Close up doorway or opening   Fit waterproofing membrane
+         Install roof trusses          Build tiled shower or recess
+       ===================================================================== */
+    ['Building Work', 'Build a braai or fireplace', 'Building call-out and inspection|Set out and mark building lines|Excavate and prepare footing|Build foundation or footing|Build braai or fireplace|Brick up and finish|Fit flue or chimney|Clean work area'],
+    ['Building Work', 'Lay floor or wall screed', 'Building call-out and inspection|Set out and mark building lines|Lay floor or wall screed|Level and flatten substrate|Cure concrete elements|Clean work area'],
+    ['Building Work', 'Cast concrete lintel', 'Building call-out and inspection|Set out and mark building lines|Excavate and prepare footing|Build foundation or footing|Cast concrete lintel|Build pillars and columns|Cure concrete elements|Clean work area'],
+    ['Building Work', 'Fit a garage door', 'Building call-out and inspection|Measure opening|Install window or door frame|Fit garage door|Set window and door sills|Adjust alignment|Test operation|Clean work area'],
+    ['Building Work', 'Lay a foundation', 'Building call-out and inspection|Set out and mark building lines|Excavate and prepare footing|Excavate soil|Lay foundation|Mix and pour concrete|Cure concrete elements|Clean work area'],
+    ['Building Work', 'Close up a doorway or opening', 'Building call-out and inspection|Mark opening|Build pillars and columns|Fit lintel or beam|Lay brickwork|Close up doorway or opening|Point and finish brickwork|Plaster around window or door|Clean work area'],
+    ['Building Work', 'Fit waterproofing membrane', 'Building call-out and inspection|Prepare and clean surface|Fit waterproofing membrane|Apply waterproofing coating|Apply second or final coat|Cure and protect new coating|Clean work area'],
+    ['Building Work', 'Install roof trusses', 'Building call-out and inspection|Set out and mark building lines|Install roof trusses|Fit roof sheeting or tiles|Fit ridge and barge cappings|Seal roof penetrations and flashings|Check gutter and downpipe|Clean work area'],
+    ['Building Work', 'Build a tiled shower or recess', 'Building call-out and inspection|Set out and mark building lines|Build new wall|Fit waterproofing membrane|Build tiled shower or recess|Waterproof wet area before tiling|Lay wall tiling|Lay floor tiling|Grout and seal tiling|Clean work area'],
+    ['Building Work', 'Lay tiles or paving', 'Building call-out and inspection|Set out and mark building lines|Prepare concrete area|Lay tiles or paving|Lay floor screed|Lay floor tiling|Grout and seal tiling|Clean work area'],
+    /* =====================================================================
+       CONSTRUCTION - PLUMBING, SERVICES AND FITTINGS
+       ---------------------------------------------------------------------
+       The building company quotes these as part of a structure, so
+       they belong beside the others rather than only in the catalogue.
+       ===================================================================== */
+    ['Construction Services', 'Install a new bathroom', 'Building call-out and inspection|Set out and mark building lines|Build new wall|Fit waterproofing membrane|Build tiled shower or recess|Install sanitaryware and fittings|Install geyser electrical connection|Test and certify installation|Clean work area'],
+    ['Construction Services', 'Install a kitchen', 'Building call-out and inspection|Set out and mark building lines|Install new wiring circuit|Install plug point or socket outlet|Fit ceilings|Fit kitchen units and worktop|Clean work area'],
+    ['Construction Services', 'Install a washing machine and dryer point', 'Building call-out and inspection|Plan circuit route|Install new wiring circuit|Install plug point or socket outlet|Connect and terminate|Test circuit|Restore supply'],
+    ['Construction Services', 'Install a water heater and geyser', 'Building call-out and inspection|Isolate supply|Install geyser electrical connection|Install new wiring circuit|Connect and terminate|Test and certify installation|Restore supply'],
+    ['Construction Services', 'Install rainwater harvesting', 'Building call-out and inspection|Set out and mark building lines|Install gutter and downpipe system|Install rainwater tank and pump|Connect and terminate|Test water flow|Clean work area'],
+    /* =====================================================================
+       CONSTRUCTION - SITE SAFETY AND ACCESS
+       ---------------------------------------------------------------------
+       Charged as their own lines rather than folded into a
+       preliminaries percentage, because on a small job a safety
+       officer is a visible cost the client can see and query.
+       ===================================================================== */
+    ['Site Safety & Access', 'Erect scaffolding and access platforms', 'Provide scaffolding design|Erect scaffolding and access platforms|Inspect and tag scaffolding|Adjust or extend platforms|Load test|Dismantle and demobilise site'],
+    ['Site Safety & Access', 'Health and safety officer attendance', 'Site setup|Health and safety officer attendance|Health and safety file and records|Inspect site compliance|Record findings|Daily site cleaning and housekeeping'],
+    ['Site Safety & Access', 'Erect temporary fencing or hoarding', 'Set out and mark site boundary|Erect temporary fencing or hoarding|Install site board and signage|Establish material laydown area|Dismantle and demobilise site']
 ];
-const libraryCategoryMap = { 'Handyman Repairs': 'General handyman', 'Electrical Work': 'Electrical work', 'Building Work': 'Building work', 'Plastering & Skimming': 'Plastering & skimming', 'Coatings & Painting': 'Coatings & painting', 'Compliance & Testing': 'Compliance & testing', 'Excavation & Civil Works': 'Excavation & ground work', 'Site Establishment': 'Site establishment', 'Demolition & Strip-Out': 'Demolition & strip-out', 'Structural Concrete': 'Structural & concrete', 'Formwork & Reinforcement': 'Formwork & reinforcement', 'Roofing': 'Roofing & waterproofing', 'Plant & Plant Hire': 'Plant & equipment hire', 'Site Preliminaries': 'Site services & preliminaries', 'Wet Trades & Tiling': 'Wet trades & tiling', 'Hard Landscaping': 'Hard landscaping' };
+const libraryCategoryMap = { 'Handyman Repairs': 'General handyman', 'Electrical Work': 'Electrical work', 'Building Work': 'Building work', 'Plastering & Skimming': 'Plastering & skimming', 'Coatings & Painting': 'Coatings & painting', 'Compliance & Testing': 'Compliance & testing', 'Excavation & Civil Works': 'Excavation & ground work', 'Site Establishment': 'Site establishment', 'Demolition & Strip-Out': 'Demolition & strip-out', 'Structural Concrete': 'Structural & concrete', 'Formwork & Reinforcement': 'Formwork & reinforcement', 'Roofing': 'Roofing & waterproofing', 'Plant & Plant Hire': 'Plant & equipment hire', 'Site Preliminaries': 'Site services & preliminaries', 'Wet Trades & Tiling': 'Wet trades & tiling', 'Hard Landscaping': 'Hard landscaping', 'Construction Services': 'Building work', 'Site Safety & Access': 'Site services & preliminaries' };
 masterScenarioLibrary.forEach(([libraryCategory, name, tasks], index) => { scenarios[`library-${index + 1}`] = { services: tasks.split('|').map(task => ({ category: libraryCategoryMap[libraryCategory], task, quantity: 1, rate: serviceRates[task] || 350 })), materials: [] }; });
 const storedScenarioServices = JSON.parse(localStorage.getItem(storageKey('scenario-services')) || '{}');
 Object.entries(storedScenarioServices).forEach(([id, services]) => { if (scenarios[id] && Array.isArray(services)) scenarios[id].services = services; });
