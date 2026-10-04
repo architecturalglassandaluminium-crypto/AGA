@@ -4291,6 +4291,175 @@ function savedPhotoHtml(photo) {
    A window counts as NOT STARTED while it is still "Measured" -
    that is the state that drives the overdue colour.
 */
+/* =========================================================
+   PROJECT LIST PRESENTATION
+   ---------------------------------------------------------
+   Four helpers for the project list: a progress bar, a one-line
+   schedule summary, a due-date flag, and which project opens its
+   schedule by default.
+
+   They live here rather than inline in renderProjects() because
+   each is a small piece of judgement that is worth reading on its
+   own - what counts as "late", and what a manager wants to see when
+   the list first draws.
+   ========================================================= */
+
+/*
+   A bar, because three text chips ("2 not started", "1 in progress",
+   "1 done") do not communicate proportion. A glance answers "how
+   far along is this job" without reading a number.
+
+   The segments are ordered the way the work happens: not started,
+   in progress, done. Done is the green one on the right, so a
+   half-filled bar reads left-to-right as progress rather than as
+   three unrelated quantities.
+*/
+function projectProgressBarHtml(windows) {
+
+    const total = windows.length;
+
+    if (!total) {
+        return "";
+    }
+
+    const completed = windows.filter(window =>
+        ["Project Completed", "Installed"].includes(safeText(window.status) || "Measured")
+    ).length;
+
+    const notStarted = windows.filter(
+        window => (safeText(window.status) || "Measured") === "Measured"
+    ).length;
+
+    const inProgress = Math.max(0, total - completed - notStarted);
+
+    const pct = (count) => (count / total) * 100;
+
+    return `
+        <div class="project-progress-bar"
+            role="img"
+            aria-label="${completed} of ${total} windows complete">
+            ${notStarted ? `<span class="bar-notstarted" style="width:${pct(notStarted)}%"></span>` : ""}
+            ${inProgress ? `<span class="bar-inprogress" style="width:${pct(inProgress)}%"></span>` : ""}
+            ${completed ? `<span class="bar-done" style="width:${pct(completed)}%"></span>` : ""}
+        </div>
+    `;
+}
+
+/*
+   The one line that replaces the whole table when collapsed: what is
+   on the job, not every row of it.
+
+   Only the counts that carry information are shown. "4 windows, 4 in
+   progress" is noise on a project with nothing finished; "3 of 4 done"
+   is the number a manager wants.
+*/
+function windowScheduleSummaryHtml(windows) {
+
+    if (!windows.length) {
+        return "";
+    }
+
+    const total = windows.length;
+    const completed = windows.filter(window =>
+        ["Project Completed", "Installed"].includes(safeText(window.status) || "Measured")
+    ).length;
+    const notStarted = windows.filter(
+        window => (safeText(window.status) || "Measured") === "Measured"
+    ).length;
+
+    const parts = [`${total} window${total === 1 ? "" : "s"}`];
+
+    if (completed === total) {
+        parts.push("all complete");
+    } else {
+        if (completed) {
+            parts.push(`${completed} done`);
+        }
+        if (notStarted === total) {
+            parts.push("none started");
+        } else if (notStarted) {
+            parts.push(`${notStarted} not started`);
+        }
+    }
+
+    return `<span class="project-windows-count">${escapeHtml(parts.join(" \u00b7 "))}</span>`;
+}
+
+/*
+   The due date, flagged against today.
+
+   Three states, not two: overdue, due soon, and simply due. "Due
+   soon" exists because a date two days out is not yet late, but it
+   is the thing the workshop wants to see before it becomes a
+   problem - and an unflagged date cannot show that.
+
+   A project with no promised date shows nothing at all rather than
+   an invented figure, which is why this is only called when
+   dueDate is set.
+*/
+function dueDateHtml(project) {
+
+    const due = safeText(project.dueDate);
+    if (!due) {
+        return "";
+    }
+
+    const parsed = new Date(`${due}T00:00:00`);
+
+    if (Number.isNaN(parsed.getTime())) {
+        return escapeHtml(due);
+    }
+
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    const days = Math.round((parsed - today) / 86400000);
+    const formatted = parsed.toLocaleDateString("en-ZA");
+
+    if (days < 0) {
+        const overdue = Math.abs(days);
+        return `<span class="due-flag due-overdue">${escapeHtml(formatted)} \u00b7 ${overdue} day${overdue === 1 ? "" : "s"} overdue</span>`;
+    }
+
+    if (days <= 7) {
+        return `<span class="due-flag due-soon">${escapeHtml(formatted)} \u00b7 due in ${days} day${days === 1 ? "" : "s"}</span>`;
+    }
+
+    return `<span class="due-flag">${escapeHtml(formatted)}</span>`;
+}
+
+/*
+   Which project's schedule opens by default: the first with a window
+   that has not been started.
+
+   The previous behaviour - every table open - made this question
+   meaningless. With one open it becomes a useful default, because a
+   job where nothing has moved is the job someone opened the page to
+   look at. Only one opens, or the saving is undone.
+*/
+function isFirstUnstartedProject(projects, project) {
+
+    const target = projects.find(candidate => candidate.id === project.id);
+    if (!target) {
+        return false;
+    }
+
+    const windows = Array.isArray(target.windows) ? target.windows : [];
+
+    if (!windows.some(window => (safeText(window.status) || "Measured") === "Measured")) {
+        return false;
+    }
+
+    const firstUnstarted = projects.find(candidate => {
+        const candidateWindows = Array.isArray(candidate.windows) ? candidate.windows : [];
+        return candidateWindows.some(
+            window => (safeText(window.status) || "Measured") === "Measured"
+        );
+    });
+
+    return firstUnstarted?.id === project.id;
+}
+
 function projectStatusSummaryHtml(windows) {
 
     const total = windows.length;
@@ -4437,12 +4606,44 @@ function renderProjects(
                 <p><strong>Email:</strong> ${escapeHtml(project.customerEmail || "-")}</p>
                 <p><strong>Site:</strong> ${escapeHtml(project.siteAddress || "-")}</p>
                 <p><strong>Created:</strong> ${escapeHtml(formatCreatedDate(project.createdAt).replace(/^Created\s+/, ""))}</p>
+                ${project.dueDate ? `<p><strong>Due:</strong> ${dueDateHtml(project)}</p>` : ""}
                 <p><strong>Progress:</strong> ${projectStatusSummaryHtml(windows)}</p>
             </div>
 
-            ${windows.length
-                ? windowRowTableHtml(windows)
-                : `<p class="details-small">No windows captured on this project.</p>`}
+            ${projectProgressBarHtml(windows)}
+
+            ${
+                /*
+                   The window schedule is COLLAPSED by default.
+
+                   Every project used to render its full eleven-column
+                   window table inline, so the list was a 2600px page of
+                   tables: finding the third project meant scrolling past
+                   every window of the first two. A manager looking at
+                   "which jobs are late" was reading production data, not
+                   seeing projects.
+
+                   Now each project shows a one-line schedule summary, and
+                   the table opens only for the project asked for. The one
+                   opened by default is the first with windows not yet
+                   started, because that is the one being looked for.
+
+                   The table is still rendered into the DOM and hidden,
+                   not removed: scanning a window flashes and scrolls to
+                   its row, and a row that is not there cannot be flashed.
+                */
+                windows.length
+                    ? `<details class="project-windows" ${isFirstUnstartedProject(projects, project) ? "open" : ""}>
+                        <summary class="project-windows-summary">
+                            <span class="project-windows-label">
+                                Window schedule
+                            </span>
+                            ${windowScheduleSummaryHtml(windows)}
+                        </summary>
+                        ${windowRowTableHtml(windows)}
+                    </details>`
+                    : `<p class="details-small">No windows captured on this project.</p>`
+            }
 
             <div class="window-card-actions">
                 <button type="button" class="primary-button card-action"
@@ -4517,6 +4718,20 @@ function highlightProjectWindow(projectId, windowId) {
             return;
         }
 
+        /*
+           Open the project's schedule first.
+
+           The window table is COLLAPSED by default, so a scanned row
+           usually sits inside a closed <details>: it is in the DOM
+           and invisible, and scrollIntoView on a hidden element does
+           nothing at all. The scan would look like it had not
+           registered.
+        */
+        const details = row.closest("details.project-windows");
+        if (details) {
+            details.open = true;
+        }
+
         row.scrollIntoView({ block: "center", behavior: "smooth" });
 
         row.classList.add("window-row-highlight");
@@ -4530,16 +4745,198 @@ function highlightProjectWindow(projectId, windowId) {
 
 window.highlightProjectWindow = highlightProjectWindow;
 
+/* =========================================================
+   SORT AND FILTER THE PROJECT LIST
+
+   The free-text search was already here; ORDER was not, so projects
+   came out in storage order and neither "which job is late" nor
+   "what is new" could be answered by looking.
+
+   One function does both, so search, sort and filter can never
+   disagree about what is showing: it reads all three controls,
+   applies them in a fixed order, and renders once.
+
+   The count is written out because a filter that silently removes
+   12 of 15 projects looks like data loss.
+   ========================================================= */
+
+/* Which production state a project is in overall. */
+function projectState(project) {
+
+    const windows = Array.isArray(project.windows) ? project.windows : [];
+
+    if (!windows.length) {
+        return "nowindows";
+    }
+
+    const all = windows.map(window => safeText(window.status) || "Measured");
+
+    if (all.every(status => ["Project Completed", "Installed"].includes(status))) {
+        return "done";
+    }
+
+    if (all.every(status => status === "Measured")) {
+        return "notstarted";
+    }
+
+    return "inprogress";
+}
+
+/* Is the project's promised date already past? */
+function projectIsOverdue(project) {
+
+    const due = safeText(project.dueDate);
+
+    if (!due) {
+        return false;
+    }
+
+    const parsed = new Date(`${due}T00:00:00`);
+
+    if (Number.isNaN(parsed.getTime())) {
+        return false;
+    }
+
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    return parsed < today;
+}
+
+/* Completed windows as a fraction, for the progress sort. */
+function projectProgress(project) {
+
+    const windows = Array.isArray(project.windows) ? project.windows : [];
+
+    if (!windows.length) {
+        return -1;
+    }
+
+    const done = windows.filter(window =>
+        ["Project Completed", "Installed"].includes(safeText(window.status) || "Measured")
+    ).length;
+
+    return done / windows.length;
+}
+
+/*
+   Projects with a due date sort before projects with none, soonest
+   first. A project with no promised date has no place in a
+   production queue, so it goes last rather than being treated as
+   "due long ago" or "due at the end of time" - either of which
+   would put it somewhere misleading.
+*/
+function compareByDueDate(a, b) {
+
+    const aDue = safeText(a.dueDate);
+    const bDue = safeText(b.dueDate);
+
+    if (!aDue && !bDue) {
+        return 0;
+    }
+
+    if (!aDue) {
+        return 1;
+    }
+
+    if (!bDue) {
+        return -1;
+    }
+
+    const aTime = new Date(`${aDue}T00:00:00`).getTime();
+    const bTime = new Date(`${bDue}T00:00:00`).getTime();
+
+    /* An unparseable date is treated as "no date" rather than being
+       allowed to compare as NaN, which makes every comparison false
+       and leaves the list in arbitrary order. */
+    if (Number.isNaN(aTime)) {
+        return Number.isNaN(bTime) ? 0 : 1;
+    }
+
+    if (Number.isNaN(bTime)) {
+        return -1;
+    }
+
+    return aTime - bTime;
+}
+
+function sortProjects(projects, sortBy) {
+
+    const sorted = [...projects];
+
+    switch (sortBy) {
+        case "newest":
+            sorted.sort((a, b) => projectCreatedAtKey(b) - projectCreatedAtKey(a));
+            break;
+        case "oldest":
+            sorted.sort((a, b) => projectCreatedAtKey(a) - projectCreatedAtKey(b));
+            break;
+        case "name":
+            sorted.sort((a, b) =>
+                safeText(a.projectName).localeCompare(safeText(b.projectName))
+            );
+            break;
+        case "customer":
+            sorted.sort((a, b) =>
+                safeText(a.customerName).localeCompare(safeText(b.customerName))
+            );
+            break;
+        case "progress":
+            /* Least complete first: the list is a work queue. */
+            sorted.sort((a, b) => projectProgress(a) - projectProgress(b));
+            break;
+        case "due":
+        default:
+            sorted.sort(compareByDueDate);
+            break;
+    }
+
+    return sorted;
+}
+
+/*
+   Newest first, by created date. Missing or unparseable dates
+   return 0, which puts them at the end of the newest-first order
+   rather than at the epoch - a project with no date is unknown, not
+   ancient.
+*/
+function projectCreatedAtKey(project) {
+
+    const created = safeText(project.createdAt);
+
+    if (!created) {
+        return 0;
+    }
+
+    const time = new Date(created).getTime();
+
+    return Number.isNaN(time) ? 0 : time;
+}
+
 function filterProjects() {
 
     try {
 
-        const search = safeText(
-            $("projectSearch")?.value
-        ).toLowerCase();
+        const search = safeText($("projectSearch")?.value).toLowerCase();
+        const statusFilter = safeText($("projectStatusFilter")?.value);
+        const sortBy = safeText($("projectSort")?.value) || "due";
 
-        const projects = getProjects().filter(project => {
+        const all = getProjects();
 
+        const matching = all.filter(project => {
+
+            /* ---- status ---- */
+            if (statusFilter === "overdue") {
+                if (!projectIsOverdue(project)) {
+                    return false;
+                }
+            } else if (statusFilter) {
+                if (projectState(project) !== statusFilter) {
+                    return false;
+                }
+            }
+
+            /* ---- free text ---- */
             if (!search) {
                 return true;
             }
@@ -4560,7 +4957,20 @@ function filterProjects() {
             );
         });
 
-        renderProjects(projects);
+        renderProjects(sortProjects(matching, sortBy));
+
+        /*
+           How many are showing, out of how many exist. Without this a
+           filter that removes 12 of 15 projects is indistinguishable
+           from losing them.
+        */
+        const countEl = $("projectListCount");
+        if (countEl) {
+            countEl.textContent =
+                matching.length === all.length
+                    ? `${all.length} project${all.length === 1 ? "" : "s"}`
+                    : `Showing ${matching.length} of ${all.length} projects`;
+        }
 
     } catch (error) {
 
@@ -9229,6 +9639,21 @@ function initialiseEventListeners() {
                 filterProjects
             );
         }
+
+        /*
+           Sort and filter, on the same function as the search, so
+           all three can never disagree about what is on screen.
+
+           "change" rather than "input" for the selects: they only
+           have the values you can pick from, and the list re-renders
+           on every change - no need to redraw on each arrow key.
+        */
+        ["projectStatusFilter", "projectSort"].forEach(id => {
+            const control = $(id);
+            if (control) {
+                control.addEventListener("change", filterProjects);
+            }
+        });
 
         /*
            Planning controls. Changing the project, the start date,

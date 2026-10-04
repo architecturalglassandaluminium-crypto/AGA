@@ -484,6 +484,137 @@ test('the shared trade layout defines one button system', () => {
     );
 });
 
+/*
+   THE PROJECT LIST IS A LIST OF PROJECTS
+
+   Every project used to render its full eleven-column window table
+   inline. With four projects that was a 2400px page of tables, so
+   reaching the third project meant scrolling past every window of the
+   first two, and a manager asking "which jobs are late" was reading
+   production data rather than seeing projects.
+
+   The schedule is now collapsed behind a per-project summary. These
+   tests pin the parts that are easy to break and hard to notice:
+
+     - the table must still be in the DOM, because scanning a window
+       flashes and scrolls to its row, and a row that is not there
+       cannot be flashed;
+     - only ONE schedule may be open by default, or nothing was saved;
+     - the due date needs three states, not two - a date two days out
+       is not yet late but is exactly what the workshop needs to see
+       before it is.
+*/
+const AGA_APP_JS = path.join(ROOT, 'app.js');
+
+test('a project window schedule is collapsed by default', () => {
+    const html = read(INDEX_HTML);
+    assert.match(html, /id="projectsList"/, 'the project list container is missing');
+
+    const source = read(AGA_APP_JS);
+
+    /*
+       A <details> element, not a conditional that removes the table.
+       Removing it would make a scanned window impossible to find.
+    */
+    assert.match(
+        source,
+        /<details class="project-windows"/,
+        'the window schedule is not in a <details> element'
+    );
+    assert.match(
+        source,
+        /windowRowTableHtml\(windows\)/,
+        'the window table is no longer rendered'
+    );
+
+    /* One open, chosen by the first project with work not started. */
+    assert.match(source, /function isFirstUnstartedProject\b/);
+    const helper = source.slice(
+        source.indexOf('function isFirstUnstartedProject(')
+    );
+    assert.match(
+        helper.slice(0, helper.indexOf('\n}')),
+        /firstUnstarted\?\.id === project\.id/,
+        'more than one schedule can open by default'
+    );
+});
+
+test('a scanned window opens its own collapsed schedule', () => {
+    const source = read(AGA_APP_JS);
+    const highlight = source.slice(
+        source.indexOf('function highlightProjectWindow(')
+    );
+    const body = highlight.slice(0, highlight.indexOf('\n}'));
+
+    /*
+       Without this the row exists but is invisible, and
+       scrollIntoView on a hidden element does nothing at all - so a
+       successful scan looks like it did not register.
+    */
+    assert.match(
+        body,
+        /closest\("details\.project-windows"\)/,
+        'highlightProjectWindow does not find the collapsed schedule'
+    );
+    assert.match(
+        body,
+        /details\.open = true/,
+        'the schedule is not opened before scrolling to the row'
+    );
+});
+
+test('the project list can be sorted and filtered', () => {
+    const html = read(INDEX_HTML);
+
+    assert.match(html, /id="projectSort"/, 'there is no sort control');
+    assert.match(html, /id="projectStatusFilter"/, 'there is no status filter');
+    assert.match(
+        html,
+        /id="projectListCount"/,
+        'there is no count, so a filter that removes most projects looks like data loss'
+    );
+
+    const source = read(AGA_APP_JS);
+
+    /* Both controls must feed the same function as the search box. */
+    assert.match(
+        source,
+        /\["projectStatusFilter",\s*"projectSort"\]/,
+        'the sort and filter controls are not wired together'
+    );
+    assert.match(
+        source,
+        /control\.addEventListener\("change",\s*filterProjects\)/,
+        'the sort and filter controls do not redraw the list'
+    );
+
+    /* Projects with no due date sort last, not to the epoch. */
+    assert.match(source, /function compareByDueDate\b/);
+    const compare = source.slice(source.indexOf('function compareByDueDate('));
+    assert.match(
+        compare.slice(0, compare.indexOf('\n}')),
+        /if \(!aDue\) \{\s*return 1;/,
+        'a project with no due date is not sorted last'
+    );
+});
+
+test('the due date is flagged overdue, soon, or neither', () => {
+    const source = read(AGA_APP_JS);
+    assert.match(source, /function dueDateHtml\b/);
+
+    const fn = source.slice(source.indexOf('function dueDateHtml('));
+    const body = fn.slice(0, fn.indexOf('\n}\n'));
+
+    assert.match(body, /due-overdue/, 'an overdue project is not flagged');
+    assert.match(body, /due-soon/, 'a project due soon is not flagged');
+    assert.match(body, /days <= 7/, 'there is no "due soon" window');
+    assert.match(
+        body,
+        /if \(!due\) \{\s*return "";/,
+        'a project with no promised date invents one'
+    );
+});
+
 test('the production app shares the trade apps brand colour', () => {
     const css = read(STYLES_CSS);
 
