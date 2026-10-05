@@ -1465,10 +1465,115 @@
                     <button class="planning-tab" data-planning-view="timeline" role="tab" type="button">
                         Timeline
                     </button>
+                    <button class="planning-tab" data-planning-view="calendar" role="tab" type="button">
+                        Calendar
+                    </button>
+
+                    <button class="planning-tab" data-planning-view="roster" role="tab" type="button">
+                        Staff
+                    </button>
 
                 </div>
 
                 <!-- =========================================
+                     ALL SITES: THE DEFAULT VIEW NOW
+
+                     The old default was a table of every project with
+                     a row of numbers each. It could be read, but it
+                     could not answer the two questions this view is
+                     asked: who is on which site, and can the crew get
+                     to all of them at once.
+
+                     The site board answers both, and does it for EVERY
+                     project rather than the one that happened to be
+                     open.
+                     ========================================= -->
+
+                <div class="planning-sites" id="planning-sites">
+
+                    <div class="section-card-header">
+                        <h3>Sites</h3>
+                        <span class="measurement-note">
+                            Every project, planned together. Press Auto-plan on a
+                            project to rebuild the dates.
+                        </span>
+                    </div>
+
+                    <div id="site-board" class="site-board-host"></div>
+
+                    <div class="section-card-header planning-subhead">
+                        <h3>Who is free</h3>
+                        <span class="measurement-note">
+                            One row per person, one column per working day. Two
+                            full bars in the same column means two jobs running at
+                            once.
+                        </span>
+                    </div>
+
+                    <div id="capacity-strip" class="capacity-host"></div>
+
+                </div>
+
+                </div>
+
+                <!-- =========================================
+                     CALENDAR: WHAT IS ON A GIVEN DAY
+                     ========================================= -->
+
+                <div class="planning-calendar-pane" id="planning-calendar-pane" hidden>
+
+                    <div class="timeline-toolbar">
+
+                        <div class="timeline-legend">
+                            <span class="timeline-key key-notstarted">Starting</span>
+                            <span class="timeline-key key-inprogress">Running</span>
+                            <span class="timeline-key key-done">Booked</span>
+                        </div>
+
+                        <label class="field timeline-project-select">
+                            <span>From</span>
+                            <input type="date" id="calendar-start">
+                        </label>
+
+                        <label class="field timeline-project-select">
+                            <span>Days</span>
+                            <select id="calendar-days" aria-label="Days to show">
+                                <option value="10">10 days</option>
+                                <option value="15" selected>15 days</option>
+                                <option value="30">30 days</option>
+                            </select>
+                        </label>
+
+                    </div>
+
+                    <div id="planning-calendar" class="calendar-host"></div>
+
+                </div>
+
+                <!-- =========================================
+                     THE ROSTER: THE PEOPLE, WITH CAPACITY
+                     ========================================= -->
+
+                <div class="planning-roster-pane" id="planning-roster-pane" hidden>
+
+                    <div class="section-card-header">
+                        <h3>Staff</h3>
+                        <span class="measurement-note">
+                            Everyone who can be assigned to a task, and how long
+                            they work. The roster builds itself from the owners
+                            you have already typed on tasks.
+                        </span>
+                    </div>
+
+                    <div id="planning-roster" class="roster-host"></div>
+
+                    <p class="view-note">
+                        A person left unassigned cannot be scheduled, so a task
+                        with nobody on it is reported rather than quietly left
+                        out of the plan.
+                    </p>
+
+                </div><!-- =========================================
                      TIMELINE: TASKS AS BARS OVER TIME
                      ========================================= -->
 
@@ -1853,6 +1958,14 @@
 
     <script src="../../supabase-config.js"></script>
     <script src="../../aga-cloud.js"></script>
+    <!--
+        The shared planner, loaded BEFORE app.js: app.js reads both of
+        these while drawing the site board, the capacity strip and the
+        calendar. If this ordering inverts, those views render empty
+        with no error to show for it.
+    -->
+    <script src="../../planning-core.js"></script>
+    <script src="../shared-planning.js"></script>
     <script src="config.js"></script>
     <script src="app.js"></script>
 

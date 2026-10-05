@@ -727,6 +727,146 @@ test('a timeline bar is positioned by the grid, not by measuring', () => {
     );
 });
 
+/*
+   THE SHARED PLANNER, USED BY BOTH QUOTING APPS
+
+   trades/shared-planning.js is one bridge loaded by the plumbing and
+   coatings apps, so the two planners cannot drift apart. Each app
+   supplies only its own storage, labels and element ids.
+
+   Loaded BEFORE app.js in both, because app.js reads it while drawing
+   the site board, the capacity strip and the calendar. That ordering
+   is the whole integration: invert it and those views render empty
+   with no error to show for it.
+*/
+const SHARED_PLANNING_JS = path.join(ROOT, 'trades', 'shared-planning.js');
+
+test('both quoting apps load the same planner, before their own app', () => {
+    for (const trade of ['plumbing', 'coatings']) {
+        const html = read(path.join(ROOT, 'trades', trade, 'index.html'));
+
+        const coreAt = html.indexOf('planning-core.js');
+        const sharedAt = html.indexOf('shared-planning.js');
+
+        assert.notEqual(coreAt, -1, `${trade} does not load the planning core`);
+        assert.notEqual(sharedAt, -1, `${trade} does not load the shared planner`);
+
+        /*
+           The app's own script, matched on the tag rather than on the
+           bare filename: "app.js" also appears in each app's comment
+           block before the tag that loads it, so a plain filename
+           search finds the comment.
+
+           Both apps load it as a bare "app.js" - they are sitting in
+           their own folder, so there is no path prefix to match.
+        */
+        const appTag = /<script[^>]*src="(?:[^"]*\/)?app\.js(\?[^"]*)?"/.exec(html);
+
+        assert.ok(
+            appTag,
+            `${trade} does not load its own app.js`
+        );
+
+        const appAt = appTag.index;
+
+        /*
+           Ordering, asserted as ordering. Both files are read while
+           the app boots, so loading them afterwards produces empty
+           views rather than an error.
+        */
+        assert.ok(
+            coreAt < sharedAt,
+            `${trade} loads the shared planner before the core it depends on`
+        );
+        assert.ok(
+            sharedAt < appAt,
+            `${trade} loads app.js before the shared planner, so its views render empty`
+        );
+    }
+});
+
+test('the shared planner is one file, not two copies', () => {
+    const shared = read(SHARED_PLANNING_JS);
+
+    /*
+       The whole reason this file exists. The two quoting apps are
+       copies of one another and every feature written into both was
+       written twice and then watched drift - identical planning
+       screens have already had a bug fixed in one app and missed in
+       the other.
+    */
+    assert.match(shared, /global\.SharedPlanning\s*=/, 'the bridge exports nothing');
+
+    /* No dependencies: it is loaded by two apps as a plain script. */
+    assert.doesNotMatch(shared, /\brequire\s*\(/, 'the bridge requires a module');
+    assert.doesNotMatch(shared, /\bimport\s+/, 'the bridge imports a module');
+
+    for (const fn of [
+        'buildAllProjectsPlan',
+        'renderSiteBoard',
+        'renderCapacityStrip',
+        'renderCalendar',
+        'renderRoster'
+    ]) {
+        assert.match(shared, new RegExp(`function ${fn}\\(`), `the bridge has no ${fn}`);
+    }
+});
+
+test('both quoting apps plan every project together, not one at a time', () => {
+    for (const trade of ['plumbing', 'coatings']) {
+        const source = read(path.join(ROOT, 'trades', trade, 'app.js'));
+
+        /*
+           A per-project plan cannot see the other projects, so two
+           projects sharing a person would each be told they had that
+           person free on the same day. One call over every project is
+           what makes a person bookable once.
+        */
+        assert.match(
+            source,
+            /SharedPlanning\.buildAllProjectsPlan\(/,
+            `${trade} does not plan through the shared scheduler`
+        );
+
+        /*
+           And the default planning view is the sites board, not a
+           table of numbers per project.
+        */
+        assert.match(
+            source,
+            /let planningView = 'sites'/,
+            `${trade} does not open on the sites board`
+        );
+    }
+});
+
+test('a task owner becomes a person with a daily capacity', () => {
+    const shared = read(SHARED_PLANNING_JS);
+
+    /*
+       `owner` was free text typed onto a row, so the same person
+       existed twice under two spellings and had no capacity to book
+       against. The roster is built from those names.
+    */
+    assert.match(
+        shared,
+        /function rosterFromProjects\(/,
+        'the roster is not built from the owners on tasks'
+    );
+    assert.match(shared, /hoursPerDay/, 'the roster carries no daily capacity');
+
+    /*
+       Matching is case- and space-insensitive, so "Pieter " and
+       "pieter" are one person with one set of capacity rather than
+       two the scheduler can book at once.
+    */
+    assert.match(
+        shared,
+        /function normaliseName\(/,
+        'owner names are not normalised'
+    );
+});
+
 test('the production app shares the trade apps brand colour', () => {
     const css = read(STYLES_CSS);
 

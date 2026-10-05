@@ -2131,15 +2131,74 @@ function autoPlanProject() {
     collectPlanningList();
     const project = projects[loadedProjectIndex];
     Object.assign(project, collectProjectForm());
-    const anchor = project.start || $('project-start').value || new Date().toISOString().slice(0, 10);
+    const anchor = project.start || $('project-start').value || SharedPlanning.todayIso();
+
+    /* Sequence order first: the tasks still go in the order the work
+       happens, which is what makes the plan readable. */
     project.items = sequenceItems(project.items);
-    autoScheduleItems(project.items, anchor);
+
+    /*
+       THEN the dates, from the shared scheduler rather than the
+       single-cursor walk this used.
+
+       The old autoScheduleItems() could only chain one project's tasks
+       one after another, so two tasks were never concurrent - and it
+       never looked at any other project, so two projects sharing a
+       person were each told they had that person free on the same day.
+
+       Now every project is planned in ONE call, so a person is booked
+       once. Only this project's starts are written back; the rest are
+       left for when their own project is planned.
+    */
+    const plan = buildAllProjectsPlanViaCore(project);
+
     const span = projectSpan(project);
     project.start = anchor;
     project.end = span.last || '';
+
     persistProjects();
     renderProjects();
-    showToast(`Plan sequenced and scheduled from ${anchor}`);
+    showToast(plan && plan.warnings.length
+        ? `Plan sequenced and scheduled from ${anchor} - ${plan.warnings.length} item(s) need attention`
+        : `Plan sequenced and scheduled from ${anchor}`);
+}
+
+/* Plan every project through the shared core, then write this
+   project's calculated starts back onto its own tasks. */
+function buildAllProjectsPlanViaCore(activeProject) {
+    if (typeof SharedPlanning === 'undefined') {
+        return null;
+    }
+
+    const plan = SharedPlanning.buildAllProjectsPlan(planningConfig());
+
+    if (!plan || !activeProject) {
+        return plan;
+    }
+
+    /* The shared plan built ids from every project, so this project's
+       tasks are the ones whose id starts with its own. */
+    const starts = new Map();
+    plan.assignments.forEach(assignment => {
+        const index = activeProject.items.findIndex((item, i) =>
+            assignment.id === `${activeProject.id}-item-${i}`
+        );
+        if (index >= 0) {
+            starts.set(index, assignment.start);
+        }
+    });
+
+    activeProject.items.forEach((item, index) => {
+        const start = starts.get(index);
+        if (!start) return;
+        if (!item.startPinned) {
+            item.start = start;
+            /* The core owns the finish while the pin is clear. */
+            item.finish = '';
+        }
+    });
+
+    return plan;
 }
 
 /* Quote items -> planned tasks, sorted into the order the work happens.
@@ -2228,20 +2287,97 @@ function stageOptions(selected, source) {
     return `<select class="planning-stage" aria-label="Stage for ${escapeHtml(source)} task">${PROJECT_STAGES.map(stage => `<option ${stage === selected ? 'selected' : ''}>${stage}</option>`).join('')}</select>`;
 }
 
-let planningView = 'overview';
+/* =========================================================
+   THE SHARED PLANNING BRIDGE
+
+   trades/shared-planning.js does the work: it turns this app's
+   projects and tasks into items for PlanningCore, plans them all at
+   once, and renders the site board, the capacity strip, the calendar
+   and the roster.
+
+   WHAT THIS SUPPLIES, and nothing more:
+
+     getProjects     this app's projects
+     saveProjects    this app's persistence
+     taskMinutes     how long one of this app's tasks is
+     anchorDate      the earliest date the plan may use
+     shortDate       a date for display
+     projectActions  the open/plan buttons for a site row
+
+   Everything else - the scheduling, the conflicts, the rendering -
+   is shared, so the plumbing and coatings planners cannot drift apart.
+   ========================================================= */
+
+function planningConfig() {
+    return {
+        getProjects: () => projects,
+        saveProjects: () => persistProjects(),
+        taskMinutes: item => taskDuration(item),
+        anchorDate: () => (loadedProjectIndex !== null && projects[loadedProjectIndex]?.start) || SharedPlanning.todayIso(),
+        shortDate: value => SharedPlanning.shortDate(value),
+        projectActions: project => {
+            const index = projects.findIndex(p => p.id === project.id);
+            if (index < 0) {
+                return '';
+            }
+            return `<button type="button" class="text-button compact" data-open-project="${escapeHtml(project.id)}">Open</button>`;
+        }
+    };
+}
+
+/* One call redraws every shared view, so the board, the strip and the
+   calendar cannot fall out of step with each other. */
+function renderSharedPlanning() {
+    if (typeof SharedPlanning === 'undefined') {
+        return null;
+    }
+
+    const plan = SharedPlanning.renderAll(planningConfig(), {
+        board: $('site-board'),
+        capacity: $('capacity-strip'),
+        capacityDays: 10,
+        calendar: $('planning-calendar'),
+        calendarDays: Number($('calendar-days')?.value) || 15,
+        calendarStart: $('calendar-start')?.value || ''
+    });
+
+    SharedPlanning.renderRoster(planningConfig(), $('planning-roster'));
+
+    /* The Open button on each site row. */
+    document.querySelectorAll('[data-open-project]').forEach(button => {
+        button.addEventListener('click', () => {
+            const index = projects.findIndex(p => p.id === button.dataset.openProject);
+            if (index >= 0) {
+                loadedProjectIndex = index;
+                renderProjects();
+            }
+        });
+    });
+
+    return plan;
+}
+
+let planningView = 'sites';
 /* The timeline opens on every project; a specific index narrows it down. */
 let timelineProjectIndex = 'all';
 
 function setPlanningView(view) {
-    planningView = ['single', 'timeline'].includes(view) ? view : 'overview';
+    planningView = ['sites', 'single', 'timeline', 'calendar', 'roster'].includes(view) ? view : 'sites';
     document.querySelectorAll('.planning-tab').forEach(tab => tab.classList.toggle('active', tab.dataset.planningView === planningView));
     $('planning-overview').hidden = planningView !== 'overview';
     $('planning-single').hidden = planningView !== 'single';
     $('planning-timeline').hidden = planningView !== 'timeline';
+    const calendarPane = $('planning-calendar-pane');
+    if (calendarPane) calendarPane.hidden = planningView !== 'calendar';
+    const rosterPane = $('planning-roster-pane');
+    if (rosterPane) rosterPane.hidden = planningView !== 'roster';
+    const sitesPane = $('planning-sites');
+    if (sitesPane) sitesPane.hidden = planningView !== 'sites';
     if (planningView === 'single' && loadedProjectIndex === null && projects.length) loadedProjectIndex = 0;
     if (planningView === 'timeline' && timelineProjectIndex !== 'all' && !projects[timelineProjectIndex]) timelineProjectIndex = 'all';
     renderProjects();
     if (planningView === 'timeline') renderTimeline();
+    renderSharedPlanning();
 }
 
 /* ============================ TIMELINE ============================
@@ -2801,14 +2937,23 @@ initCloud().then(() => {
 });
 /* ---- project planning controls ---- */
 document.querySelectorAll('.planning-tab').forEach(tab => tab.addEventListener('click', () => setPlanningView(tab.dataset.planningView)));
-$('new-project').addEventListener('click', newProject);
-$('delete-project').addEventListener('click', () => {
+$('new-project').addEventListener('click', newProject);$('delete-project').addEventListener('click', () => {
     /* The delete acts on the project open in the One project view, so make
        sure that view is showing and its latest edits are kept. */
     if (planningView !== 'single' && projects.length) setPlanningView('single');
     deleteProject();
 });
 $('save-project').addEventListener('click', saveProject);
+
+/* The calendar's own controls. Each redraws the whole shared planning
+   set rather than just the calendar, because the site board and the
+   capacity strip are reads of the same plan and have to agree with it. */
+['calendar-start', 'calendar-days'].forEach(id => {
+    const control = $(id);
+    if (control) {
+        control.addEventListener('change', () => renderSharedPlanning());
+    }
+});
 /* Print the plan with its diary: the browser's print dialog, driven after
    the latest edits on screen are written back to the project. */
 $('print-plan').addEventListener('click', () => {

@@ -575,6 +575,339 @@ body .scenario-bar .primary-button {
 }
 
 /* =========================================================
+   3c. SHARED PLANNING: SITE BOARD, CAPACITY, ROSTER
+   ---------------------------------------------------------
+   Loaded by trades/shared-planning.js, so both quoting apps get
+   these identically and the two planners cannot drift apart.
+
+   Written here, after the apps' own stylesheets, for the same reason
+   section 3 is: the apps end with broad !important rules that would
+   otherwise beat anything sensible.
+   ========================================================= */
+
+/* ---- the site board: every project at once ---- */
+
+.site-board {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+    margin: 0 0 18px
+}
+
+.site-board thead th {
+    padding: 8px 10px;
+    text-align: left;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: .06em;
+    text-transform: uppercase;
+    color: var(--muted);
+    background: var(--mint, #f1f6fc);
+    border-bottom: 1px solid var(--line);
+    white-space: nowrap
+}
+
+.site-board td {
+    padding: 9px 10px;
+    border-bottom: 1px solid var(--line);
+    vertical-align: top
+}
+
+.site-board td small {
+    display: block;
+    font-size: 11.5px;
+    color: var(--muted);
+    margin-top: 1px
+}
+
+.site-board-dates,
+.site-board-number {
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap
+}
+
+.site-board-number {
+    text-align: right
+}
+
+.site-board-none {
+    color: var(--coral, #0757b8);
+    font-weight: 700
+}
+
+/* A site with work nobody can do is flagged rather than left to be
+   discovered on the day. */
+.site-board tr.has-unassigned td {
+    background: #fdf3f2
+}
+
+.site-board-idle {
+    margin: 0 0 18px;
+    font-size: 13px;
+    color: var(--muted);
+    padding: 8px 10px;
+    background: var(--mint, #f1f6fc);
+    border-radius: 6px
+}
+
+.site-board-idle strong {
+    color: var(--ink)
+}
+
+/* ---- the capacity strip: one row per person, one column per day ---- */
+
+.capacity-strip {
+    width: 100%;
+    border-collapse: separate;
+    border-spacing: 2px;
+    font-size: 12px
+}
+
+.capacity-strip thead th {
+    font-size: 10.5px;
+    font-weight: 700;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: .04em;
+    padding: 4px 2px;
+    text-align: center;
+    white-space: nowrap
+}
+
+.capacity-strip th[scope="row"] {
+    text-align: left;
+    font-size: 13px;
+    font-weight: 700;
+    padding-right: 10px;
+    white-space: nowrap;
+    vertical-align: middle;
+    min-width: 110px
+}
+
+.capacity-cell {
+    position: relative;
+    width: 62px;
+    height: 34px;
+    border-radius: 4px;
+    background: #eef2f7;
+    overflow: hidden;
+    vertical-align: middle
+}
+
+.capacity-bar {
+    display: block;
+    width: var(--fill, 0%);
+    height: 100%;
+    background: var(--coral, #0757b8);
+    transition: width .15s ease
+}
+
+.capacity-hours {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 11px;
+    font-weight: 800;
+    color: #fff;
+    text-shadow: 0 1px 2px rgba(0, 0, 0, .35)
+}
+
+/*
+   Overbooked. Red, because this is the one cell in the strip that
+   means the plan cannot be worked as drawn.
+*/
+.capacity-cell.is-over .capacity-bar {
+    background: var(--ui-danger, #b42318)
+}
+
+/* ---- the roster ---- */
+
+.roster-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-bottom: 14px
+}
+
+.roster-table th,
+.roster-table td {
+    padding: 7px 10px;
+    text-align: left;
+    border-bottom: 1px solid var(--line);
+    vertical-align: middle
+}
+
+.roster-table thead th {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: .06em;
+    color: var(--muted)
+}
+
+.roster-table input[type="text"] {
+    width: 100%;
+    min-width: 160px
+}
+
+.roster-table input[type="number"] {
+    width: 84px
+}
+
+.roster-active {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 40px
+}
+
+.roster-active input[type="checkbox"] {
+    width: 20px;
+    height: 20px
+}
+
+.roster-add {
+    display: flex;
+    align-items: flex-end;
+    gap: 10px;
+    flex-wrap: wrap;
+    margin-top: 10px
+}
+
+.roster-add input[type="text"] {
+    min-width: 200px
+}
+
+.roster-add input[type="number"] {
+    width: 110px
+}
+
+/* ---- the calendar, shared with AGA ---- */
+
+.calendar-strip {
+    display: flex;
+    gap: 10px;
+    overflow-x: auto;
+    padding-bottom: 8px;
+    -webkit-overflow-scrolling: touch
+}
+
+.calendar-day {
+    flex: 0 0 200px;
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    background: var(--white);
+    padding: 11px;
+    display: flex;
+    flex-direction: column;
+    gap: 7px
+}
+
+.calendar-day.is-today {
+    border-color: var(--coral, #1d4ed8);
+    box-shadow: 0 0 0 2px rgba(29, 78, 216, .28)
+}
+
+.calendar-day-head {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 6px
+}
+
+.calendar-day-name {
+    font-size: 13px;
+    font-weight: 800
+}
+
+.calendar-day-load {
+    font-size: 11px;
+    color: var(--muted)
+}
+
+.calendar-day-starting {
+    font-size: 10.5px;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: .05em;
+    color: var(--coral, #1d4ed8)
+}
+
+.calendar-day-items {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 4px
+}
+
+.calendar-day-item {
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+    padding: 5px 7px;
+    border-radius: 4px;
+    background: #f2f6fb;
+    border-left: 3px solid var(--coral, #1d4ed8)
+}
+
+.calendar-day-task {
+    font-size: 12.5px;
+    font-weight: 600;
+    line-height: 1.3
+}
+
+.calendar-day-site,
+.calendar-day-who {
+    font-size: 11px;
+    color: var(--muted)
+}
+
+.calendar-day-unassigned {
+    font-size: 11px;
+    font-weight: 800;
+    color: var(--ui-danger, #b42318)
+}
+
+.calendar-day-crew {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    margin-top: auto
+}
+
+.calendar-crew-chip {
+    font-size: 10.5px;
+    padding: 2px 6px;
+    border-radius: 999px;
+    background: #e6f6ec;
+    color: #15803d;
+    font-weight: 800;
+    white-space: nowrap
+}
+
+.calendar-crew-chip.is-over {
+    background: #fdecea;
+    color: var(--ui-danger, #b42318)
+}
+
+.plan-warnings {
+    margin-top: 12px;
+    padding: 9px 11px;
+    border-radius: 6px;
+    background: #fdf4e3;
+    border: 1px solid #e2b95c
+}
+
+.plan-warning {
+    margin: 0 0 3px;
+    font-size: 12px;
+    font-weight: 700;
+    color: #8a5a06
+}
+
+/* =========================================================
    4. NOTHING IS CLIPPED
    ---------------------------------------------------------
    The app cuts off several text elements with an ellipsis
