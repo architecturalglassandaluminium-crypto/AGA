@@ -9016,6 +9016,7 @@ function renderPlanning() {
             setTextIfExists("planFinish", "-");
             renderPlanningStages([]);
             renderPlanningSchedule(null);
+            renderPlanningViews(null, "");
             return;
         }
 
@@ -9040,6 +9041,14 @@ function renderPlanning() {
         setTextIfExists("planHours", Math.round((plan.totalMinutes / 60) * 10) / 10);
         setTextIfExists("planDays", plan.spanDays);
         setTextIfExists("planFinish", finishDate ? formatShortDate(finishDate) : "-");
+
+        /*
+           The calendar and the timeline are drawn from the same stage
+           plan, converted to the shared core's item model. Drawn here,
+           alongside the stage table, so all three views are refreshed
+           by one thing and cannot fall out of step with each other.
+        */
+        renderPlanningViews(plan, startDate);
 
         /*
            The summary speaks for the job as a whole, in days: how
@@ -9349,6 +9358,411 @@ function renderPlanningSchedule(plan, startDate = "") {
     }
 }
 
+/* =========================================================
+   THE SHARED PLANNING CORE, BRIDGED INTO THIS APP
+
+   PlanningCore is one scheduler used by all three companies. It knows
+   about staff, capacity, sites and work running in parallel - none of
+   which the stage planner above models, because it plans a job as a
+   chain of stages rather than as people doing things.
+
+   THIS FUNCTION CONVERTS BETWEEN THE TWO.
+
+   The stage planner produces days-per-stage for a job as a whole.
+   The core needs items with durations and named assignees. So each
+   stage becomes one item: the stage's total minutes, the staff
+   assigned to that kind of work, and the stage's own start date as a
+   PIN - because stage order is a promise about the workshop, not a
+   suggestion, and the core must lay the other stages out around it
+   rather than re-deciding when cutting happens.
+
+   The result is that the calendar and the timeline are reads of the
+   SAME plan as the stage table, rather than a second opinion from a
+   second scheduler.
+   ========================================================= */
+
+const WORKSHOP_TRADES = [
+    { key: "measure", label: "Measurement", trade: "Measure" },
+    { key: "cut", label: "Cutting", trade: "Cutting" },
+    { key: "weld", label: "Welding & Crimping", trade: "Welding" },
+    { key: "machine", label: "Machining & Drilling", trade: "Machining" },
+    { key: "assemble", label: "Frame Assembly", trade: "Assembly" },
+    { key: "glaze", label: "Glazing", trade: "Glazing" },
+    { key: "qc", label: "Quality Check", trade: "Quality" },
+    { key: "wrap", label: "Wrapping", trade: "Wrapping" },
+    { key: "install", label: "Installation", trade: "Installation" }
+];
+
+/*
+   The roster for the workshop.
+
+   Kept separate from the core's own storage so the two can disagree
+   safely: a person here who has not yet been added as an assignee is
+   simply idle, and the core reports work as unassigned rather than
+   guessing who should do it.
+*/
+function getWorkshopStaff() {
+
+    const stored = safeJsonArray(localStorage.getItem("aga_workshop_staff"));
+
+    if (stored.length) {
+        return stored;
+    }
+
+    /*
+       The people, not the jobs.
+
+       The first version of this roster named each worker after their
+       stage - "Measurement", "Cutting" - so the calendar showed
+       "Measurement / Measurement" on every card, which reads as a
+       duplicated field rather than as a task and the person on it.
+
+       Two workers per trade, deliberately: it is what lets two stages
+       run on the same day, which is the whole point of showing
+       parallel work at all. Real names replace these from the roster
+       screen; until then these are placeholders a manager can see are
+       placeholders.
+    */
+    return WORKSHOP_TRADES.flatMap(entry =>
+        [1, 2].map(n => ({
+            id: `shop-${entry.key}-${n}`,
+            /*
+               "Measurement 1", not "Measurement - hand".
+
+               The label sits directly under the task of the same name
+               in the timeline, so anything repeating the trade reads as
+               a duplicated field rather than as a person. A short
+               number is enough to tell two workers on one trade apart,
+               and both can be told at a glance.
+            */
+            name: `${entry.label} ${n}`,
+            trade: entry.trade,
+            hoursPerDay: 8,
+            active: true
+        }))
+    );
+}
+
+function safeJsonArray(value) {
+    try {
+        const parsed = JSON.parse(value || "[]");
+        return Array.isArray(parsed) ? parsed : [];
+    } catch (error) {
+        return [];
+    }
+}
+
+/*
+   The stage plan as core items.
+*/
+function planningItemsForCore(stagePlan, startDate, staff) {
+    if (!stagePlan || !stagePlan.stages) {
+        return [];
+    }
+
+    /* Who can do each kind of work, by trade. A stage with nobody
+       matched keeps a generic assignee so it is scheduled as
+       unassigned work and reported - rather than silently dropped. */
+    const byTrade = (trade) =>
+        staff.filter(person => person.trade === trade && person.active !== false);
+
+    return stagePlan.stages.map((stage, index) => {
+        const stageKey = stage.key;
+        const definition = WORKSHOP_TRADES.find(entry => entry.key === stageKey);
+
+        const matched = definition ? byTrade(definition.trade) : [];
+        const assignees = matched.length
+            ? matched.map(person => person.id)
+            : staff.filter(person => person.active !== false).slice(0, 1).map(p => p.id);
+
+        return {
+            id: `stage-${stageKey}`,
+            task: stage.label,
+            category: definition ? definition.trade : "",
+            trade: definition ? definition.trade : "",
+            /* The stage's real minutes. Zero-day stages are dropped by
+               the core, which is correct - there is no work to place. */
+            durationMinutes: stage.minutes || 0,
+            assignees,
+            /* Stage order is fixed, so each stage's start is a pin:
+               the core must work around it, not re-decide it. */
+            start: startDate ? addWorkingDays(startDate, stage.startDay - 1) : "",
+            startPinned: Boolean(startDate),
+            priority: index,
+            siteId: "main"
+        };
+    }).filter(item => item.durationMinutes > 0);
+}
+
+/* The plan that the calendar and timeline are both drawn from. */
+function corePlanForStagePlan(stagePlan, startDate) {
+    if (typeof PlanningCore === "undefined") {
+        return null;
+    }
+
+    const staff = getWorkshopStaff();
+    const items = planningItemsForCore(stagePlan, startDate, staff);
+
+    return PlanningCore.buildPlan(items, {
+        staff,
+        startDate: startDate || todayIsoDate()
+    });
+}
+
+/* =========================================================
+   THE CALENDAR VIEW
+
+   Answers "what is on the 14th". One card per working day, each
+   showing what starts, what is still running, and who is on site.
+   ========================================================= */
+
+function renderPlanningCalendar(plan, startDate) {
+
+    const container = $("planningCalendar");
+
+    if (!container) {
+        return;
+    }
+
+    if (!plan || !plan.assignments.length) {
+        container.innerHTML = `
+            <div class="empty-state">
+                <h4>Nothing to show on a calendar yet</h4>
+                <p>Open a project with windows on it, then the plan's days appear here.</p>
+            </div>
+        `;
+        return;
+    }
+
+    const lengthInput = $("calendarLength");
+    const dayCount = clampInt(lengthInput?.value, 1, 62, 15);
+
+    const from = normaliseDueDate($("calendarStart")?.value)
+        || startDate
+        || plan.span.start;
+
+    const calendar = PlanningCore.buildCalendar(plan, { dayCount, startDate: from });
+
+    container.innerHTML = `
+        <div class="calendar-strip">
+            ${calendar.days.map(day => `
+                <div class="calendar-day${day.isToday ? " is-today" : ""}">
+                    <div class="calendar-day-head">
+                        <span class="calendar-day-name">${escapeHtml(formatShortDate(day.date))}</span>
+                        <span class="calendar-day-load">${day.bookedMinutes
+                            ? `${PlanningCore.minutesToHours(day.bookedMinutes)}h booked`
+                            : "free"}</span>
+                    </div>
+
+                    ${day.starting.length
+                        ? `<div class="calendar-day-starting">${day.starting.length} starting</div>`
+                        : ""}
+
+                    <ul class="calendar-day-items">
+                        ${day.running.slice(0, 6).map(item => `
+                            <li class="calendar-day-item">
+                                <span class="calendar-day-task">${escapeHtml(item.task)}</span>
+                                ${item.schedulable.length
+                                    ? `<span class="calendar-day-who">${escapeHtml(item.schedulable.length === 1
+                                        ? (plan.staff.find(p => p.id === item.schedulable[0]) || {}).name || "Unassigned"
+                                        : `${item.schedulable.length} staff`)}</span>`
+                                    : `<span class="calendar-day-unassigned">Nobody assigned</span>`}
+                            </li>
+                        `).join("")}
+                        ${day.running.length > 6
+                            ? `<li class="calendar-day-more">+${day.running.length - 6} more</li>`
+                            : ""}
+                    </ul>
+
+                    ${day.crew.length
+                        ? `<div class="calendar-day-crew">${day.crew.map(entry => `
+                            <span class="calendar-crew-chip${entry.overbooked ? " is-over" : ""}"
+                                title="${escapeHtml(entry.staff.name)}: ${entry.hours}h of ${PlanningCore.minutesToHours(entry.capacityMinutes)}h">
+                                ${escapeHtml(entry.staff.name.split(" ")[0])} ${entry.hours}h
+                            </span>
+                        `).join("")}</div>`
+                        : ""}
+                </div>
+            `).join("")}
+        </div>
+
+        ${plan.warnings.length
+            ? `<div class="plan-warnings">
+                ${plan.warnings.slice(0, 6).map(warning => `
+                    <p class="plan-warning">${escapeHtml(warning.message)}</p>
+                `).join("")}
+            </div>`
+            : ""}
+    `;
+}
+
+/* =========================================================
+   THE TIMELINE VIEW
+
+   One row per line of work, a bar per item, columns in working days.
+   Answers "how does this run end to end, and what runs alongside
+   what" - the question a list of stages cannot answer, because a list
+   implies a sequence.
+   ========================================================= */
+
+function renderPlanningTimeline(plan, startDate) {
+
+    const container = $("planningTimeline");
+
+    if (!container) {
+        return;
+    }
+
+    if (!plan || !plan.assignments.length) {
+        container.innerHTML = `
+            <div class="empty-state">
+                <h4>Nothing to put on a timeline yet</h4>
+                <p>Open a project with windows on it and each stage appears as a bar.</p>
+            </div>
+        `;
+        return;
+    }
+
+    const siteFilter = safeText($("timelineSiteFilter")?.value);
+    const timeline = PlanningCore.buildTimeline(plan, { siteId: siteFilter });
+
+    if (!timeline.rows.length) {
+        container.innerHTML = `
+            <div class="empty-state">
+                <h4>No work on this site</h4>
+                <p>Choose another site, or "All sites".</p>
+            </div>
+        `;
+        return;
+    }
+
+    const columnCount = timeline.columns.length;
+
+    container.innerHTML = `
+        <div class="timeline" style="--timeline-columns:${columnCount}">
+
+            <div class="timeline-axis" role="presentation">
+                <div class="timeline-axis-label"></div>
+                <div class="timeline-axis-days">
+                    ${timeline.columns.map(date => `
+                        <span class="timeline-axis-day">${escapeHtml(formatShortDate(date))}</span>
+                    `).join("")}
+                </div>
+            </div>
+
+            ${timeline.groups.map(group => `
+                <div class="timeline-group">
+                    <div class="timeline-group-head">
+                        <strong>${escapeHtml(group.label)}</strong>
+                        <span>${escapeHtml(group.start)} \u2192 ${escapeHtml(group.finish)}</span>
+                    </div>
+
+                    ${group.rows.map(row => `
+                        <div class="timeline-row">
+                            <div class="timeline-row-label" title="${escapeHtml(row.assigneesLabel || "Nobody assigned")}">
+                                <span class="timeline-row-task">${escapeHtml(row.task)}</span>
+                                <span class="timeline-row-meta">${row.assigned
+                                    ? escapeHtml(row.assigneesLabel)
+                                    : "Nobody assigned"} \u00b7 ${escapeHtml(PlanningCore.formatDuration(row.item.wallMinutes))}</span>
+                            </div>
+
+                            <div class="timeline-row-track">
+                                ${row.fromColumn >= 0
+                                    ? `<div class="timeline-bar"
+                                        style="--bar-from:${row.fromColumn};--bar-span:${row.spanColumns}"
+                                        title="${escapeHtml(row.task)}: ${escapeHtml(row.start)} \u2192 ${escapeHtml(row.finish)} (${row.days}d)">
+                                        <span class="timeline-bar-days">${row.days}d</span>
+                                    </div>`
+                                    : `<div class="timeline-bar timeline-bar-off" title="${escapeHtml(row.task)} is not on this axis"></div>`}
+                            </div>
+                        </div>
+                    `).join("")}
+                </div>
+            `).join("")}
+
+        </div>
+    `;
+}
+
+/* Which of the three planning panes is showing. */
+function setPlanningView(view) {
+
+    const panes = {
+        stages: ["planningPaneStages", "planningViewStages"],
+        calendar: ["planningPaneCalendar", "planningViewCalendar"],
+        timeline: ["planningPaneTimeline", "planningViewTimeline"]
+    };
+
+    Object.entries(panes).forEach(([key, [paneId, tabId]]) => {
+        const pane = $(paneId);
+        const tab = $(tabId);
+
+        const isActive = key === view;
+
+        if (pane) {
+            pane.hidden = !isActive;
+        }
+
+        if (tab) {
+            tab.classList.toggle("active", isActive);
+            tab.setAttribute("aria-selected", isActive ? "true" : "false");
+        }
+    });
+
+    try {
+        sessionStorage.setItem("aga_planning_view", view);
+    } catch (error) {
+        /* Private mode. The view still switches. */
+    }
+}
+
+/* Fill the timeline's site picker from the plan's own sites. */
+function renderTimelineSiteOptions(plan) {
+
+    const select = $("timelineSiteFilter");
+
+    if (!select) {
+        return;
+    }
+
+    const current = select.value;
+
+    const sites = PlanningCore.normaliseSites(
+        [{ id: "main", name: "Main site" }]
+    );
+
+    select.innerHTML = `<option value="">All sites</option>` +
+        sites.map(site => `<option value="${escapeHtml(site.id)}">${escapeHtml(site.name)}</option>`).join("");
+
+    if (current) {
+        select.value = current;
+    }
+}
+
+/*
+   Draw the calendar and the timeline. Both are reads of the SAME plan
+   the stage table is drawn from, which is the whole point: three views
+   of one calculation, not three schedulers.
+*/
+function renderPlanningViews(stagePlan, startDate) {
+
+    const corePlan = corePlanForStagePlan(stagePlan, startDate);
+
+    if (!corePlan) {
+        return;
+    }
+
+    /* Keep the calendar's own start in step with the plan, until the
+       planner moves it deliberately. */
+    const calendarStart = $("calendarStart");
+    if (calendarStart && !calendarStart.value) {
+        calendarStart.value = corePlan.span.start || startDate || "";
+    }
+
+    renderPlanningCalendar(corePlan, startDate);
+    renderPlanningTimeline(corePlan, startDate);
+}
+
 /*
    Draw the per-stage settings: working DAYS for each stage, with
    the per-window minutes shown underneath as the fallback used
@@ -9654,6 +10068,53 @@ function initialiseEventListeners() {
                 control.addEventListener("change", filterProjects);
             }
         });
+
+        /*
+           The three planning views, and the calendar and timeline
+           controls.
+
+           Each one redraws the whole planning view rather than its own
+           pane: the calendar and the timeline are reads of the same
+           plan, so a change of start date or length has to reach both.
+        */
+        [
+            ["planningViewStages", "stages"],
+            ["planningViewCalendar", "calendar"],
+            ["planningViewTimeline", "timeline"]
+        ].forEach(([id, view]) => {
+            const tab = $(id);
+            if (tab) {
+                tab.addEventListener("click", () => {
+                    setPlanningView(view);
+                    renderPlanning();
+                });
+            }
+        });
+
+        const calendarToday = $("calendarTodayButton");
+        if (calendarToday) {
+            calendarToday.addEventListener("click", () => {
+                const start = $("calendarStart");
+                if (start) {
+                    start.value = todayIsoDate();
+                }
+                renderPlanning();
+            });
+        }
+
+        ["calendarStart", "calendarLength", "timelineSiteFilter"].forEach(id => {
+            const control = $(id);
+            if (control) {
+                control.addEventListener("change", renderPlanning);
+            }
+        });
+
+        /* Restore whichever planning view was last used. */
+        try {
+            setPlanningView(sessionStorage.getItem("aga_planning_view") || "stages");
+        } catch (error) {
+            setPlanningView("stages");
+        }
 
         /*
            Planning controls. Changing the project, the start date,

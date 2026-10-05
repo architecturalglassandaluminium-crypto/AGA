@@ -615,6 +615,118 @@ test('the due date is flagged overdue, soon, or neither', () => {
     );
 });
 
+/*
+   THE SHARED PLANNING CORE
+
+   All three companies plan with one scheduler. It lives in its own
+   file because there were three copies of this logic already and they
+   had started to drift; a fourth feature written three times is how
+   they drift further.
+
+   The core is loaded by the page BEFORE app.js, because app.js reads
+   PlanningCore while drawing the calendar and the timeline. That
+   ordering is the whole integration - if it inverts, both views
+   render empty with no error to show for it.
+*/
+const PLANNING_CORE_JS = path.join(ROOT, 'planning-core.js');
+
+test('the planning core is one shared scheduler with no dependencies', () => {
+    const core = read(PLANNING_CORE_JS);
+
+    assert.match(core, /global\.PlanningCore\s*=/, 'the core exports nothing');
+
+    /*
+       No imports, no fetch, no framework. It is loaded by three apps
+       as a plain script, so anything it needs from outside would have
+       to exist in all three - which is exactly the coupling that made
+       the three copies drift.
+    */
+    assert.doesNotMatch(core, /\brequire\s*\(/, 'the core requires a module');
+    assert.doesNotMatch(core, /\bimport\s+/, 'the core imports a module');
+    assert.doesNotMatch(core, /\bfetch\s*\(/, 'the core makes a request');
+
+    /* The four things the feature is for. */
+    for (const fn of [
+        'buildPlan',
+        'buildSiteBoard',
+        'buildCalendar',
+        'buildTimeline'
+    ]) {
+        assert.match(core, new RegExp(`function ${fn}\\(`), `the core has no ${fn}`);
+    }
+});
+
+test('the page loads the planning core before the app that reads it', () => {
+    const html = read(INDEX_HTML);
+
+    const coreAt = html.indexOf('src="planning-core.js"');
+    const appAt = html.indexOf('src="app.js"');
+
+    assert.notEqual(coreAt, -1, 'the planning core is not loaded at all');
+    assert.notEqual(appAt, -1, 'app.js is not loaded');
+    assert.ok(
+        coreAt < appAt,
+        'app.js loads before planning-core.js, so the calendar and timeline render empty'
+    );
+});
+
+test('the planning view offers stages, a calendar and a timeline', () => {
+    const html = read(INDEX_HTML);
+
+    for (const id of [
+        'planningViewStages',
+        'planningViewCalendar',
+        'planningViewTimeline',
+        'planningPaneCalendar',
+        'planningPaneTimeline',
+        'planningCalendar',
+        'planningTimeline'
+    ]) {
+        assert.match(html, new RegExp(`id="${id}"`), `no #${id}`);
+    }
+
+    const source = read(AGA_APP_JS);
+
+    /*
+       Both views are drawn from the SAME stage plan, converted to the
+       core's model. Two separate schedulers would disagree with each
+       other and with the stage table, and the disagreement would only
+       show up on a job that runs over a weekend.
+    */
+    assert.match(
+        source,
+        /function renderPlanningViews\(/,
+        'there is no single place the calendar and timeline are both drawn'
+    );
+    assert.match(source, /renderPlanningViews\(plan, startDate\)/);
+    assert.match(
+        source,
+        /function corePlanForStagePlan\(/,
+        'the stage plan is not bridged to the shared core'
+    );
+});
+
+test('a timeline bar is positioned by the grid, not by measuring', () => {
+    const css = read(STYLES_CSS);
+
+    /*
+       Bars are placed with grid-column against a column count, so
+       they stay aligned with the axis on every resize. An absolutely
+       positioned bar has to be measured in JavaScript and goes wrong
+       the moment the window changes width.
+    */
+    assert.match(
+        css,
+        /\.timeline-bar\s*\{[^}]*grid-column:\s*calc\(/,
+        'timeline bars are not positioned by the grid'
+    );
+    assert.doesNotMatch(
+        css,
+        /\.timeline-bar\s*\{[^}]*position:\s*absolute/,
+        'timeline bars are absolutely positioned, so they need measuring'
+    );
+});
+
 test('the production app shares the trade apps brand colour', () => {
     const css = read(STYLES_CSS);
 
