@@ -1535,20 +1535,30 @@ function updatePrintDetails(totals = calculateTotals()) {
 
     $('print-details').innerHTML = `
         <section class="doc-cover">
-            <div class="doc-cover-meta">
-                <p><span>Date</span><strong>${escapeHtml(quoteDate)}</strong></p>
-                <p><span>Client</span><strong>${escapeHtml(customer)}</strong></p>
-                <p><span>Prepared by</span><strong>${escapeHtml(settings.preparedBy || 'Cheyenne')}</strong></p>
-                <p><span>Quotation no.</span><strong>${escapeHtml(quoteNumber)}</strong></p>
+            <div class="doc-cover-title">
+                <div><span>Commercial quotation</span><h2>Quotation for ${escapeHtml(customer)}</h2></div>
+                <div class="doc-cover-number"><span>Quotation no.</span><strong>${escapeHtml(quoteNumber)}</strong></div>
             </div>
+            <div class="doc-cover-meta">
+                <p><span>Date issued</span><strong>${escapeHtml(quoteDate)}</strong></p>
+                <p><span>Prepared by</span><strong>${escapeHtml(settings.preparedBy || 'Cheyenne')}</strong></p>
+                <p><span>Client contact</span><strong>${escapeHtml(phone)}</strong></p>
+                <p><span>Currency</span><strong>South African Rand (ZAR)</strong></p>
+            </div>
+        </section>
+
+        <section class="doc-client-card">
+            <div><span>Prepared for</span><strong>${escapeHtml(customer)}</strong></div>
+            <div><span>Service address</span><strong>${escapeHtml(address)}</strong></div>
+            <div><span>Project enquiry</span><strong>${description || 'Scope as itemised in the sections below'}</strong></div>
         </section>
 
         ${isAmended ? `<div class="print-amendment"><strong>Reason for amended quote</strong><span>${escapeHtml(amendmentReason)}</span></div>` : ''}
 
         <section class="doc-intro">
             <h2>Scope of work</h2>
-            ${description ? `<p>${escapeHtml(description)}</p>` : '<p>Scope as itemised in the sections below.</p>'}
-            <p class="doc-client-line">Prepared for ${escapeHtml(customer)}${phone !== 'Not provided' ? ` · ${escapeHtml(phone)}` : ''}${address !== 'Not provided' ? ` · ${escapeHtml(address)}` : ''}</p>
+            <p>${description ? escapeHtml(description) : 'Scope as itemised in the sections below.'}</p>
+            <p class="doc-client-line">All pricing is based on the work and information supplied above. Any additional work not included in this quotation will be quoted separately.</p>
         </section>
 
         ${sections.length ? `<section class="doc-schedule">
