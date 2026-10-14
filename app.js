@@ -9940,6 +9940,49 @@ function formatEstimatorMillimetres(value) {
     });
 }
 
+function buildPalaceManualReferenceHtml() {
+    const manual = window.CrealcoProfileEstimator?.PALACE_MANUAL;
+    if (!manual) {
+        return "";
+    }
+
+    const profileRows = manual.profiles.map(profile => `
+        <tr><td>${escapeHtml(profile.code)}</td><td>${escapeHtml(profile.description)}</td></tr>`).join("");
+
+    return `<section class="palace-manual-reference" aria-labelledby="palaceManualReferenceTitle">
+        <h3 id="palaceManualReferenceTitle">Palace: verified manual references</h3>
+        <p>
+            Selected profile codes and instructions transcribed from
+            <a href="${escapeHtml(manual.sourceUrl)}" target="_blank" rel="noopener noreferrer">Palace Product Manual ${escapeHtml(manual.revision)}</a>.
+            These references apply only to Palace and are not applied to the generic project cut list.
+        </p>
+        <h4>Selected profile codes (not a complete system take-off)</h4>
+        <div class="palace-manual-table-wrap">
+            <table class="palace-manual-table">
+                <thead><tr><th>Code</th><th>Manual description</th></tr></thead>
+                <tbody>${profileRows}</tbody>
+            </table>
+        </div>
+        <h4>Documented fabrication notes</h4>
+        <ul>
+            <li><strong>Palace Multi sill extension (W58916):</strong> the manual specifies 4 mm less at each end for end caps. Enter the relevant measured overall sill-extension dimension below; this does not infer the extension from an opening width.</li>
+            <li><strong>Glazing gaskets:</strong> the manual says to cut the pull-in vinyl gasket 6 mm longer so the corners remain compressed. For roll-in gasket, it specifies no stretching and 6 mm extra at the vertical-bead corner procedure.</li>
+            <li><strong>Palace retention rail:</strong> use 6.7 × 9 mm finseal, code GFP-6790. Mechanical joints are to be sealed with silicone.</li>
+        </ul>
+        <div class="palace-sill-calculator">
+            <label for="palaceSillExtensionDimension">Palace Multi sill-extension overall dimension (mm)</label>
+            <input id="palaceSillExtensionDimension" type="number" min="9" step="1" inputmode="decimal" placeholder="Enter measured dimension">
+            <p id="palaceSillExtensionResult" role="status" aria-live="polite">
+                Enter the measured sill-extension dimension to calculate its end-cap allowance. This is not included in the generic stock-bar totals.
+            </p>
+        </div>
+        <p class="profile-estimator-caveat">
+            The manual directs fabricators to use the latest StarFront design and cutting list for correct sizing.
+            This is a partial reference, not a complete Palace cutting schedule or fabrication drawing.
+        </p>
+    </section>`;
+}
+
 function buildProfileCutListHtml(project, previewMode) {
     const estimate = window.CrealcoProfileEstimator
         ? window.CrealcoProfileEstimator.estimateProject(project)
@@ -10107,6 +10150,8 @@ function renderCrealcoProfileEstimator(projectId) {
             Profile lengths are provisional and are not separated into Crealco profile codes.
             Items with missing dimensions or members longer than stock are excluded from the stock-bar total.
         </p>`;
+
+    content.insertAdjacentHTML("beforeend", buildPalaceManualReferenceHtml());
 }
 
 /*
@@ -10548,6 +10593,25 @@ function initialiseEventListeners() {
         if (profileEstimatorProject) {
             profileEstimatorProject.addEventListener("change", () => {
                 renderCrealcoProfileEstimator(profileEstimatorProject.value);
+            });
+        }
+
+        const profileEstimatorContent = $("profileEstimatorContent");
+        if (profileEstimatorContent) {
+            profileEstimatorContent.addEventListener("input", event => {
+                if (event.target?.id !== "palaceSillExtensionDimension") {
+                    return;
+                }
+
+                const output = $("palaceSillExtensionResult");
+                if (!output) {
+                    return;
+                }
+
+                const calculation = window.CrealcoProfileEstimator?.estimatePalaceSillExtension(event.target.value);
+                output.textContent = calculation
+                    ? `${formatEstimatorMillimetres(calculation.measuredDimensionMm)} mm measured − 4 mm at each end = ${formatEstimatorMillimetres(calculation.cutLengthMm)} mm cut length. This manual-specific result is not included in the generic stock-bar totals.`
+                    : "Enter a measured dimension greater than 8 mm.";
             });
         }
 

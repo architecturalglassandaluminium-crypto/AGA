@@ -18,6 +18,27 @@
 
     const STOCK_LENGTH_MM = 6000;
     const SAW_KERF_MM = 3;
+    const PALACE_MANUAL = Object.freeze({
+        revision: "Rev. 9 (2025-02-26)",
+        sourceUrl: "https://crealco.co.za/wp-content/uploads/2025/12/Rev.9-2025-02-26-Palace-Manual.pdf",
+        profiles: Object.freeze([
+            Object.freeze({ code: "W31533", description: "Palace M Frame Head Rail Double" }),
+            Object.freeze({ code: "W31590", description: "Palace M Adaptor Frame Jamb 14mm" }),
+            Object.freeze({ code: "W55433", description: "Palace M Frame Jamb Double" }),
+            Object.freeze({ code: "W31539", description: "Palace M Frame Sill Rail Double 50mm" }),
+            Object.freeze({ code: "W31537", description: "Palace M Frame Head Rail Triple" }),
+            Object.freeze({ code: "W55434", description: "Palace M Frame Jamb Triple" }),
+            Object.freeze({ code: "W31535", description: "Palace M Frame Sill Rail Triple 50mm" }),
+            Object.freeze({ code: "W26282", description: "Palace M Track 10mm" }),
+            Object.freeze({ code: "W58916", description: "Palace Multi Sill Extension" }),
+            Object.freeze({ code: "W54966", description: "Palace Multi Stile Meeting 90mm" }),
+            Object.freeze({ code: "W56607", description: "Palace Multi Stile Meeting 65mm" }),
+            Object.freeze({ code: "W58268", description: "Palace Multi Stile Meeting 60mm" }),
+            Object.freeze({ code: "W53100", description: "Palace Multi Stile Meeting 39mm" }),
+            Object.freeze({ code: "GFP-6790", description: "6.7 x 9mm finseal for Palace retention rail" })
+        ]),
+        sillExtensionEndCapAllowanceMm: 4
+    });
 
     function dimension(value) {
         if (typeof value === "number") {
@@ -53,6 +74,23 @@
             kerf: bar.cuts.length * SAW_KERF_MM,
             remaining: bar.remaining
         }));
+    }
+
+    function estimatePalaceSillExtension(overallDimension) {
+        const measuredDimension = dimension(overallDimension);
+        const endCapAllowanceEachEnd = PALACE_MANUAL.sillExtensionEndCapAllowanceMm;
+        const totalAllowance = endCapAllowanceEachEnd * 2;
+
+        if (!measuredDimension || measuredDimension <= totalAllowance) {
+            return null;
+        }
+
+        return {
+            measuredDimensionMm: measuredDimension,
+            endCapAllowanceEachEndMm: endCapAllowanceEachEnd,
+            totalEndCapAllowanceMm: totalAllowance,
+            cutLengthMm: measuredDimension - totalAllowance
+        };
     }
 
     function estimateProject(project) {
@@ -126,6 +164,8 @@
     return Object.freeze({
         STOCK_LENGTH_MM,
         SAW_KERF_MM,
-        estimateProject
+        estimateProject,
+        PALACE_MANUAL,
+        estimatePalaceSillExtension
     });
 }));

@@ -84,6 +84,30 @@ test("returns an empty estimate for projects without windows", () => {
     });
 });
 
+test("uses the Palace manual's end-cap allowance only for sill extensions", () => {
+    const result = estimator.estimatePalaceSillExtension("1200");
+
+    assert.deepEqual(result, {
+        measuredDimensionMm: 1200,
+        endCapAllowanceEachEndMm: 4,
+        totalEndCapAllowanceMm: 8,
+        cutLengthMm: 1192
+    });
+    assert.equal(estimator.estimatePalaceSillExtension(8), null);
+    assert.equal(estimator.estimatePalaceSillExtension(""), null);
+    assert.equal(estimator.estimateProject({
+        windows: [{ id: "W1", length: 1200, width: 900 }]
+    }).totalCutLength, 4200);
+});
+
+test("publishes selected Palace profile references from the current manual revision", () => {
+    assert.equal(estimator.PALACE_MANUAL.revision, "Rev. 9 (2025-02-26)");
+    assert.ok(estimator.PALACE_MANUAL.profiles.some(profile =>
+        profile.code === "W58916" && profile.description === "Palace Multi Sill Extension"
+    ));
+    assert.ok(Object.isFrozen(estimator.PALACE_MANUAL.profiles));
+});
+
 test("includes captured dimensions and a provisional cut list on project worksheets", () => {
     const root = path.join(__dirname, "..");
     const app = fs.readFileSync(path.join(root, "app.js"), "utf8");
@@ -93,6 +117,8 @@ test("includes captured dimensions and a provisional cut list on project workshe
 
     assert.match(app, /onclick="openProjectEstimator\(/);
     assert.match(app, /profileEstimatorProject\.addEventListener\("change"/);
+    assert.match(app, /buildPalaceManualReferenceHtml\(\)/);
+    assert.match(app, /estimatePalaceSillExtension\(event\.target\.value\)/);
     assert.match(app, /height: Number\(row\.width\)/);
     assert.match(app, /profileEstimate\.innerHTML = buildProfileCutListHtml\(project, false\)/);
     assert.match(app, /buildProfileCutListHtml\(project, true\)/);
@@ -100,6 +126,7 @@ test("includes captured dimensions and a provisional cut list on project workshe
     assert.match(html, /<script src="profile-estimator\.js"><\/script>\s*<script src="app\.js"><\/script>/);
     assert.match(html, /<th>Width \(mm\)<\/th>\s*<th>Height \(mm\)<\/th>/);
     assert.match(html, /Width and height in mm/);
+    assert.match(html, /documented\s+sill-extension allowance below/);
     assert.match(html, /id="printProfileEstimate"/);
     assert.match(email, /worksheetProfileCutList\(project\)/);
     assert.match(email, /<th>Width<\/th>\s*<th>Height<\/th>/);
