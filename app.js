@@ -4653,6 +4653,11 @@ function renderProjects(
                 </button>
 
                 <button type="button" class="secondary-button card-action"
+                    onclick="openProjectEstimator('${escapeHtml(project.id)}')">
+                    Estimate Profiles
+                </button>
+
+                <button type="button" class="secondary-button card-action"
                     onclick="printProject('${project.id}')">
                     Print
                 </button>
@@ -9902,6 +9907,7 @@ window.stageDaysForProject = stageDaysForProject;
 const VIEW_NAMES = [
     "dashboard",
     "projects",
+    "estimator",
     "windows",
     "scanner",
     "employees",
@@ -9910,6 +9916,120 @@ const VIEW_NAMES = [
     "quotes",
     "pricecheck"
 ];
+
+let profileEstimatorProjectId = null;
+
+function formatEstimatorMillimetres(value) {
+    return Number(value).toLocaleString("en-ZA", {
+        maximumFractionDigits: 1
+    });
+}
+
+function openProjectEstimator(projectId) {
+    profileEstimatorProjectId = String(projectId || "");
+    switchView("estimator");
+}
+
+window.openProjectEstimator = openProjectEstimator;
+
+function renderCrealcoProfileEstimator(projectId) {
+    const select = $("profileEstimatorProject");
+    const content = $("profileEstimatorContent");
+
+    if (!select || !content) {
+        return;
+    }
+
+    const projects = getProjects();
+    const selectedProject = projects.find(project => String(project.id) === String(projectId));
+    const currentProject = selectedProject || projects[0];
+
+    select.innerHTML = projects.length
+        ? projects.map(project => `<option value="${escapeHtml(project.id)}">${escapeHtml(project.projectNumber || project.projectName || "Project")} — ${escapeHtml(project.projectName || "")}</option>`).join("")
+        : `<option value="">No projects available</option>`;
+
+    if (!currentProject) {
+        profileEstimatorProjectId = null;
+        content.innerHTML = `
+            <div class="empty-state">
+                <h3>No projects to estimate</h3>
+                <p>Create a project and enter window dimensions to estimate profile quantities.</p>
+                <button type="button" class="primary-button" onclick="openNewProject()">Create Project</button>
+            </div>`;
+        return;
+    }
+
+    profileEstimatorProjectId = currentProject.id;
+    select.value = String(currentProject.id);
+
+    if (!window.CrealcoProfileEstimator) {
+        content.innerHTML = `
+            <div class="empty-state" role="alert">
+                <h3>Estimator unavailable</h3>
+                <p>The profile estimator could not be loaded. Refresh the app while online and try again.</p>
+            </div>`;
+        return;
+    }
+
+    const estimate = window.CrealcoProfileEstimator.estimateProject(currentProject);
+    const windows = Array.isArray(currentProject.windows) ? currentProject.windows : [];
+    const rows = estimate.rows.map((row, index) => {
+        const item = windows[index] || {};
+        const type = safeText(item.productType || item.windowType) || "Window / door";
+        const size = row.length && row.width
+            ? `${formatEstimatorMillimetres(row.length)} × ${formatEstimatorMillimetres(row.width)}`
+            : "Dimensions required";
+        const cuts = row.cuts.length
+            ? `2 × ${formatEstimatorMillimetres(row.length)} + 2 × ${formatEstimatorMillimetres(row.width)}`
+            : "—";
+        const status = row.overlength
+            ? "Over 6,000 mm stock length"
+            : row.perimeter === null
+                ? "Missing dimensions"
+                : "Included";
+
+        return `<tr>
+            <td>${escapeHtml(row.id)}</td>
+            <td>${escapeHtml(type)}</td>
+            <td>${escapeHtml(size)}</td>
+            <td>${escapeHtml(cuts)}</td>
+            <td class="profile-estimator-number">${row.perimeter === null ? "—" : `${formatEstimatorMillimetres(row.perimeter / 1000)} m`}</td>
+            <td>${escapeHtml(status)}</td>
+        </tr>`;
+    }).join("");
+
+    content.innerHTML = `
+        <div class="profile-estimator-project">
+            <h3>${escapeHtml(currentProject.projectName || currentProject.projectNumber || "Project")}</h3>
+            <span>${escapeHtml(currentProject.projectNumber || "")}</span>
+        </div>
+        <div class="profile-estimator-summary" aria-label="Profile estimate totals">
+            <div><span>Windows / doors</span><strong>${windows.length}</strong></div>
+            <div><span>Profile cut length</span><strong>${formatEstimatorMillimetres(estimate.totalCutLength / 1000)} m</strong></div>
+            <div><span>6,000 mm stock bars</span><strong>${estimate.stockBars}</strong></div>
+            <div><span>Unestimated items</span><strong>${estimate.pending.length}</strong></div>
+        </div>
+        <p class="profile-estimator-assumptions">
+            Generic frame perimeter only · 2 × length + 2 × width per opening ·
+            shared 6,000 mm stock bars · ${estimate.cutCount ? `3 mm saw kerf per cut` : "3 mm saw kerf"}.
+            Stock use is estimated with a simple cut-packing method.
+        </p>
+        ${windows.length
+            ? `<div class="window-rows-wrapper profile-estimator-table-wrap">
+                <table class="window-rows-table profile-estimator-table">
+                    <thead><tr>
+                        <th>Item</th><th>Type</th><th>Size (L × W mm)</th>
+                        <th>Provisional frame cuts</th><th>Perimeter</th><th>Check</th>
+                    </tr></thead>
+                    <tbody>${rows}</tbody>
+                </table>
+               </div>`
+            : `<p class="details-small">No windows or doors are recorded for this project.</p>`}
+        <p class="profile-estimator-caveat">
+            Profile lengths are provisional and are not separated into Crealco profile codes.
+            Items with missing dimensions or members longer than stock are excluded from the stock-bar total.
+        </p>`;
+}
 
 /*
    Any request for the retired "new-window" view is redirected here.
@@ -9962,6 +10082,10 @@ function switchView(viewName) {
     */
     if (viewName === "pricecheck" && typeof window.renderPriceCheck === "function") {
         window.renderPriceCheck();
+    }
+
+    if (viewName === "estimator") {
+        renderCrealcoProfileEstimator(profileEstimatorProjectId);
     }
 
     /*
@@ -10341,6 +10465,13 @@ function initialiseEventListeners() {
                 switchView(button.dataset.view);
             });
         });
+
+        const profileEstimatorProject = $("profileEstimatorProject");
+        if (profileEstimatorProject) {
+            profileEstimatorProject.addEventListener("change", () => {
+                renderCrealcoProfileEstimator(profileEstimatorProject.value);
+            });
+        }
 
         /*
            Scanner employee dropdown. Changing the name immediately

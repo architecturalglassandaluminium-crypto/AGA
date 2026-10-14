@@ -1,5 +1,5 @@
 /* Bump this whenever a cached file changes, or phones keep the old copy. */
-const CACHE_NAME = 'apc-v19';
+const CACHE_NAME = 'apc-v20';
 const APP_FILES = [
     './',
     './index.html',

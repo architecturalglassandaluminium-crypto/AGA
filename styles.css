@@ -8311,3 +8311,115 @@ body.trade-open {
     .price-favorite-dialog,
     .store-catalogue-links { display: none !important; }
 }
+
+/* ---- Provisional Crealco profile estimator ---- */
+
+.estimator-warning {
+    border-left: 4px solid var(--warning);
+}
+
+.estimator-warning strong {
+    display: block;
+    margin-bottom: 5px;
+}
+
+.estimator-warning p {
+    margin: 0;
+    line-height: 1.5;
+}
+
+.profile-estimator-controls {
+    max-width: 520px;
+    margin-bottom: 18px;
+}
+
+.profile-estimator-controls label {
+    display: grid;
+    gap: 6px;
+    font-weight: 600;
+}
+
+.profile-estimator-controls select {
+    width: 100%;
+    min-height: 42px;
+}
+
+.profile-estimator-project {
+    display: flex;
+    align-items: baseline;
+    flex-wrap: wrap;
+    gap: 8px 14px;
+    margin-bottom: 12px;
+}
+
+.profile-estimator-project h3 {
+    margin: 0;
+}
+
+.profile-estimator-project span,
+.profile-estimator-assumptions,
+.profile-estimator-caveat {
+    color: var(--text-muted);
+}
+
+.profile-estimator-summary {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 10px;
+    margin-bottom: 12px;
+}
+
+.profile-estimator-summary > div {
+    display: grid;
+    gap: 5px;
+    padding: 12px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    background: var(--surface-light);
+}
+
+.profile-estimator-summary span {
+    color: var(--text-muted);
+    font-size: 12px;
+}
+
+.profile-estimator-summary strong {
+    font-size: 20px;
+    font-variant-numeric: tabular-nums;
+}
+
+.profile-estimator-assumptions,
+.profile-estimator-caveat {
+    font-size: 13px;
+    line-height: 1.5;
+}
+
+.profile-estimator-table-wrap {
+    margin-top: 14px;
+}
+
+.profile-estimator-table {
+    min-width: 760px;
+}
+
+.profile-estimator-number {
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+}
+
+@media (max-width: 700px) {
+    .profile-estimator-summary {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+}
+
+@media print {
+    .profile-estimator-summary {
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+    }
+
+    .profile-estimator-table {
+        min-width: 0;
+    }
+}

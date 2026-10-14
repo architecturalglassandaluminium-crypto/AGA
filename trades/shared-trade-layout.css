@@ -373,6 +373,16 @@ h1 {
     max-width: 100%
 }
 
+.scenario-editor-scroll {
+    max-width: 100%;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch
+}
+
+.scenario-editor-scroll-note {
+    display: none
+}
+
 .table-scroll>.labour-list,
 .table-scroll>.labour-headings,
 .table-scroll>.material-list,
@@ -1031,6 +1041,18 @@ body .scenario-bar .primary-button {
 
     .main-content {
         padding-top: 18px
+    }
+
+    .scenario-service-headings,
+    .scenario-editor-list {
+        min-width: 760px
+    }
+
+    .scenario-editor-scroll-note {
+        display: block;
+        margin: -8px 0 0;
+        color: var(--muted);
+        font-size: 12px !important
     }
 }
 

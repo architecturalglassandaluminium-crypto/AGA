@@ -2202,3 +2202,40 @@ test('trades.js is part of the cached app shell', () => {
         'trades.js is not in the service worker app shell'
     );
 });
+
+test('both trade scenario editors remain usable on narrow screens', () => {
+    for (const [label, file] of [
+        ['plumbing (APS)', PLUMBING_HTML],
+        ['coatings (APC)', COATINGS_HTML]
+    ]) {
+        const html = read(file);
+        const scrollStart = html.indexOf('class="scenario-editor-scroll"');
+        const headings = html.indexOf('class="scenario-service-headings"');
+        const rows = html.indexOf('class="scenario-editor-list"');
+        const scrollHint = html.indexOf('id="scenario-editor-scroll-note"');
+        const emptyState = html.indexOf('id="scenario-editor-empty"');
+
+        assert.ok(scrollStart >= 0, `${label} has no scenario editor scroll region`);
+        assert.ok(
+            scrollStart < headings && headings < rows && rows < scrollHint && scrollHint < emptyState,
+            `${label} scenario headings and rows are not grouped in the scroll region`
+        );
+    }
+
+    const css = read(SHARED_TRADE_CSS);
+    assert.match(
+        css,
+        /\.scenario-editor-scroll\s*\{[^}]*overflow-x:\s*auto/,
+        'scenario editor has no horizontal scroll container'
+    );
+    assert.match(
+        css,
+        /@media\(max-width:850px\)\s*\{[\s\S]*?\.scenario-service-headings,\s*\.scenario-editor-list\s*\{\s*min-width:\s*760px/s,
+        'scenario editor columns are allowed to collapse on narrow screens'
+    );
+    assert.match(
+        css,
+        /@media\(max-width:850px\)\s*\{[\s\S]*?\.scenario-editor-scroll-note\s*\{\s*display:\s*block/s,
+        'narrow screens do not explain that the scenario table scrolls sideways'
+    );
+});

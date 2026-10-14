@@ -24,7 +24,7 @@
          larger, and text wraps instead of being clipped.
          See the comment block at the top of the file.
     -->
-    <link rel="stylesheet" href="../shared-trade-layout.css?v=8">
+    <link rel="stylesheet" href="../shared-trade-layout.css?v=9">
 
     <title>Pipewise Quote Calculator</title>
 </head>
@@ -1356,21 +1356,29 @@
                     </label>
 
 
-                    <div class="scenario-service-headings" aria-hidden="true">
+                    <div class="scenario-editor-scroll" role="region"
+                        aria-label="Scenario services, scroll horizontally"
+                        aria-describedby="scenario-editor-scroll-note" tabindex="0">
 
-                        <span>Category</span>
-                        <span>Task</span>
-                        <span>Unit</span>
-                        <span>Qty</span>
-                        <span>Rate</span>
-                        <span>Total</span>
-                        <span></span>
+                        <div class="scenario-service-headings" aria-hidden="true">
+
+                            <span>Category</span>
+                            <span>Task</span>
+                            <span>Unit</span>
+                            <span>Qty</span>
+                            <span>Rate</span>
+                            <span>Total</span>
+                            <span></span>
+
+                        </div>
+
+                        <div class="scenario-editor-list" id="scenario-editor-list"></div>
 
                     </div>
 
-
-                    <div class="scenario-editor-list" id="scenario-editor-list"></div>
-
+                    <p class="scenario-editor-scroll-note" id="scenario-editor-scroll-note">
+                        Swipe sideways to see Unit, Qty, Rate and Total.
+                    </p>
 
                     <div class="material-empty" id="scenario-editor-empty">
                         Select a scenario to edit its linked services.
