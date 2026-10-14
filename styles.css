@@ -286,18 +286,23 @@ img {
    NAVIGATION
 ------------------------- */
 
+/*
+   The bar carries eight tabs. It WRAPS rather than scrolling: a
+   hidden sideways scroll would put the last tabs off screen with
+   nothing to say they are there, which is how the Price Check tab
+   could sit invisible at tablet widths.
+*/
 .main-navigation {
     background: rgba(255, 255, 255, 0.96);
     backdrop-filter: saturate(180%) blur(10px);
     border-bottom: 1px solid var(--border);
     display: flex;
+    flex-wrap: wrap;
     gap: 6px;
     padding: 8px 16px;
     position: sticky;
     top: 70px;
     z-index: 90;
-    overflow-x: auto;
-    scrollbar-width: thin;
 }
 
 .nav-button {
@@ -4632,19 +4637,31 @@ img {
     }
 
     /*
-       Eight labels on one 390px bar. "Productivity" and "Price
-       Check" each need about 68px at 10px, which does not fit eight
-       ways - so the label drops to 9px, and the two longest names
-       are clipped to one line rather than pushing their neighbours
-       narrow. The icon above carries the recognition; the label only
-       has to confirm it.
+       Eight labels on one bar. "Productivity" and "Price Check"
+       each need about 68px at 10px, which does not fit eight ways
+       on a small phone.
+
+       Rather than clip them to "Producti..." - which stops being a
+       word and tells the user nothing - the two longest tabs carry a
+       shorter label in data-short, swapped in below 700px. The
+       aria-label on the button keeps the full name for a screen
+       reader either way.
     */
     .nav-label {
-        font-size: 9px;
+        font-size: 9.5px;
         letter-spacing: -0.02em;
         max-width: 100%;
         overflow: hidden;
         text-overflow: ellipsis;
+    }
+
+    .nav-label[data-short] {
+        font-size: 0;
+    }
+
+    .nav-label[data-short]::after {
+        content: attr(data-short);
+        font-size: 9.5px;
     }
 
     .nav-button {

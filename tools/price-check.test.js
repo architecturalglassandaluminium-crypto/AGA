@@ -446,3 +446,39 @@ test('the price check is compacted rather than left at the app default', () => {
     assert.match(css, /#pricecheck-view \.page-header \{ margin-bottom: 14px; \}/);
     assert.match(css, /#pricecheck-view \.section-card \{ padding: 14px; margin-bottom: 12px; \}/);
 });
+test('the nav bar wraps and every tab stays reachable', () => {
+    const css = read('styles.css');
+    /*
+       With eight tabs the bar overflowed at tablet widths, which hid
+       "Quotes" and "Price Check" behind a sideways scroll with nothing
+       to say they were there. The base rule wraps instead.
+    */
+    const base = css.slice(css.indexOf('.main-navigation {'), css.indexOf('.nav-button {'));
+    assert.match(base, /flex-wrap:\s*wrap/, 'the nav bar does not wrap, so tabs can hide behind a scroll');
+    assert.doesNotMatch(base, /overflow-x:\s*auto/, 'the nav bar still scrolls sideways');
+});
+
+test('the longest nav tabs carry a short label for a narrow screen', () => {
+    const html = read('index.html');
+    /*
+       "Productivity" and "Price Check" cannot fit eight ways on a
+       small phone. They clip to a fragment, which stops being a word -
+       so they carry a shorter label the stylesheet swaps in. The
+       button keeps its full aria-label for a screen reader.
+    */
+    for (const [view, full, short] of [
+        ['dashboard', 'Dashboard', 'Home'],
+        ['productivity', 'Productivity', 'Stats'],
+        ['pricecheck', 'Price Check', 'Prices']
+    ]) {
+        const button = html.slice(
+            html.indexOf(`data-view="${view}"`),
+            html.indexOf('</button>', html.indexOf(`data-view="${view}"`))
+        );
+        assert.match(button, new RegExp(`aria-label="${full}"`), `${view} lost its full accessible name`);
+        assert.match(button, new RegExp(`data-short="${short}"`), `${view} has no short label`);
+    }
+
+    const css = read('styles.css');
+    assert.match(css, /\.nav-label\[data-short\]::after\s*\{[^}]*content:\s*attr\(data-short\)/);
+});
