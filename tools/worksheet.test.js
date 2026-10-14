@@ -232,3 +232,20 @@ test('no print rule fills a block with near-black', () => {
         `a solid dark fill was found in the print styles: ${darkFills.join(', ')}`
     );
 });
+
+test('the worksheet uses normal print flow for A4 pagination', () => {
+    const rule = cssSource.match(/#printWorksheet\.print-only\s*\{([\s\S]*?)\n    \}/);
+    assert.ok(rule, 'the worksheet print rule was not found');
+    assert.match(rule[1], /position:\s*static/);
+    assert.match(rule[1], /display:\s*block/);
+    assert.match(rule[1], /min-height:\s*0/);
+});
+
+test('the worksheet sections can flow across page boundaries', () => {
+    const rule = cssSource.match(
+        /#printWorksheet\.print-only \.print-section\s*\{([\s\S]*?)\}/
+    );
+    assert.ok(rule, 'the worksheet section pagination rule was not found');
+    assert.match(rule[1], /break-inside:\s*auto/);
+    assert.match(rule[1], /page-break-inside:\s*auto/);
+});

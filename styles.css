@@ -3343,33 +3343,19 @@ img {
         visibility: visible;
     }
 
+    body:not(.printing-quote):not(.printing-roof):not(.print-label-active) > :not(#printWorksheet) {
+        display: none !important;
+    }
+
     /*
-       Fill the page.
-
-       `min-height` sized to the A4 printable area means a short
-       schedule does not leave the bottom third blank, which looked
-       unfinished. The sign-off and footer are then pushed to the
-       bottom with margins on the notes block.
-    */
-    /*
-       Fill the page, with an explicit inset.
-
-       The container is absolutely positioned at left:0/right:0, so
-       without padding every heading sat flush against the paper
-       edge and the first letter was trimmed by the printer's
-       unprintable margin - "ITEM DETAIL" came out as "TEM DETAIL".
-
-       The padding below matches the @page margin, so the content
-       sits where a normal document would.
+       Keep the worksheet in normal document flow so the browser can
+       paginate it naturally on A4 instead of clipping or skipping
+       content inside an absolutely positioned sheet.
     */
     #printWorksheet.print-only {
-        display: flex !important;
-        flex-direction: column;
-        position: absolute;
-        left: 0;
-        top: 0;
-        right: 0;
-        min-height: 267mm; /* A4 height minus the @page margins */
+        display: block !important;
+        position: static;
+        min-height: 0;
         padding: 0;
         box-sizing: border-box;
         background: white;
@@ -3416,13 +3402,8 @@ img {
         padding-right: 0;
     }
 
-    /*
-       Any spare vertical space collects above the sign-off, so the
-       signature and footer always sit at the foot of the sheet the
-       way a formal document should.
-    */
     .print-signoff {
-        margin-top: auto;
+        margin-top: 0;
     }
 
     /* =====================================================
@@ -3681,8 +3662,8 @@ img {
     .print-detail-row {
         display: flex;
         align-items: flex-start;
-        gap: 5mm;
-        margin-bottom: 5mm;
+        gap: 4mm;
+        margin-bottom: 3mm;
     }
 
     .print-detail-col {
@@ -3834,21 +3815,15 @@ img {
     */
     .print-photo-frame {
         border: 0.5pt solid #d4d4d4;
-        padding: 1.5mm;
+        padding: 1.2mm;
         text-align: center;
         background: #fff;
         /*
-           A fixed block height, not min-height.
-
-           With `min-height` plus a flex child, an <img> that has not
-           loaded contributes no intrinsic size, so the box collapsed
-           to a ~21px strip instead of the intended ~52mm. On paper
-           that prints as a thin empty sliver beside the detail grid.
-           An explicit height reserves the space unconditionally,
-           which also stops a slow-loading photo shifting the
-           schedule down at print time.
+           Keep the photo block compact so the schedule does not get
+           pushed onto a following page while the sheet still reads as
+           a full worksheet.
         */
-        height: 52mm;
+        height: 46mm;
         display: flex;
         align-items: center;
         justify-content: center;
@@ -3858,7 +3833,7 @@ img {
 
     .print-photo-frame img {
         max-width: 100%;
-        max-height: 48mm;
+        max-height: 42mm;
         width: auto;
         height: auto;
         object-fit: contain;
@@ -3981,8 +3956,8 @@ img {
         break-inside: avoid;
         page-break-inside: avoid;
         border: 0.75pt solid #000;
-        padding: 3mm;
-        margin-bottom: 4mm;
+        padding: 2.2mm 2.5mm 2.5mm;
+        margin-bottom: 2.5mm;
     }
 
     /*
@@ -3995,21 +3970,21 @@ img {
         display: flex;
         align-items: baseline;
         justify-content: space-between;
-        gap: 4mm;
+        gap: 3mm;
         border-bottom: 0.75pt solid #000;
-        padding-bottom: 1.5mm;
-        margin-bottom: 2.5mm;
+        padding-bottom: 1.2mm;
+        margin-bottom: 2mm;
     }
 
     .print-item-id {
         font-family: ui-monospace, Consolas, "Courier New", monospace;
-        font-size: 12pt;
+        font-size: 11pt;
         font-weight: 700;
         letter-spacing: 0.01em;
     }
 
     .print-item-type {
-        font-size: 8pt;
+        font-size: 7pt;
         font-weight: 700;
         text-transform: uppercase;
         letter-spacing: 0.06em;
@@ -4027,8 +4002,8 @@ img {
     .pf-grid {
         display: grid;
         grid-template-columns: repeat(3, minmax(0, 1fr));
-        gap: 2mm 4mm;
-        margin-bottom: 3mm;
+        gap: 1.2mm 2.5mm;
+        margin-bottom: 2.2mm;
     }
 
     /*
@@ -4050,19 +4025,19 @@ img {
     */
     .pf-label {
         display: block;
-        font-size: 6pt;
+        font-size: 5.5pt;
         font-weight: 700;
         text-transform: uppercase;
         letter-spacing: 0.08em;
         color: #555;
-        margin-bottom: 0.6mm;
+        margin-bottom: 0.4mm;
     }
 
     .pf-value {
         display: block;
-        font-size: 9pt;
+        font-size: 8.3pt;
         font-weight: 600;
-        line-height: 1.25;
+        line-height: 1.2;
         /* Long free text must wrap rather than overflow the block. */
         overflow-wrap: anywhere;
     }
@@ -4078,15 +4053,15 @@ img {
     .pf-marks {
         display: flex;
         align-items: flex-start;
-        gap: 4mm;
+        gap: 3mm;
         border-top: 0.4pt solid #c8c8c8;
-        padding-top: 2.5mm;
+        padding-top: 2mm;
     }
 
     .pf-photo {
         flex: 0 0 auto;
-        width: 45mm;
-        height: 34mm;
+        width: 38mm;
+        height: 28mm;
         display: flex;
         align-items: center;
         justify-content: center;
@@ -4111,7 +4086,7 @@ img {
         flex: 1 1 auto;
         display: flex;
         align-items: flex-start;
-        gap: 5mm;
+        gap: 3mm;
         min-width: 0;
     }
 
@@ -4147,8 +4122,8 @@ img {
     .print-item-qr,
     .print-item-qr img,
     .print-item-qr canvas {
-        width: 18mm !important;
-        height: 18mm !important;
+        width: 16mm !important;
+        height: 16mm !important;
         display: block;
     }
 
@@ -5942,6 +5917,11 @@ img {
 
     .print-section {
         page-break-inside: avoid;
+    }
+
+    body:not(.printing-quote):not(.printing-roof):not(.print-label-active) #printWorksheet.print-only .print-section {
+        break-inside: auto;
+        page-break-inside: auto;
     }
 }/* =========================================================
    QUOTE BUILDER
