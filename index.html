@@ -37,7 +37,7 @@
                 before any script runs.
 
                 The three logos are opaque files: AGA's has a grey field,
-                APS and APC's have white. All three are shown on a white
+                APC's have white. They are shown on a white
                 rounded plate (see .company-logo in styles.css) rather
                 than dropped straight onto the dark header, where a grey
                 rectangle would read as a mistake.
@@ -57,25 +57,21 @@
                 <!--
                    TRADE SWITCHER
 
-                   AGA is one application covering three trades. Glass &
+                   AGA is one application covering two trades. Glass &
                    Aluminium is the app you are looking at: the production
-                   tracking and quote builder below. Plumbing and Coatings
-                   are the complete APS quoting systems, embedded in a
-                   full-height panel so their code runs exactly as it was
+                   tracking and quote builder below. Coatings is the
+                   complete APC quoting system, embedded in a
+                   full-height panel so its code runs exactly as it was
                    written rather than being rewritten into this one.
 
                    Selecting a trade swaps the whole workspace: the
-                   production navigation is hidden for the two quoting
-                   trades, and the embedded app takes over the page.
+                   production navigation is hidden for the quoting
+                   trade, and the embedded app takes over the page.
                 -->
                 <div class="trade-switcher" role="tablist" aria-label="Trade">
                     <button type="button" class="trade-button active"
                         data-trade="glass" role="tab" aria-selected="true">
                         Glass &amp; Aluminium
-                    </button>
-                    <button type="button" class="trade-button"
-                        data-trade="plumbing" role="tab" aria-selected="false">
-                        Plumbing (APS)
                     </button>
                     <button type="button" class="trade-button"
                         data-trade="coatings" role="tab" aria-selected="false">
@@ -1229,18 +1225,17 @@
     <!--
        EMBEDDED TRADE WORKSPACE
 
-       Holds the Plumbing (APS) and Performance Coatings (APC) quoting
-       apps. Each is a complete, self-contained application in its own
-       folder under trades/. Loading it in an iframe rather than
-       rewriting it into this page means every screen, price list and
-       calculation keeps working exactly as it was built and tested - the
-       two apps share almost no markup with this one, so merging them
-       into the same document would mean a fragile rewrite of code that
-       already works.
+       Holds the Performance Coatings (APC) quoting app. It is a
+       complete, self-contained application in its own folder under
+       trades/. Loading it in an iframe rather than rewriting it into
+       this page means every screen, price list and calculation keeps
+       working exactly as it was built and tested - the app shares
+       almost no markup with this one, so merging them into the same
+       document would mean a fragile rewrite of code that already works.
 
-       The iframe is only created when a trade is first opened, so the
-       Glass & Aluminium app does not pay for the weight of both quoting
-       systems on every page load.
+       The iframe is only created when the trade is first opened, so the
+       Glass & Aluminium app does not pay for the weight of the quoting
+       system on every page load.
     -->
     <section id="trade-view" class="trade-view" hidden>
         <div id="tradeFrameHolder" class="trade-frame-holder"></div>
@@ -1250,14 +1245,14 @@
         <div class="portfolio-heading">
             <div>
                 <h2 id="portfolioTitle">All company projects</h2>
-                <p>AGA glass, APS plumbing and APC construction in one place. Open a project to manage its work in the company app.</p>
-                <small>APS and APC plans are saved on this device; AGA projects use the existing AGA sync.</small>
+                <p>AGA glass and APC construction in one place. Open a project to manage its work in the company app.</p>
+                <small>APC plans are saved on this device; AGA projects use the existing AGA sync.</small>
             </div>
             <button type="button" class="secondary-button" id="portfolioRefresh">Refresh</button>
         </div>
         <div class="portfolio-totals" id="portfolioTotals" aria-live="polite"></div>
         <div class="portfolio-toolbar">
-            <label>Company <select id="portfolioCompany"><option value="all">All companies</option><option value="glass">AGA · Glass &amp; Aluminium</option><option value="plumbing">APS · Plumbing</option><option value="coatings">APC · Construction</option></select></label>
+            <label>Company <select id="portfolioCompany"><option value="all">All companies</option><option value="glass">AGA · Glass &amp; Aluminium</option><option value="coatings">APC · Construction</option></select></label>
             <label>Status <select id="portfolioStatus"><option value="all">All statuses</option><option value="active">Active</option><option value="overdue">Overdue</option><option value="complete">Complete</option></select></label>
             <label>Search <input type="search" id="portfolioSearch" placeholder="Project, customer, site or number"></label>
         </div>

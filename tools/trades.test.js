@@ -35,11 +35,6 @@ function read(file) {
 // ---------------------------------------------------------------------------
 
 const TRADE_APPS = {
-    plumbing: {
-        description: 'APS plumbing quotation system',
-        logo: 'APSlogo.png',
-        logoType: 'image/png'
-    },
     coatings: {
         description: 'APC Architectural Performance Coatings quotation system',
         logo: 'APClogo.jpg',
@@ -49,28 +44,21 @@ const TRADE_APPS = {
 
 test('each trade is branded with its own company initials', () => {
     /*
-       APS is Architectural Plumbing Services; APC is Architectural
-       Performance Coatings. The coatings app was built from the plumbing
-       one, so it carried "APS" in its title, print letterhead, manifest
-       and saved company settings long after APC was settled - the brand
-       the customer reads on a printed quote was simply the wrong company.
+       APC is Architectural Performance Coatings. The coatings app was
+       built from the plumbing one, so it carried "APS" in its title,
+       print letterhead, manifest and saved company settings long after
+       APC was settled - the brand the customer reads on a printed quote
+       was simply the wrong company.
 
        The regex is deliberately anchored to the full phrase: "handyman"
        contains the letters "aps", so a bare /APS/ search would report a
        match on innocent words.
     */
-    const plumbingHtml = read(path.join(ROOT, 'trades', 'plumbing', 'index.html'));
     const coatingsHtml = read(path.join(ROOT, 'trades', 'coatings', 'index.html'));
     const coatingsManifest = read(
         path.join(ROOT, 'trades', 'coatings', 'manifest.json')
     );
     const coatingsApp = read(path.join(ROOT, 'trades', 'coatings', 'app.js'));
-
-    assert.match(
-        plumbingHtml,
-        /APS Architectural Plumbing Services/,
-        'the plumbing app lost its APS branding'
-    );
 
     for (const [label, source] of [
         ['index.html', coatingsHtml],
@@ -132,8 +120,8 @@ test('each embedded trade ships its own app.js and styles.css', () => {
 
 test('each trade carries its own brand mark, named and typed correctly', () => {
     /*
-       Each trade has its OWN logo: APS (blue, plumbing) and APC (navy,
-       construction). They used to share one file, which meant the
+       The coatings trade has its OWN logo: APC (navy, construction). It
+       used to share a file with the plumbing app, which meant the
        plumbing app displayed the coatings brand.
 
        The magic bytes are checked against the file's extension. A PNG
@@ -144,6 +132,8 @@ test('each trade carries its own brand mark, named and typed correctly', () => {
     for (const trade of Object.keys(TRADE_APPS)) {
         const config = TRADE_APPS[trade];
         const logoPath = path.join(ROOT, 'trades', trade, config.logo);
+        /* The plumbing app keeps its own APS mark; this loop only ever
+           covers the trades the host page still offers. */
 
         assert.ok(
             fs.existsSync(logoPath),
@@ -226,7 +216,7 @@ test('trades.js exposes the switcher for other code and tests', () => {
 
 test('the header offers a button for each trade', () => {
     const html = read(INDEX_HTML);
-    for (const trade of ['glass', 'plumbing', 'coatings']) {
+    for (const trade of ['glass', 'coatings']) {
         assert.match(
             html,
             new RegExp(`data-trade="${trade}"`),

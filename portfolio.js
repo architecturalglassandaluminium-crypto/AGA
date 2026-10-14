@@ -1,10 +1,9 @@
-/* Shared, read-only overview of the three existing project books. Editing stays in each company app. */
+/* Shared, read-only overview of the company project books. Editing stays in each company app. */
 (function (root) {
     'use strict';
 
     const COMPANIES = {
         glass: { name: 'AGA · Glass & Aluminium', key: 'aga_projects' },
-        plumbing: { name: 'APS · Plumbing', key: 'pipewise-projects' },
         coatings: { name: 'APC · Construction', key: 'apc-projects' }
     };
 
