@@ -21,6 +21,7 @@ const model = require('../price-check.js');
 const {
     SUPPLIERS, CATALOGUE, supplierName, toPrice, applyOverrides,
     recordOverride, pricesFor, bestPrice, search, groupByCategory,
+    toggleFavorite, addCustomItem,
     normaliseList, addLine, removeLine, setQuantity, toggleDone,
     listTotal, groupListBySupplier
 } = model;
@@ -133,10 +134,10 @@ test('toPrice accepts a number or a written price and rejects junk', () => {
     assert.equal(toPrice(undefined), null);
 });
 
-test('a store that does not stock a product is absent, not priced at zero', () => {
+test('a store with no saved price is absent from the ranking, not priced at zero', () => {
     const product = CATALOGUE.find(p => p.description === 'Geyser - 150L');
     const rows = pricesFor(product);
-    assert.ok(!rows.some(row => row.supplier === 'chamberlains'), 'a store that does not stock it is listed');
+    assert.ok(!rows.some(row => row.supplier === 'chamberlains'), 'a store without a saved price is in the ranking');
     assert.ok(!rows.some(row => row.price === 0), 'an absent store became a zero price');
 });
 
@@ -190,6 +191,26 @@ test('groupByCategory keeps the catalogue order and loses no product', () => {
     const flattened = groups.flatMap(group => group.products);
     assert.equal(flattened.length, CATALOGUE.length, 'grouping dropped or duplicated products');
     assert.deepEqual(flattened.map(p => p.description), CATALOGUE.map(p => p.description));
+});
+
+test('toggleFavorite adds and removes one product without duplicates', () => {
+    assert.deepEqual(toggleFavorite([], 'Copper pipe'), ['Copper pipe']);
+    assert.deepEqual(toggleFavorite(['Copper pipe'], 'Copper pipe'), []);
+    assert.deepEqual(toggleFavorite(['Other'], 'Copper pipe'), ['Other', 'Copper pipe']);
+});
+
+test('addCustomItem validates names and creates an editable unpriced row', () => {
+    const empty = addCustomItem([], '  ', '', '2026-10-14');
+    assert.equal(empty.added, false);
+    const added = addCustomItem([], '  My valve  ', 'Valves', '2026-10-14');
+    assert.equal(added.added, true);
+    assert.deepEqual(added.items[0], {
+        category: 'Valves',
+        description: 'My valve',
+        checked: '2026-10-14',
+        prices: {}
+    });
+    assert.equal(addCustomItem(added.items, 'MY VALVE', '', '2026-10-14').added, false);
 });
 
 // ---------------------------------------------------------------------------
@@ -375,6 +396,66 @@ test('the shopping list has a total and a way to clear it', () => {
     assert.match(html, /id="priceCheckTotal"/);
     assert.match(html, /id="priceCheckClearButton"/);
     assert.match(html, /id="priceCheckList"/);
+});
+
+test('the shopping list appears before the store comparison', () => {
+    const html = read('index.html');
+    assert.ok(
+        html.indexOf('<!-- SHOPPING LIST -->') < html.indexOf('<!-- SIDE-BY-SIDE PRICE COMPARISON -->'),
+        'the shopping list is not above the store comparison'
+    );
+});
+
+test('all five full retailer catalogues are directly linked', () => {
+    const html = read('index.html');
+    for (const [name, url] of [
+        ['Leroy Merlin', 'https://leroymerlin.co.za/'],
+        ['Plumblink', 'https://www.plumblink.co.za/all-products'],
+        ['Chamberlains', 'https://www.chamberlains.co.za/'],
+        ['Builders Warehouse', 'https://www.builders.co.za/'],
+        ['Bathroom Bizaar', 'https://bathroom.co.za/']
+    ]) {
+        assert.ok(html.includes(`href="${url}"`), `${name} full catalogue link is missing`);
+    }
+    assert.match(html, /small, manually maintained sample, not a live or complete retailer catalogue/);
+});
+
+test('the price table supports persistent favourites and adding custom items', () => {
+    const html = read('index.html');
+    const source = read('price-check.js');
+    assert.match(html, /id="priceCheckFavoritesOnly"/);
+    assert.match(html, /id="priceCheckAddFavoriteButton"/);
+    assert.match(html, /id="priceCheckFavoriteForm"/);
+    assert.match(source, /var FAVORITES_KEY = "aga_price_check_favorites"/);
+    assert.match(source, /var CUSTOM_ITEMS_KEY = "aga_price_check_custom_items"/);
+    assert.match(source, /favorite\.dataset\.favorite = product\.description/);
+});
+
+test('price refresh updates only exact Bathroom Bizaar matches and reports other stores as unchanged', () => {
+    const html = read('index.html');
+    const source = read('price-check.js');
+    assert.match(html, /id="priceCheckRefreshButton"/);
+    assert.match(html, /id="priceCheckRefreshStatus"[^>]*role="status"/);
+    assert.match(source, /\/api\/price-check-refresh\?search=/);
+    assert.match(source, /normaliseProductName\(candidate\.name\) === expectedName/);
+    assert.match(source, /Leroy Merlin, Plumblink, Chamberlains and Builders Warehouse have no verified public price feeds/);
+});
+
+test('every product has a status and a store search path for all five stores', () => {
+    const source = read('price-check.js');
+    assert.match(
+        source,
+        /SUPPLIERS\.forEach\(function \(store\)/,
+        'the product rows do not iterate over every store'
+    );
+    assert.match(source, /No price recorded/, 'missing store prices are not clearly labelled');
+    assert.match(
+        source,
+        /value\.append\(storeLink\(store\.key, product\.description, "Search store/,
+        'a product/store cell has no link to check the store'
+    );
+    assert.equal(SUPPLIERS.length, 5);
+    assert.ok(CATALOGUE.length > 0);
 });
 // ---------------------------------------------------------------------------
 // Responsive markup: the phone layout is pure CSS, and it reads the

@@ -7821,6 +7821,88 @@ body.trade-open {
     border-collapse: collapse;
 }
 
+.price-table-controls {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.price-favorites-filter {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    color: var(--text-light);
+    font-size: 13px;
+    white-space: nowrap;
+}
+
+.price-favorites-filter input { width: 16px; height: 16px; }
+
+.price-name-heading {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 8px;
+}
+
+.price-name-heading strong { flex: 1; }
+
+.price-favorite-button {
+    width: 30px;
+    height: 30px;
+    padding: 0;
+    flex: none;
+    border: 1px solid var(--border);
+    border-radius: 50%;
+    background: white;
+    color: var(--text-muted);
+    cursor: pointer;
+    font-size: 19px;
+    line-height: 1;
+}
+
+.price-favorite-button.is-favorite {
+    border-color: var(--warning);
+    color: var(--warning);
+}
+
+.price-favorite-button:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+}
+
+.price-favorite-dialog {
+    width: min(420px, calc(100vw - 28px));
+    padding: 20px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    color: var(--text);
+}
+
+.price-favorite-dialog::backdrop { background: rgb(15 23 42 / 45%); }
+.price-favorite-dialog form { display: grid; gap: 10px; }
+.price-favorite-dialog h3 { margin: 0 0 4px; }
+.price-favorite-dialog label { font-size: 13px; font-weight: 600; }
+.price-favorite-dialog input {
+    width: 100%;
+    min-height: 38px;
+    padding: 7px 9px;
+    border: 1px solid var(--border-dark);
+    border-radius: var(--radius-sm);
+    font: inherit;
+}
+
+.price-favorite-dialog-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+    margin-top: 6px;
+}
+
+.price-favorite-error { min-height: 18px; margin: 0; color: var(--danger); font-size: 12px; }
+
 /*
    Compact by default. The old cell padding (10px 12px) made an
    18-product table taller than the screen it was read on; the row
@@ -7879,10 +7961,16 @@ body.trade-open {
 
 /* A price captured before today is shown, but flagged: it is still
    the best figure available and hiding it would leave the row
-   blank, which reads as "not sold here". */
+   without useful price context. */
 .price-stale .price-checked { color: var(--warning); }
 
 .price-cell { white-space: nowrap; }
+.price-cell-value {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 2px;
+}
 
 /* The one number in each row worth reading first. */
 .price-cell.is-best {
@@ -7890,7 +7978,7 @@ body.trade-open {
     font-weight: 700;
 }
 
-.price-none { color: var(--text-muted); }
+.price-none { color: var(--text-muted); font-size: 11px; }
 
 .price-input {
     width: 78px;
@@ -7930,6 +8018,12 @@ body.trade-open {
     text-decoration: none;
 }
 
+.price-cell .price-store-link {
+    display: block;
+    margin-top: 0;
+    white-space: nowrap;
+}
+
 .price-store-link:hover { text-decoration: underline; }
 
 .price-actions { white-space: nowrap; text-align: right; }
@@ -7955,6 +8049,21 @@ body.trade-open {
 .shopping-total strong { font-size: 16px; color: var(--primary-dark); }
 
 .shopping-list { display: grid; gap: 12px; }
+
+.store-catalogue-links {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+    gap: 8px;
+}
+
+.store-catalogue-link {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 40px;
+    text-align: center;
+    text-decoration: none;
+}
 
 .shopping-group {
     border: 1px solid var(--border);
@@ -8038,6 +8147,13 @@ body.trade-open {
 #pricecheck-view .page-header p { font-size: 13.5px; margin: 0; }
 #pricecheck-view .section-card { padding: 14px; margin-bottom: 12px; }
 #pricecheck-view .section-card-header { margin-bottom: 10px; }
+#priceCheckRefreshButton:disabled { cursor: wait; opacity: 0.7; }
+.price-refresh-status {
+    margin: 0 0 10px;
+    color: var(--text-muted);
+    font-size: 12px;
+    line-height: 1.45;
+}
 
 /* =========================================================
    PRICE CHECK - PHONE
@@ -8115,8 +8231,8 @@ body.trade-open {
         overflow-wrap: anywhere;
     }
 
-    /* A store that does not carry the line is dimmed, not hidden:
-       "sold nowhere near here" is useful to know too. */
+    /* A missing saved price is dimmed, not hidden or presented as
+       proof that the store does not carry the product. */
     .price-cell:has(.price-none)::before { color: var(--text-muted); }
 
     .price-input { width: 100%; max-width: 120px; text-align: right; }
@@ -8159,6 +8275,9 @@ body.trade-open {
     }
 
     .price-list-heading .measurement-note { display: none; }
+    .price-table-controls { justify-content: flex-start; width: 100%; }
+    .price-table-controls .project-search { flex: 1 1 100%; width: 100%; }
+    .price-refresh-status { font-size: 11.5px; }
 
     /* Tick, name and price on the first row; controls beneath it,
        so the description is never squeezed by the inputs. */
@@ -8201,5 +8320,10 @@ body.trade-open {
     .shopping-line input[type="checkbox"],
     .shopping-quantity,
     #priceCheckClearButton,
-    #priceCheckPrintButton { display: none !important; }
+    #priceCheckPrintButton,
+    #priceCheckRefreshButton,
+    .price-table-controls,
+    .price-favorite-button,
+    .price-favorite-dialog,
+    .store-catalogue-links { display: none !important; }
 }

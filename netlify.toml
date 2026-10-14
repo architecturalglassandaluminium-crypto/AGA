@@ -14,6 +14,10 @@
   from = "/api/catalogue"
   to = "/.netlify/functions/catalogue"
   status = 200
+[[redirects]]
+  from = "/api/price-check-refresh"
+  to = "/.netlify/functions/price-check-refresh"
+  status = 200
 # Production / new-project notification emails. The mail-provider key
 # lives in the function's environment, never in the page.
 [[redirects]]

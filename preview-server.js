@@ -7,6 +7,7 @@ const path = require('path');
 
 const ROOT = __dirname;
 const PORT = 8800;
+const priceCheckRefresh = require('./netlify/functions/price-check-refresh');
 
 const MIME = {
     '.html': 'text/html; charset=utf-8',
@@ -66,10 +67,21 @@ function proxyCatalogue(res) {
 }
 
 http.createServer((req, res) => {
-    const requestPath = req.url.split('?')[0];
+    const requestUrl = new URL(req.url, 'http://127.0.0.1:' + PORT);
+    const requestPath = requestUrl.pathname;
 
     if (requestPath === '/api/catalogue') {
         return proxyCatalogue(res);
+    }
+
+    if (requestPath === '/api/price-check-refresh') {
+        return priceCheckRefresh.handler({
+            httpMethod: req.method,
+            queryStringParameters: Object.fromEntries(requestUrl.searchParams),
+        }).then(result => {
+            res.writeHead(result.statusCode, result.headers);
+            res.end(result.body);
+        });
     }
 
     // The production / new-project email endpoint is a Netlify function.

@@ -19,25 +19,18 @@
    So this is a read-and-compare tool with its own storage. It
    never touches a quote, a project or an invoice.
 
-   THE CATALOGUES ARE LOCAL, DELIBERATELY
-   --------------------------------------
-   Every price below is a captured figure with the date it was
-   captured and a link to the store's own site. Nothing is fetched
-   at runtime:
+   THE REFERENCE CATALOGUE IS LOCAL, DELIBERATELY
+   ----------------------------------------------
+   The cross-store table is a small editable reference list, not
+   each retailer's full catalogue. Bathroom Bizaar has a public
+   WooCommerce product API, which the user can explicitly refresh.
+   No public price feed has been verified for the other four
+   retailers, so their figures stay manually maintained.
 
-     - the five stores do not publish a machine-readable price
-       feed, so a live lookup would mean scraping five sites that
-       change their markup;
-     - this app is offline-first and its service worker caches it,
-       so a network price check would break the moment the phone
-       loses signal;
-     - a price the user cannot see the source of is worse than no
-       price, because it gets quoted.
-
-   Prices go stale. That is not a bug to hide: each row carries
-   `checked`, and the tab shows the date, so the user knows what
-   they are trusting. Editing a price in the UI updates the local
-   copy and stamps today's date.
+   The view remains useful offline: saved prices and favourites
+   load locally, while a refresh reports which online prices could
+   actually be checked. Each row carries `checked`, and editing a
+   price locally stamps today's date.
    ========================================================= */
 
 "use strict";
@@ -63,10 +56,9 @@
     /*
        The catalogue.
 
-       One entry per product, with a price per store. A store that
-       does not stock the line is simply absent - that is the
-       difference between "not sold here" and "sold, price unknown",
-       and the table shows them differently.
+       One entry per product, with a captured price per store.
+       Missing prices mean there is no saved figure for that store;
+       the store search link lets the buyer check its current listing.
 
        Prices are captured reference figures in Rand, ex VAT, and
        are editable in the UI. `checked` is the date they were
@@ -187,6 +179,8 @@
 
     var STORAGE_KEY = "aga_price_check_list";
     var OVERRIDES_KEY = "aga_price_check_overrides";
+    var FAVORITES_KEY = "aga_price_check_favorites";
+    var CUSTOM_ITEMS_KEY = "aga_price_check_custom_items";
 
     /* =========================================================
        MODEL - pure, no DOM. Everything below is testable in node.
@@ -262,9 +256,8 @@
     /*
        What each store charges for one product, cheapest first.
 
-       A store absent from the product is omitted; a store present
-       with an unusable price is omitted too, so the list never
-       ranks NaN.
+       Stores without a saved usable price are omitted from the
+       ranking, but remain visible in the comparison table.
     */
     function pricesFor(product) {
         return SUPPLIERS.map(function (store) {
@@ -308,6 +301,34 @@
             groups[product.category].push(product);
         });
         return order.map(function (category) { return { category: category, products: groups[category] }; });
+    }
+
+    function toggleFavorite(favorites, description) {
+        var next = Array.isArray(favorites) ? favorites.filter(function (item) { return typeof item === "string"; }) : [];
+        return next.indexOf(description) === -1
+            ? next.concat(description)
+            : next.filter(function (item) { return item !== description; });
+    }
+
+    function addCustomItem(items, description, category, checked) {
+        var name = String(description || "").trim();
+        if (!name) return { items: Array.isArray(items) ? items : [], added: false };
+        var current = Array.isArray(items) ? items : [];
+        if (current.some(function (item) {
+            return item && typeof item.description === "string" &&
+                item.description.toLowerCase() === name.toLowerCase();
+        })) {
+            return { items: current, added: false };
+        }
+        return {
+            items: current.concat({
+                category: String(category || "").trim() || "My items",
+                description: name,
+                checked: checked,
+                prices: {}
+            }),
+            added: true
+        };
     }
 
     /* =========================================================
@@ -428,6 +449,8 @@
         bestPrice: bestPrice,
         search: search,
         groupByCategory: groupByCategory,
+        toggleFavorite: toggleFavorite,
+        addCustomItem: addCustomItem,
         normaliseList: normaliseList,
         addLine: addLine,
         removeLine: removeLine,
@@ -469,15 +492,22 @@
     function writeJSON(key, value) {
         try {
             root.localStorage.setItem(key, JSON.stringify(value));
-        } catch (_) {
-            /* Private mode or a full quota: the tab still works, it
-               just will not remember. Losing a shopping list is not
-               worth throwing the whole view away over. */
+            return true;
+        } catch (error) {
+            console.error("Could not save local price-check data:", error);
+            return false;
         }
     }
 
     function currentCatalogue() {
-        return applyOverrides(CATALOGUE, readJSON(OVERRIDES_KEY, {}));
+        var customItems = readJSON(CUSTOM_ITEMS_KEY, []);
+        if (!Array.isArray(customItems)) customItems = [];
+        return applyOverrides(CATALOGUE.concat(customItems), readJSON(OVERRIDES_KEY, {}));
+    }
+
+    function currentFavorites() {
+        var favorites = readJSON(FAVORITES_KEY, []);
+        return Array.isArray(favorites) ? favorites.filter(function (item) { return typeof item === "string"; }) : [];
     }
 
     function currentList() {
@@ -488,6 +518,95 @@
         writeJSON(STORAGE_KEY, lines);
     }
 
+    function normaliseProductName(value) {
+        return String(value || "").normalize("NFKD")
+            .replace(/[\u0300-\u036f]/g, "")
+            .toLowerCase()
+            .replace(/[^a-z0-9]+/g, " ")
+            .trim();
+    }
+
+    async function refreshPrices() {
+        var button = el("priceCheckRefreshButton");
+        var status = el("priceCheckRefreshStatus");
+        if (!button || !status || button.disabled) return;
+
+        var products = currentCatalogue();
+        var overrides = readJSON(OVERRIDES_KEY, {});
+        var updated = 0;
+        var unmatched = 0;
+        var ambiguous = 0;
+        var errors = [];
+        var nextIndex = 0;
+        var refreshDate = today();
+
+        button.disabled = true;
+        status.textContent = "Refreshing Bathroom Bizaar prices for " + products.length +
+            " listed products. Prices from the other stores will remain unchanged.";
+
+        async function refreshNext() {
+            while (nextIndex < products.length) {
+                var product = products[nextIndex++];
+                try {
+                    var response = await root.fetch("/api/price-check-refresh?search=" + encodeURIComponent(product.description), {
+                        headers: { Accept: "application/json" },
+                        cache: "no-store"
+                    });
+                    var result = await response.json();
+                    if (!response.ok) {
+                        throw new Error(result && result.error || "HTTP " + response.status);
+                    }
+                    if (!Array.isArray(result)) {
+                        throw new Error("The price service returned an invalid product list.");
+                    }
+
+                    var expectedName = normaliseProductName(product.description);
+                    var exactMatches = result.filter(function (candidate) {
+                        return candidate && candidate.currency === "ZAR" &&
+                            normaliseProductName(candidate.name) === expectedName &&
+                            toPrice(candidate.price) !== null;
+                    });
+                    if (!exactMatches.length) {
+                        unmatched++;
+                        continue;
+                    }
+                    if (exactMatches.length !== 1) {
+                        ambiguous++;
+                        continue;
+                    }
+                    overrides = recordOverride(
+                        overrides,
+                        product.description,
+                        "bathroombizaar",
+                        exactMatches[0].price,
+                        refreshDate
+                    );
+                    updated++;
+                } catch (error) {
+                    errors.push(product.description + ": " + error.message);
+                    console.error("Could not refresh Bathroom Bizaar price for " + product.description + ":", error);
+                }
+            }
+        }
+
+        try {
+            await Promise.all([refreshNext(), refreshNext(), refreshNext()]);
+            if (updated && !writeJSON(OVERRIDES_KEY, overrides)) {
+                status.textContent = "Prices were fetched, but this browser could not save them. Existing prices were left unchanged.";
+                return;
+            }
+            if (updated) renderTable();
+
+            var summary = "Bathroom Bizaar: updated " + updated + " of " + products.length +
+                " listed products; " + unmatched + " had no exact product-name match";
+            if (ambiguous) summary += "; " + ambiguous + " had multiple exact matches";
+            if (errors.length) summary += "; " + errors.length + " could not be checked (" + errors[0] + ")";
+            status.textContent = summary + ". Leroy Merlin, Plumblink, Chamberlains and Builders Warehouse have no verified public price feeds, so their saved prices were left unchanged.";
+        } finally {
+            button.disabled = false;
+        }
+    }
+
     function node(tag, className, value) {
         var element = doc.createElement(tag);
         if (className) element.className = className;
@@ -496,7 +615,7 @@
     }
 
     /* The store's own search, so a figure can be checked at source. */
-    function storeLink(key, query) {
+    function storeLink(key, query, label) {
         var store = supplierByKey(key);
         if (!store) return null;
         var link = doc.createElement("a");
@@ -504,7 +623,7 @@
         link.target = "_blank";
         link.rel = "noopener noreferrer";
         link.className = "price-store-link";
-        link.textContent = "Open ↗";
+        link.textContent = label || "Open ↗";
         return link;
     }
 
@@ -514,13 +633,22 @@
 
         var query = el("priceCheckSearch") ? el("priceCheckSearch").value : "";
         var products = search(currentCatalogue(), query);
+        if (el("priceCheckFavoritesOnly") && el("priceCheckFavoritesOnly").checked) {
+            var favorites = currentFavorites();
+            products = products.filter(function (product) { return favorites.indexOf(product.description) !== -1; });
+        }
         body.replaceChildren();
 
         if (!products.length) {
-            body.append(node("p", "price-empty", "No product matches that search."));
+            body.append(node("tr", "price-empty-row"));
+            body.lastChild.append(node("td", "price-empty", el("priceCheckFavoritesOnly") && el("priceCheckFavoritesOnly").checked
+                ? "No favourites match. Add an item or star one from the table."
+                : "No product matches that search."));
+            body.lastChild.firstChild.colSpan = SUPPLIERS.length + 3;
             return;
         }
 
+        var favorites = currentFavorites();
         groupByCategory(products).forEach(function (group) {
             var heading = node("tr", "price-group");
             var cell = node("th", null, group.category);
@@ -533,7 +661,16 @@
                 if (product.checked && product.checked < today()) row.classList.add("price-stale");
 
                 var name = node("td", "price-name");
-                name.append(node("strong", null, product.description));
+                var nameHeading = node("div", "price-name-heading");
+                nameHeading.append(node("strong", null, product.description));
+                var favorite = node("button", "price-favorite-button" + (favorites.indexOf(product.description) !== -1 ? " is-favorite" : ""),
+                    favorites.indexOf(product.description) !== -1 ? "★" : "☆");
+                favorite.type = "button";
+                favorite.dataset.favorite = product.description;
+                favorite.setAttribute("aria-pressed", String(favorites.indexOf(product.description) !== -1));
+                favorite.setAttribute("aria-label", (favorites.indexOf(product.description) !== -1 ? "Remove " : "Add ") + product.description + (favorites.indexOf(product.description) !== -1 ? " from" : " to") + " favourites");
+                nameHeading.append(favorite);
+                name.append(nameHeading);
                 name.append(node("small", "price-checked", "Checked " + (product.checked || "—")));
                 row.append(name);
 
@@ -549,18 +686,21 @@
                     var price = toPrice(product.prices[store.key]);
                     var cell = node("td", "price-cell" + (price !== null && price === best.price ? " is-best" : ""));
                     cell.dataset.label = store.name;
+                    var value = node("div", "price-cell-value");
+                    var input = doc.createElement("input");
+                    input.type = "text";
+                    input.className = "price-input";
+                    input.value = price === null ? "" : String(price);
+                    input.placeholder = price === null ? "Add price" : "";
+                    input.setAttribute("aria-label", store.name + " price for " + product.description);
+                    input.dataset.description = product.description;
+                    input.dataset.supplier = store.key;
+                    value.append(input);
                     if (price === null) {
-                        cell.append(node("span", "price-none", "—"));
-                    } else {
-                        var input = doc.createElement("input");
-                        input.type = "text";
-                        input.className = "price-input";
-                        input.value = String(price);
-                        input.setAttribute("aria-label", store.name + " price for " + product.description);
-                        input.dataset.description = product.description;
-                        input.dataset.supplier = store.key;
-                        cell.append(input);
+                        value.append(node("span", "price-none", "No price recorded"));
                     }
+                    value.append(storeLink(store.key, product.description, "Search store ↗"));
+                    cell.append(value);
                     row.append(cell);
                 });
 
@@ -595,7 +735,7 @@
         host.replaceChildren();
 
         if (!lines.length) {
-            host.append(node("p", "price-empty", "Nothing on the list yet. Add a product from the comparison above."));
+            host.append(node("p", "price-empty", "Nothing on the list yet. Add a product from Store prices below."));
             el("priceCheckTotal").textContent = money(0);
             return;
         }
@@ -657,6 +797,54 @@
     function init() {
         var searchInput = el("priceCheckSearch");
         if (searchInput) searchInput.addEventListener("input", renderTable);
+        var refreshButton = el("priceCheckRefreshButton");
+        if (refreshButton) refreshButton.addEventListener("click", refreshPrices);
+        var favoritesOnly = el("priceCheckFavoritesOnly");
+        if (favoritesOnly) favoritesOnly.addEventListener("change", renderTable);
+
+        var addFavoriteButton = el("priceCheckAddFavoriteButton");
+        var favoriteDialog = el("priceCheckFavoriteDialog");
+        var favoriteForm = el("priceCheckFavoriteForm");
+        if (addFavoriteButton && favoriteDialog) {
+            addFavoriteButton.addEventListener("click", function () {
+                favoriteDialog.showModal();
+                el("priceCheckFavoriteName").focus();
+            });
+        }
+        if (favoriteForm) {
+            favoriteForm.addEventListener("submit", function (event) {
+                event.preventDefault();
+                var result = addCustomItem(
+                    readJSON(CUSTOM_ITEMS_KEY, []),
+                    el("priceCheckFavoriteName").value,
+                    el("priceCheckFavoriteCategory").value,
+                    today()
+                );
+                if (!result.added) {
+                    el("priceCheckFavoriteError").textContent = "Enter a new product name; that item may already be in the table.";
+                    return;
+                }
+                var name = el("priceCheckFavoriteName").value.trim();
+                var previousFavorites = currentFavorites();
+                if (!writeJSON(FAVORITES_KEY, toggleFavorite(previousFavorites, name))) {
+                    el("priceCheckFavoriteError").textContent = "This browser could not save the favourite. Check available storage and try again.";
+                    return;
+                }
+                if (!writeJSON(CUSTOM_ITEMS_KEY, result.items)) {
+                    writeJSON(FAVORITES_KEY, previousFavorites);
+                    el("priceCheckFavoriteError").textContent = "This browser could not save the item. Check available storage and try again.";
+                    return;
+                }
+                favoriteForm.reset();
+                el("priceCheckFavoriteError").textContent = "";
+                favoriteDialog.close();
+                renderTable();
+            });
+        }
+        var cancelFavoriteButton = el("priceCheckFavoriteCancelButton");
+        if (cancelFavoriteButton && favoriteDialog) {
+            cancelFavoriteButton.addEventListener("click", function () { favoriteDialog.close(); });
+        }
 
         var addButton = el("priceCheckAddButton");
         if (addButton) {
@@ -707,14 +895,28 @@
 
             if (target && target.dataset && target.dataset.description !== undefined) {
                 var overrides = recordOverride(readJSON(OVERRIDES_KEY, {}), target.dataset.description, target.dataset.supplier, target.value, today());
-                writeJSON(OVERRIDES_KEY, overrides);
+                if (!writeJSON(OVERRIDES_KEY, overrides)) {
+                    el("priceCheckRefreshStatus").textContent = "This browser could not save the edited price. The previous saved value was kept.";
+                    return;
+                }
                 renderTable();
             }
         });
 
         doc.addEventListener("click", function (event) {
-            var target = event.target && event.target.closest ? event.target.closest("[data-remove], .price-add-button") : null;
+            var target = event.target && event.target.closest
+                ? event.target.closest("[data-remove], [data-favorite], .price-add-button")
+                : null;
             if (!target) return;
+
+            if (target.dataset.favorite !== undefined) {
+                if (!writeJSON(FAVORITES_KEY, toggleFavorite(currentFavorites(), target.dataset.favorite))) {
+                    el("priceCheckRefreshStatus").textContent = "This browser could not save the favourite. Check available storage and try again.";
+                    return;
+                }
+                renderTable();
+                return;
+            }
 
             if (target.dataset.remove !== undefined) {
                 saveList(removeLine(currentList(), target.dataset.remove));
