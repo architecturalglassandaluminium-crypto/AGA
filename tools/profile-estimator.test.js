@@ -18,6 +18,23 @@ test("estimates a rectangular frame perimeter and one stock bar", () => {
     assert.equal(result.stockBars, 1);
     assert.equal(result.estimatedOffcut, 1988);
     assert.equal(result.pending.length, 0);
+    assert.deepEqual(result.bars[0].cuts.map(cut => cut.member), [
+        "Width 1",
+        "Width 2",
+        "Height 1",
+        "Height 2"
+    ]);
+    assert.deepEqual(result.bars[0].cuts.map(cut => cut.itemId), ["W1", "W1", "W1", "W1"]);
+});
+
+test("uses an explicit captured height when present", () => {
+    const result = estimator.estimateProject({
+        windows: [{ id: "W2", length: 1200, width: 900, height: 800 }]
+    });
+
+    assert.equal(result.rows[0].width, 800);
+    assert.equal(result.rows[0].perimeter, 4000);
+    assert.deepEqual(result.rows[0].cuts, [1200, 1200, 800, 800]);
 });
 
 test("excludes openings with missing or overlength members from stock totals", () => {
@@ -62,18 +79,29 @@ test("returns an empty estimate for projects without windows", () => {
         stockLength: 6000,
         stockBars: 0,
         stockLengthTotal: 0,
-        estimatedOffcut: 0
+        estimatedOffcut: 0,
+        bars: []
     });
 });
 
-test("wires the estimator into the project view, selector, and offline app shell", () => {
+test("includes captured dimensions and a provisional cut list on project worksheets", () => {
     const root = path.join(__dirname, "..");
     const app = fs.readFileSync(path.join(root, "app.js"), "utf8");
     const html = fs.readFileSync(path.join(root, "index.html"), "utf8");
+    const email = fs.readFileSync(path.join(root, "email.js"), "utf8");
     const serviceWorker = fs.readFileSync(path.join(root, "sw.js"), "utf8");
 
     assert.match(app, /onclick="openProjectEstimator\(/);
     assert.match(app, /profileEstimatorProject\.addEventListener\("change"/);
+    assert.match(app, /height: Number\(row\.width\)/);
+    assert.match(app, /profileEstimate\.innerHTML = buildProfileCutListHtml\(project, false\)/);
+    assert.match(app, /buildProfileCutListHtml\(project, true\)/);
+    assert.match(app, /profileEstimate\.hidden = true/);
     assert.match(html, /<script src="profile-estimator\.js"><\/script>\s*<script src="app\.js"><\/script>/);
+    assert.match(html, /<th>Width \(mm\)<\/th>\s*<th>Height \(mm\)<\/th>/);
+    assert.match(html, /Width and height in mm/);
+    assert.match(html, /id="printProfileEstimate"/);
+    assert.match(email, /worksheetProfileCutList\(project\)/);
+    assert.match(email, /<th>Width<\/th>\s*<th>Height<\/th>/);
     assert.match(serviceWorker, /"\.\/profile-estimator\.js"/);
 });

@@ -301,7 +301,7 @@
             <div class="page-header">
                 <div>
                     <h2>Projects</h2>
-                    <p>Group windows by job. Capture each window as a row: description, location, length, width and frame colour.</p>
+                    <p>Group windows by job. Capture each window's width and height, description, location and frame colour.</p>
                 </div>
                 <button type="button" class="primary-button" id="projectsNewButton">
                     <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
@@ -381,7 +381,7 @@
                             <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="1.5"/><path d="M12 3v18M3 12h9"/></svg>
                             Windows in this Project
                         </h3>
-                        <span class="measurement-note">Length and width in mm &middot; QC is set by scanning the window</span>
+                        <span class="measurement-note">Width and height in mm &middot; QC is set by scanning the window</span>
                     </div>
 
                     <div class="window-rows-wrapper">
@@ -392,8 +392,8 @@
                                     <th>Type</th>
                                     <th>Description</th>
                                     <th>Location</th>
-                                    <th>Length (mm)</th>
                                     <th>Width (mm)</th>
+                                    <th>Height (mm)</th>
                                     <th>Frame Color</th>
                                     <th>Glass Type</th>
                                     <th title="Recorded by scanning the window through Quality Checked">QC Check</th>
@@ -1605,6 +1605,8 @@
             -->
             <div class="print-schedule" id="printSchedule"></div>
         </section>
+
+        <div id="printProfileEstimate" hidden></div>
 
         <!-- NOTES -->
         <section class="print-section">

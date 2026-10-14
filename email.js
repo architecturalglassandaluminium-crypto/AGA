@@ -754,8 +754,8 @@ function worksheetScheduleRows(windows, showPhotos) {
         const type = escapeEmailHtml(window.productType || "");
         const description = escapeEmailHtml(window.description || "");
         const location = escapeEmailHtml(window.location || "");
-        const length = escapeEmailHtml(worksheetSize(window.length));
-        const width = escapeEmailHtml(worksheetSize(window.width));
+        const width = escapeEmailHtml(worksheetSize(window.length));
+        const height = escapeEmailHtml(worksheetSize(window.height ?? window.width));
 
         const frame = escapeEmailHtml(
             window.customFrameColour || window.frameColour || ""
@@ -782,8 +782,8 @@ function worksheetScheduleRows(windows, showPhotos) {
                 <td>${type}</td>
                 <td>${description}</td>
                 <td>${location}</td>
-                <td class="num">${length}</td>
                 <td class="num">${width}</td>
+                <td class="num">${height}</td>
                 <td>${frame}</td>
                 <td>${glass}</td>
                 <td>${allocated}</td>
@@ -792,6 +792,45 @@ function worksheetScheduleRows(windows, showPhotos) {
                 ${photo}
             </tr>`;
     }).join("");
+}
+
+function worksheetProfileCutList(project) {
+    if (!window.CrealcoProfileEstimator) {
+        return `<section class="profile-estimate">
+            <h3 class="section-title">Provisional profile estimate &amp; cutting list</h3>
+            <p>The estimator is unavailable; no profile quantities or cutting list were included.</p>
+        </section>`;
+    }
+
+    const estimate = window.CrealcoProfileEstimator.estimateProject(project);
+    const rows = estimate.bars.flatMap(bar => bar.cuts.map(cut => `
+        <tr>
+            <td>Generic frame profile</td>
+            <td class="num">${bar.number}</td>
+            <td>${escapeEmailHtml(cut.itemId)}</td>
+            <td>${escapeEmailHtml(cut.member)}</td>
+            <td class="num">${escapeEmailHtml(worksheetSize(cut.length))} mm</td>
+        </tr>`)).join("");
+    const pending = estimate.pending.map(item => `
+        <li><strong>${escapeEmailHtml(item.id)}:</strong> ${escapeEmailHtml(item.reason)}</li>`).join("");
+
+    return `<section class="profile-estimate">
+        <h3 class="section-title">Provisional profile estimate &amp; cutting list</h3>
+        <p class="profile-caveat">
+            Generic frame perimeter only; this is not a Crealco-series cut list or profile-code take-off.
+            Confirm profile types, deductions and quantities against the selected Crealco system before cutting or ordering.
+        </p>
+        <p>
+            ${estimate.cutCount} cuts · ${escapeEmailHtml(worksheetSize(estimate.totalCutLength / 1000))} m total cut length ·
+            ${estimate.stockBars} estimated 6,000 mm stock bars ·
+            ${escapeEmailHtml(worksheetSize(estimate.estimatedOffcut))} mm estimated remaining stock · 3 mm saw kerf per cut.
+        </p>
+        ${rows ? `<table class="cut-list">
+            <thead><tr><th>Provisional profile</th><th>Bar</th><th>Item</th><th>Member</th><th>Cut length</th></tr></thead>
+            <tbody>${rows}</tbody>
+        </table>` : `<p>No frame cuts could be estimated from the recorded dimensions.</p>`}
+        ${pending ? `<p><strong>Not included in stock totals:</strong></p><ul>${pending}</ul>` : ""}
+    </section>`;
 }
 
 /*
@@ -989,6 +1028,12 @@ function createProjectWorksheetHtml(project) {
     .schedule .num { text-align: right; white-space: nowrap; }
     .schedule .mono { font-family: "Courier New", monospace; }
     .schedule .empty { text-align: center; color: #6b7280; padding: 10px; }
+    .profile-estimate { margin-top: 12px; break-inside: auto; }
+    .profile-caveat { color: #4b5563; }
+    .cut-list { width: 100%; border-collapse: collapse; font-size: 8pt; }
+    .cut-list th, .cut-list td { border: 0.5pt solid #6b7280; padding: 3px 5px; text-align: left; }
+    .cut-list th { background: #e5e7eb; }
+    .cut-list .num { text-align: right; white-space: nowrap; }
 
     /*
        Photos print as a small thumbnail beside their row. height
@@ -1095,8 +1140,8 @@ function createProjectWorksheetHtml(project) {
                 <th>Type</th>
                 <th>Description</th>
                 <th>Location</th>
-                <th>Length</th>
                 <th>Width</th>
+                <th>Height</th>
                 <th>Frame</th>
                 <th>Glass</th>
                 <th>Allocated</th>
@@ -1109,6 +1154,8 @@ function createProjectWorksheetHtml(project) {
             ${worksheetScheduleRows(windows, showPhotos)}
         </tbody>
     </table>
+
+    ${worksheetProfileCutList(project)}
 
     <div class="signoff">
         <div><span>Manufactured by</span></div>

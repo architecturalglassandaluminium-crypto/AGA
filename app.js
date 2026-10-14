@@ -1762,11 +1762,11 @@ function addProjectWindowRow(rowData = {}) {
         </td>
         <td>
             <input type="number" class="window-row-input" data-field="length" min="0" step="1"
-                placeholder="mm" value="${escapeHtml(rowData.length)}">
+                placeholder="Width in mm" value="${escapeHtml(rowData.length)}">
         </td>
         <td>
             <input type="number" class="window-row-input" data-field="width" min="0" step="1"
-                placeholder="mm" value="${escapeHtml(rowData.width)}">
+                placeholder="Height in mm" value="${escapeHtml(rowData.height ?? rowData.width)}">
         </td>
         <td>
             <select class="window-row-input" data-field="frameColour">
@@ -2544,6 +2544,7 @@ function buildWindowFromRow(row, existing, nextWindowId) {
         location: row.location,
         length: Number(row.length),
         width: Number(row.width),
+        height: Number(row.width),
         frameColour: row.frameColour,
         glassType: row.glassType,
         qcCheck: row.qcCheck || "",
@@ -3324,8 +3325,8 @@ function buildWindowDetailsHtml(item) {
         </div>
 
         <div class="details-specs">
-            ${/* Sizes are stored as length/width in a project row. */ ""}
-            <p><strong>Size:</strong> ${escapeHtml(item.length || "-")} mm long &nbsp;×&nbsp; ${escapeHtml(item.width || "-")} mm wide</p>
+            ${/* Legacy records store captured width/height in length/width fields. */ ""}
+            <p><strong>Size:</strong> ${escapeHtml(item.length || "-")} mm wide &nbsp;×&nbsp; ${escapeHtml(item.height ?? item.width ?? "-")} mm high</p>
             <p><strong>Frame Colour:</strong> ${escapeHtml(item.frameColour || "-")}${item.customFrameColour ? ` (${escapeHtml(item.customFrameColour)})` : ""}${item.frameSeries ? ` • <strong>Series:</strong> ${escapeHtml(item.frameSeries)}` : ""}</p>
             <p><strong>Glass:</strong> ${escapeHtml(item.glassType || "-")}${item.glassThickness ? ` • Thickness: ${escapeHtml(item.glassThickness)}` : ""}</p>
             <p><strong>Created:</strong> ${escapeHtml(formatCreatedDate(item.createdAt).replace(/^Created\s+/, ""))} &nbsp; ${ageBadgeHtml(item.createdAt)}</p>
@@ -4229,8 +4230,8 @@ function windowRowTableHtml(windows) {
                         <th class="col-type">Type</th>
                         <th class="col-desc">Description</th>
                         <th class="col-loc">Location</th>
-                        <th class="col-num">Length</th>
                         <th class="col-num">Width</th>
+                        <th class="col-num">Height</th>
                         <th class="col-frame">Frame Color</th>
                         <th class="col-glass">Glass</th>
                         <th class="col-qc">QC</th>
@@ -5311,6 +5312,7 @@ function printProject(projectId) {
            job actually needs - including allocation, QC and status.
         */
         const schedule = $("printSchedule");
+        const profileEstimate = $("printProfileEstimate");
 
         const photoHeader = document.querySelector("#printWorksheet th.c-photo");
 
@@ -5331,6 +5333,11 @@ function printProject(projectId) {
 
             renderPrintQRCodes(schedule);
             renderPrintBarcodes(schedule);
+        }
+
+        if (profileEstimate) {
+            profileEstimate.innerHTML = buildProfileCutListHtml(project, false);
+            profileEstimate.hidden = false;
         }
 
         setPrintText("printScheduleCount", `${windows.length} item${windows.length === 1 ? "" : "s"}`);
@@ -5501,7 +5508,7 @@ async function emailProject(projectId) {
                 `- ${window.windowNumber || window.id}: ` +
                 `${window.description || ""}` +
                 (window.length || window.width
-                    ? ` (${window.length || "-"} \u00d7 ${window.width || "-"} mm)`
+                    ? ` (${window.length || "-"} W \u00d7 ${window.height ?? window.width ?? "-"} H mm)`
                     : "")
             ));
 
@@ -5947,7 +5954,7 @@ function buildWorksheetPreviewHtml(project) {
             <td>${escapeHtml(window.description || "\u2014")}</td>
             <td>${escapeHtml(window.location || "\u2014")}</td>
             <td class="ws-num">${escapeHtml(window.length) || "\u2014"}</td>
-            <td class="ws-num">${escapeHtml(window.width) || "\u2014"}</td>
+            <td class="ws-num">${escapeHtml(window.height ?? window.width) || "\u2014"}</td>
             <td>${escapeHtml(window.frameColour || "\u2014")}</td>
             <td>${escapeHtml(window.glassType || "\u2014")}</td>
             <td>${escapeHtml(window.status || "\u2014")}</td>
@@ -5992,8 +5999,8 @@ function buildWorksheetPreviewHtml(project) {
                             <th>Type</th>
                             <th>Description</th>
                             <th>Location</th>
-                            <th class="ws-num">Length</th>
                             <th class="ws-num">Width</th>
+                            <th class="ws-num">Height</th>
                             <th>Frame</th>
                             <th>Glass</th>
                             <th>Status</th>
@@ -6005,6 +6012,8 @@ function buildWorksheetPreviewHtml(project) {
                 </table>
                </div>`
             : `<p class="details-small">No windows or doors captured on this project.</p>`}
+
+        ${buildProfileCutListHtml(project, true)}
 
         <div class="details-actions">
             <button type="button" class="primary-button"
@@ -7393,10 +7402,10 @@ function buildPrintItemBlock(window) {
     const windowNumber = safeText(window.windowNumber) ||
         safeText(formatWindowId(window.windowId));
 
-    const length = safeText(window.length) || safeText(window.finalWidth);
-    const width = safeText(window.width) || safeText(window.finalHeight);
+    const width = safeText(window.length) || safeText(window.finalWidth);
+    const height = safeText(window.height) || safeText(window.width) || safeText(window.finalHeight);
 
-    const size = length && width ? `${length} \u00d7 ${width} mm` : "";
+    const size = width && height ? `${width} \u00d7 ${height} mm (W \u00d7 H)` : "";
 
     /*
        The marks row: photo, barcode, QR. All three are ways of
@@ -7770,6 +7779,12 @@ function printWindow(windowId) {
            the notes block gets a real box to write in.
         */
         const schedule = $("printSchedule");
+        const profileEstimate = $("printProfileEstimate");
+
+        if (profileEstimate) {
+            profileEstimate.hidden = true;
+            profileEstimate.innerHTML = "";
+        }
 
         /*
            The SAME labelled block the project schedule uses, so the
@@ -8593,21 +8608,21 @@ function savePlanSettings(settings) {
 /*
    Area of a window in square metres.
 
-   Length and width are stored in mm; a window is a rectangle,
+   Captured width and height are stored in mm; a window is a rectangle,
    so area is l*w / 1,000,000. A window with no measurements yet
    contributes zero extra, so it still gets the flat base time
    rather than dropping out of the plan.
 */
 function windowAreaSqm(window) {
 
-    const length = Number(window.length) || 0;
-    const width = Number(window.width) || 0;
+    const width = Number(window.length) || 0;
+    const height = Number(window.height ?? window.width) || 0;
 
-    if (length <= 0 || width <= 0) {
+    if (width <= 0 || height <= 0) {
         return 0;
     }
 
-    return (length * width) / 1000000;
+    return (width * height) / 1000000;
 }
 
 /*
@@ -9925,6 +9940,68 @@ function formatEstimatorMillimetres(value) {
     });
 }
 
+function buildProfileCutListHtml(project, previewMode) {
+    const estimate = window.CrealcoProfileEstimator
+        ? window.CrealcoProfileEstimator.estimateProject(project)
+        : null;
+    const sectionClass = previewMode
+        ? "worksheet-preview-profile"
+        : "print-section print-profile-estimate";
+    const titleClass = previewMode
+        ? "worksheet-preview-heading"
+        : "print-section-title";
+
+    if (!estimate) {
+        return `<section class="${sectionClass}">
+            <h2 class="${titleClass}">Provisional profile estimate &amp; cutting list</h2>
+            <p class="profile-estimator-caveat">The estimator is unavailable; no profile quantities or cutting list were included.</p>
+        </section>`;
+    }
+
+    const cutRows = estimate.bars.flatMap(bar => bar.cuts.map(cut => `
+        <tr>
+            <td>Generic frame profile</td>
+            <td class="profile-estimator-number">${bar.number}</td>
+            <td>${escapeHtml(cut.itemId)}</td>
+            <td>${escapeHtml(cut.member)}</td>
+            <td class="profile-estimator-number">${formatEstimatorMillimetres(cut.length)} mm</td>
+        </tr>`)).join("");
+    const pendingRows = estimate.pending.map(item => `
+        <li><strong>${escapeHtml(item.id)}:</strong> ${escapeHtml(item.reason)}</li>`).join("");
+    const detailClass = previewMode
+        ? "worksheet-preview-profile-table"
+        : "profile-cut-list-table";
+    const cutList = cutRows
+        ? `<div class="profile-cut-list-scroll">
+            <table class="${detailClass}">
+                <thead><tr>
+                    <th>Provisional profile</th><th>Stock bar</th><th>Item</th>
+                    <th>Member</th><th>Cut length</th>
+                </tr></thead>
+                <tbody>${cutRows}</tbody>
+            </table>
+           </div>`
+        : `<p class="profile-estimator-caveat">No frame cuts could be estimated from the recorded dimensions.</p>`;
+
+    return `<section class="${sectionClass}">
+        <h2 class="${titleClass}">Provisional profile estimate &amp; cutting list</h2>
+        <p class="profile-estimator-caveat">
+            Generic frame perimeter only; this is not a Crealco-series cut list or a profile-code take-off.
+            Confirm all deductions, profile types and quantities against the selected Crealco system before cutting or ordering.
+        </p>
+        <p class="profile-estimator-assumptions">
+            ${estimate.cutCount} cuts · ${formatEstimatorMillimetres(estimate.totalCutLength / 1000)} m total cut length ·
+            ${estimate.stockBars} estimated 6,000 mm stock bars ·
+            ${formatEstimatorMillimetres(estimate.estimatedOffcut)} mm estimated remaining stock ·
+            3 mm saw kerf per cut.
+        </p>
+        ${cutList}
+        ${pendingRows ? `<div class="profile-estimator-unestimated">
+            <strong>Not included in stock totals</strong><ul>${pendingRows}</ul>
+        </div>` : ""}
+    </section>`;
+}
+
 function openProjectEstimator(projectId) {
     profileEstimatorProjectId = String(projectId || "");
     switchView("estimator");
@@ -9980,7 +10057,7 @@ function renderCrealcoProfileEstimator(projectId) {
             ? `${formatEstimatorMillimetres(row.length)} × ${formatEstimatorMillimetres(row.width)}`
             : "Dimensions required";
         const cuts = row.cuts.length
-            ? `2 × ${formatEstimatorMillimetres(row.length)} + 2 × ${formatEstimatorMillimetres(row.width)}`
+            ? `2 × width ${formatEstimatorMillimetres(row.length)} + 2 × height ${formatEstimatorMillimetres(row.width)}`
             : "—";
         const status = row.overlength
             ? "Over 6,000 mm stock length"
@@ -10010,7 +10087,7 @@ function renderCrealcoProfileEstimator(projectId) {
             <div><span>Unestimated items</span><strong>${estimate.pending.length}</strong></div>
         </div>
         <p class="profile-estimator-assumptions">
-            Generic frame perimeter only · 2 × length + 2 × width per opening ·
+            Generic frame perimeter only · 2 × width + 2 × height per opening ·
             shared 6,000 mm stock bars · ${estimate.cutCount ? `3 mm saw kerf per cut` : "3 mm saw kerf"}.
             Stock use is estimated with a simple cut-packing method.
         </p>
@@ -10018,13 +10095,14 @@ function renderCrealcoProfileEstimator(projectId) {
             ? `<div class="window-rows-wrapper profile-estimator-table-wrap">
                 <table class="window-rows-table profile-estimator-table">
                     <thead><tr>
-                        <th>Item</th><th>Type</th><th>Size (L × W mm)</th>
+                        <th>Item</th><th>Type</th><th>Size (W × H mm)</th>
                         <th>Provisional frame cuts</th><th>Perimeter</th><th>Check</th>
                     </tr></thead>
                     <tbody>${rows}</tbody>
                 </table>
                </div>`
             : `<p class="details-small">No windows or doors are recorded for this project.</p>`}
+        ${buildProfileCutListHtml(currentProject, false)}
         <p class="profile-estimator-caveat">
             Profile lengths are provisional and are not separated into Crealco profile codes.
             Items with missing dimensions or members longer than stock are excluded from the stock-bar total.

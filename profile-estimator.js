@@ -32,20 +32,27 @@
         const bars = [];
 
         [...cuts]
-            .sort((a, b) => b - a)
+            .sort((a, b) => b.length - a.length)
             .forEach(cut => {
-                const required = cut + SAW_KERF_MM;
+                const required = cut.length + SAW_KERF_MM;
                 let bar = bars.find(item => item.remaining >= required);
 
                 if (!bar) {
-                    bar = { remaining: STOCK_LENGTH_MM };
+                    bar = { cuts: [], remaining: STOCK_LENGTH_MM };
                     bars.push(bar);
                 }
 
                 bar.remaining -= required;
+                bar.cuts.push(cut);
             });
 
-        return bars;
+        return bars.map((bar, index) => ({
+            number: index + 1,
+            cuts: bar.cuts,
+            usedLength: bar.cuts.reduce((total, cut) => total + cut.length, 0),
+            kerf: bar.cuts.length * SAW_KERF_MM,
+            remaining: bar.remaining
+        }));
     }
 
     function estimateProject(project) {
@@ -56,7 +63,7 @@
 
         windows.forEach((window, index) => {
             const length = dimension(window.length);
-            const width = dimension(window.width);
+            const width = dimension(window.height) || dimension(window.width);
             const id = String(window.windowNumber || window.id || `Item ${index + 1}`);
 
             if (!length || !width) {
@@ -65,35 +72,48 @@
                 return;
             }
 
-            const itemCuts = [length, length, width, width];
-            const overlength = itemCuts.some(cut => cut + SAW_KERF_MM > STOCK_LENGTH_MM);
+            const itemCuts = [
+                { length, member: "Width 1" },
+                { length, member: "Width 2" },
+                { length: width, member: "Height 1" },
+                { length: width, member: "Height 2" }
+            ];
+            const overlength = itemCuts.some(cut => cut.length + SAW_KERF_MM > STOCK_LENGTH_MM);
 
             if (overlength) {
                 pending.push({
                     id,
                     reason: "At least one frame member is longer than a 6,000 mm stock bar."
                 });
-                rows.push({ id, length, width, perimeter: length * 2 + width * 2, cuts: itemCuts, overlength: true });
+                rows.push({
+                    id,
+                    length,
+                    width,
+                    perimeter: length * 2 + width * 2,
+                    cuts: itemCuts.map(cut => cut.length),
+                    overlength: true
+                });
                 return;
             }
 
-            cuts.push(...itemCuts);
+            cuts.push(...itemCuts.map(cut => ({ ...cut, itemId: id })));
             rows.push({
                 id,
                 length,
                 width,
                 perimeter: length * 2 + width * 2,
-                cuts: itemCuts,
+                cuts: itemCuts.map(cut => cut.length),
                 overlength: false
             });
         });
 
         const bars = packCuts(cuts);
-        const totalCutLength = cuts.reduce((total, cut) => total + cut, 0);
+        const totalCutLength = cuts.reduce((total, cut) => total + cut.length, 0);
 
         return {
             rows,
             pending,
+            bars,
             cutCount: cuts.length,
             totalCutLength,
             stockLength: STOCK_LENGTH_MM,

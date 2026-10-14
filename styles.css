@@ -8402,6 +8402,51 @@ body.trade-open {
     min-width: 760px;
 }
 
+.profile-cut-list-scroll {
+    overflow-x: auto;
+}
+
+.profile-cut-list-table,
+.worksheet-preview-profile-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 12px;
+}
+
+.profile-cut-list-table th,
+.profile-cut-list-table td,
+.worksheet-preview-profile-table th,
+.worksheet-preview-profile-table td {
+    padding: 6px 8px;
+    border: 1px solid var(--border);
+    text-align: left;
+    vertical-align: top;
+}
+
+.profile-cut-list-table th,
+.worksheet-preview-profile-table th {
+    background: var(--surface-light);
+}
+
+.profile-estimator-unestimated {
+    margin-top: 10px;
+    font-size: 13px;
+}
+
+.profile-estimator-unestimated ul {
+    margin: 5px 0 0;
+    padding-left: 20px;
+}
+
+.worksheet-preview-profile {
+    margin-top: 18px;
+}
+
+.worksheet-preview-profile .profile-estimator-caveat,
+.worksheet-preview-profile .profile-estimator-assumptions {
+    font-size: 12px;
+}
+
 .profile-estimator-number {
     text-align: right;
     font-variant-numeric: tabular-nums;
@@ -8421,5 +8466,19 @@ body.trade-open {
 
     .profile-estimator-table {
         min-width: 0;
+    }
+
+    #printProfileEstimate .profile-cut-list-table {
+        font-size: 8pt;
+    }
+
+    #printProfileEstimate .profile-cut-list-table th,
+    #printProfileEstimate .profile-cut-list-table td {
+        padding: 2mm;
+        border-color: #aaa;
+    }
+
+    #printProfileEstimate .profile-cut-list-scroll {
+        overflow: visible;
     }
 }
