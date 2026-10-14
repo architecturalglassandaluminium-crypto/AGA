@@ -1907,14 +1907,18 @@ img {
    an editable-looking table invites a click that does nothing.
 */
 
+.worksheet-preview {
+    max-width: 100%;
+}
+
 .worksheet-preview-banner {
     display: flex;
     align-items: flex-start;
     gap: 8px;
-    padding: 9px 12px;
-    margin-bottom: 14px;
-    font-size: 12px;
-    line-height: 1.45;
+    padding: 7px 9px;
+    margin-bottom: 10px;
+    font-size: 10.5px;
+    line-height: 1.4;
     color: var(--text);
     background: var(--surface-light);
     border-left: 3px solid var(--accent);
@@ -1923,48 +1927,48 @@ img {
 
 .worksheet-preview-banner .icon {
     flex: 0 0 auto;
-    width: 15px;
-    height: 15px;
+    width: 13px;
+    height: 13px;
     margin-top: 1px;
 }
 
 .worksheet-preview-title {
     margin: 0;
-    font-size: 17px;
+    font-size: 15px;
     font-weight: 700;
 }
 
 .worksheet-preview-sub {
-    margin: 2px 0 12px;
-    font-size: 13px;
+    margin: 2px 0 8px;
+    font-size: 11.5px;
     color: var(--text-muted);
 }
 
 .worksheet-preview-facts {
     width: 100%;
     border-collapse: collapse;
-    margin-bottom: 16px;
-    font-size: 13px;
+    margin-bottom: 10px;
+    font-size: 11.5px;
 }
 
 .worksheet-preview-facts th {
     text-align: left;
     font-weight: 600;
     color: var(--text-muted);
-    padding: 5px 10px 5px 0;
+    padding: 3px 7px 3px 0;
     white-space: nowrap;
     vertical-align: top;
-    width: 120px;
+    width: 110px;
 }
 
 .worksheet-preview-facts td {
-    padding: 5px 0;
+    padding: 3px 0;
     vertical-align: top;
 }
 
 .worksheet-preview-heading {
-    margin: 0 0 8px;
-    font-size: 13px;
+    margin: 0 0 7px;
+    font-size: 11px;
     font-weight: 600;
     text-transform: uppercase;
     letter-spacing: 0.04em;
@@ -1977,19 +1981,20 @@ img {
 */
 .worksheet-preview-scroll {
     overflow-x: auto;
-    margin-bottom: 16px;
+    max-height: 42vh;
+    margin-bottom: 10px;
 }
 
 .worksheet-preview-items {
     width: 100%;
     border-collapse: collapse;
-    font-size: 12px;
+    font-size: 10.5px;
 }
 
 .worksheet-preview-items th,
 .worksheet-preview-items td {
     border-bottom: 1px solid var(--border);
-    padding: 6px 8px;
+    padding: 4px 5px;
     text-align: left;
     white-space: nowrap;
 }
@@ -1997,7 +2002,7 @@ img {
 .worksheet-preview-items th {
     font-weight: 600;
     color: var(--text-muted);
-    font-size: 11px;
+    font-size: 9.5px;
     text-transform: uppercase;
     letter-spacing: 0.03em;
     border-bottom: 1.5px solid var(--border-dark);
@@ -2825,9 +2830,8 @@ img {
 }
 
 .modal-content {
-    width: 100%;
-    max-width: 1100px;
-    max-height: 90vh;
+    width: min(100%, 860px);
+    max-height: 82vh;
     overflow-y: auto;
     background: white;
     border-radius: 10px;
@@ -2841,7 +2845,7 @@ img {
     align-items: center;
     justify-content: space-between;
     gap: 15px;
-    padding: 16px 22px;
+    padding: 12px 16px;
     border-bottom: 1px solid var(--border);
     background: var(--surface-light);
     border-radius: 10px 10px 0 0;
@@ -2883,11 +2887,11 @@ img {
 }
 
 .modal-body {
-    padding: 22px;
+    padding: 12px 14px;
 }
 
 .modal-footer {
-    padding: 15px 22px;
+    padding: 10px 14px;
     border-top: 1px solid var(--border);
     display: flex;
     justify-content: flex-end;
