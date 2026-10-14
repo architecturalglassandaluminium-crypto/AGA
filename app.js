@@ -5336,7 +5336,7 @@ function printProject(projectId) {
         }
 
         if (profileEstimate) {
-            profileEstimate.innerHTML = buildProfileCutListHtml(project, false);
+            profileEstimate.innerHTML = buildFrameDimensionEstimateHtml(project, false);
             profileEstimate.hidden = false;
         }
 
@@ -6013,7 +6013,7 @@ function buildWorksheetPreviewHtml(project) {
                </div>`
             : `<p class="details-small">No windows or doors captured on this project.</p>`}
 
-        ${buildProfileCutListHtml(project, true)}
+        ${buildFrameDimensionEstimateHtml(project, true)}
 
         <div class="details-actions">
             <button type="button" class="primary-button"
@@ -9954,7 +9954,7 @@ function buildPalaceManualReferenceHtml() {
         <p>
             Selected profile codes and instructions transcribed from
             <a href="${escapeHtml(manual.sourceUrl)}" target="_blank" rel="noopener noreferrer">Palace Product Manual ${escapeHtml(manual.revision)}</a>.
-            These references apply only to Palace and are not applied to the generic project cut list.
+            These references apply only to Palace and are not applied to the generic frame-dimension estimate.
         </p>
         <h4>Selected profile codes (not a complete system take-off)</h4>
         <div class="palace-manual-table-wrap">
@@ -9973,7 +9973,7 @@ function buildPalaceManualReferenceHtml() {
             <label for="palaceSillExtensionDimension">Palace Multi sill-extension overall dimension (mm)</label>
             <input id="palaceSillExtensionDimension" type="number" min="9" step="1" inputmode="decimal" placeholder="Enter measured dimension">
             <p id="palaceSillExtensionResult" role="status" aria-live="polite">
-                Enter the measured sill-extension dimension to calculate its end-cap allowance. This is not included in the generic stock-bar totals.
+                Enter the measured sill-extension dimension to calculate its end-cap allowance. This is separate from the generic opening-dimension estimate.
             </p>
         </div>
         <p class="profile-estimator-caveat">
@@ -9983,7 +9983,7 @@ function buildPalaceManualReferenceHtml() {
     </section>`;
 }
 
-function buildProfileCutListHtml(project, previewMode) {
+function buildFrameDimensionEstimateHtml(project, previewMode) {
     const estimate = window.CrealcoProfileEstimator
         ? window.CrealcoProfileEstimator.estimateProject(project)
         : null;
@@ -9996,51 +9996,50 @@ function buildProfileCutListHtml(project, previewMode) {
 
     if (!estimate) {
         return `<section class="${sectionClass}">
-            <h2 class="${titleClass}">Provisional profile estimate &amp; cutting list</h2>
-            <p class="profile-estimator-caveat">The estimator is unavailable; no profile quantities or cutting list were included.</p>
+            <h2 class="${titleClass}">Generic frame dimensions — not a cutting list</h2>
+            <p class="profile-estimator-caveat">The estimator is unavailable; no frame-dimension estimate was included.</p>
         </section>`;
     }
 
-    const cutRows = estimate.bars.flatMap(bar => bar.cuts.map(cut => `
+    const memberNames = ["Width 1", "Width 2", "Height 1", "Height 2"];
+    const dimensionCount = estimate.memberDimensionCount;
+    const grossPerimeter = estimate.grossPerimeterMm;
+    const cutRows = estimate.rows.flatMap(row => row.cuts.map((length, index) => `
         <tr>
-            <td>Generic frame profile</td>
-            <td class="profile-estimator-number">${bar.number}</td>
-            <td>${escapeHtml(cut.itemId)}</td>
-            <td>${escapeHtml(cut.member)}</td>
-            <td class="profile-estimator-number">${formatEstimatorMillimetres(cut.length)} mm</td>
+            <td>${escapeHtml(row.id)}</td>
+            <td>${memberNames[index]}</td>
+            <td class="profile-estimator-number">${formatEstimatorMillimetres(length)} mm (unadjusted)</td>
         </tr>`)).join("");
     const pendingRows = estimate.pending.map(item => `
         <li><strong>${escapeHtml(item.id)}:</strong> ${escapeHtml(item.reason)}</li>`).join("");
     const detailClass = previewMode
         ? "worksheet-preview-profile-table"
-        : "profile-cut-list-table";
-    const cutList = cutRows
-        ? `<div class="profile-cut-list-scroll">
+        : "profile-dimension-estimate-table";
+    const dimensionTable = cutRows
+        ? `<div class="profile-dimension-estimate-scroll">
             <table class="${detailClass}">
                 <thead><tr>
-                    <th>Provisional profile</th><th>Stock bar</th><th>Item</th>
-                    <th>Member</th><th>Cut length</th>
+                    <th>Item</th><th>Assumed frame side</th><th>Recorded dimension</th>
                 </tr></thead>
                 <tbody>${cutRows}</tbody>
             </table>
            </div>`
-        : `<p class="profile-estimator-caveat">No frame cuts could be estimated from the recorded dimensions.</p>`;
+        : `<p class="profile-estimator-caveat">No frame dimensions could be estimated from the recorded dimensions.</p>`;
 
     return `<section class="${sectionClass}">
-        <h2 class="${titleClass}">Provisional profile estimate &amp; cutting list</h2>
+        <h2 class="${titleClass}">Generic frame dimensions — not a cutting list</h2>
         <p class="profile-estimator-caveat">
-            Generic frame perimeter only; this is not a Crealco-series cut list or a profile-code take-off.
-            Confirm all deductions, profile types and quantities against the selected Crealco system before cutting or ordering.
+            Assumes two members at the recorded width and two at the recorded height. These are unadjusted
+            opening dimensions, not fabrication cut lengths; no profile codes, system deductions, mitre
+            angles or profile-specific stock optimisation are included.
         </p>
         <p class="profile-estimator-assumptions">
-            ${estimate.cutCount} cuts · ${formatEstimatorMillimetres(estimate.totalCutLength / 1000)} m total cut length ·
-            ${estimate.stockBars} estimated 6,000 mm stock bars ·
-            ${formatEstimatorMillimetres(estimate.estimatedOffcut)} mm estimated remaining stock ·
-            3 mm saw kerf per cut.
+            ${dimensionCount} unadjusted member dimensions ·
+            ${formatEstimatorMillimetres(grossPerimeter / 1000)} m gross frame perimeter.
         </p>
-        ${cutList}
+        ${dimensionTable}
         ${pendingRows ? `<div class="profile-estimator-unestimated">
-            <strong>Not included in stock totals</strong><ul>${pendingRows}</ul>
+            <strong>Dimensions requiring completion</strong><ul>${pendingRows}</ul>
         </div>` : ""}
     </section>`;
 }
@@ -10100,13 +10099,9 @@ function renderCrealcoProfileEstimator(projectId) {
             ? `${formatEstimatorMillimetres(row.length)} × ${formatEstimatorMillimetres(row.width)}`
             : "Dimensions required";
         const cuts = row.cuts.length
-            ? `2 × width ${formatEstimatorMillimetres(row.length)} + 2 × height ${formatEstimatorMillimetres(row.width)}`
+            ? `2 × width ${formatEstimatorMillimetres(row.length)} + 2 × height ${formatEstimatorMillimetres(row.width)} (unadjusted)`
             : "—";
-        const status = row.overlength
-            ? "Over 6,000 mm stock length"
-            : row.perimeter === null
-                ? "Missing dimensions"
-                : "Included";
+        const status = row.perimeter === null ? "Missing dimensions" : "Dimensions recorded";
 
         return `<tr>
             <td>${escapeHtml(row.id)}</td>
@@ -10123,32 +10118,30 @@ function renderCrealcoProfileEstimator(projectId) {
             <h3>${escapeHtml(currentProject.projectName || currentProject.projectNumber || "Project")}</h3>
             <span>${escapeHtml(currentProject.projectNumber || "")}</span>
         </div>
-        <div class="profile-estimator-summary" aria-label="Profile estimate totals">
+        <div class="profile-estimator-summary" aria-label="Opening dimension estimate totals">
             <div><span>Windows / doors</span><strong>${windows.length}</strong></div>
-            <div><span>Profile cut length</span><strong>${formatEstimatorMillimetres(estimate.totalCutLength / 1000)} m</strong></div>
-            <div><span>6,000 mm stock bars</span><strong>${estimate.stockBars}</strong></div>
+            <div><span>Gross frame perimeter</span><strong>${formatEstimatorMillimetres(estimate.grossPerimeterMm / 1000)} m</strong></div>
+            <div><span>Fabrication cut list</span><strong>Requires StarFront</strong></div>
             <div><span>Unestimated items</span><strong>${estimate.pending.length}</strong></div>
         </div>
         <p class="profile-estimator-assumptions">
-            Generic frame perimeter only · 2 × width + 2 × height per opening ·
-            shared 6,000 mm stock bars · ${estimate.cutCount ? `3 mm saw kerf per cut` : "3 mm saw kerf"}.
-            Stock use is estimated with a simple cut-packing method.
+            Gross rectangular perimeter only · 2 × width + 2 × height per opening.
+            No cut deductions, end angles, profile codes, saw kerf or stock optimisation are inferred.
         </p>
         ${windows.length
             ? `<div class="window-rows-wrapper profile-estimator-table-wrap">
                 <table class="window-rows-table profile-estimator-table">
                     <thead><tr>
                         <th>Item</th><th>Type</th><th>Size (W × H mm)</th>
-                        <th>Provisional frame cuts</th><th>Perimeter</th><th>Check</th>
+                        <th>Unadjusted member dimensions</th><th>Gross perimeter</th><th>Check</th>
                     </tr></thead>
                     <tbody>${rows}</tbody>
                 </table>
                </div>`
             : `<p class="details-small">No windows or doors are recorded for this project.</p>`}
-        ${buildProfileCutListHtml(currentProject, false)}
+        ${buildFrameDimensionEstimateHtml(currentProject, false)}
         <p class="profile-estimator-caveat">
-            Profile lengths are provisional and are not separated into Crealco profile codes.
-            Items with missing dimensions or members longer than stock are excluded from the stock-bar total.
+            This does not produce a profile schedule or fabrication cut list. Generate and verify those in StarFront.
         </p>`;
 
     content.insertAdjacentHTML("beforeend", buildPalaceManualReferenceHtml());
@@ -10610,7 +10603,7 @@ function initialiseEventListeners() {
 
                 const calculation = window.CrealcoProfileEstimator?.estimatePalaceSillExtension(event.target.value);
                 output.textContent = calculation
-                    ? `${formatEstimatorMillimetres(calculation.measuredDimensionMm)} mm measured − 4 mm at each end = ${formatEstimatorMillimetres(calculation.cutLengthMm)} mm cut length. This manual-specific result is not included in the generic stock-bar totals.`
+                    ? `${formatEstimatorMillimetres(calculation.measuredDimensionMm)} mm measured − 4 mm at each end = ${formatEstimatorMillimetres(calculation.cutLengthMm)} mm cut length. This manual-specific result is separate from the generic opening-dimension estimate.`
                     : "Enter a measured dimension greater than 8 mm.";
             });
         }

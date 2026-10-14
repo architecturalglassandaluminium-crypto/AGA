@@ -6,25 +6,16 @@ const fs = require("node:fs");
 const path = require("node:path");
 const estimator = require("../profile-estimator.js");
 
-test("estimates a rectangular frame perimeter and one stock bar", () => {
+test("estimates gross rectangular frame dimensions without claiming a stock cut plan", () => {
     const result = estimator.estimateProject({
         windows: [{ id: "W1", length: 1000, width: 1000 }]
     });
 
     assert.equal(result.rows[0].perimeter, 4000);
+    assert.equal(result.grossPerimeterMm, 4000);
+    assert.equal(result.memberDimensionCount, 4);
     assert.deepEqual(result.rows[0].cuts, [1000, 1000, 1000, 1000]);
-    assert.equal(result.totalCutLength, 4000);
-    assert.equal(result.cutCount, 4);
-    assert.equal(result.stockBars, 1);
-    assert.equal(result.estimatedOffcut, 1988);
     assert.equal(result.pending.length, 0);
-    assert.deepEqual(result.bars[0].cuts.map(cut => cut.member), [
-        "Width 1",
-        "Width 2",
-        "Height 1",
-        "Height 2"
-    ]);
-    assert.deepEqual(result.bars[0].cuts.map(cut => cut.itemId), ["W1", "W1", "W1", "W1"]);
 });
 
 test("uses an explicit captured height when present", () => {
@@ -37,7 +28,7 @@ test("uses an explicit captured height when present", () => {
     assert.deepEqual(result.rows[0].cuts, [1200, 1200, 800, 800]);
 });
 
-test("excludes openings with missing or overlength members from stock totals", () => {
+test("keeps long recorded dimensions and flags only missing dimensions", () => {
     const result = estimator.estimateProject({
         windows: [
             { id: "missing-width", length: 1200 },
@@ -47,15 +38,13 @@ test("excludes openings with missing or overlength members from stock totals", (
     });
 
     assert.equal(result.rows.length, 3);
-    assert.equal(result.stockBars, 1);
-    assert.equal(result.totalCutLength, 4000);
-    assert.equal(result.pending.length, 2);
+    assert.equal(result.grossPerimeterMm, 18000);
+    assert.equal(result.pending.length, 1);
     assert.match(result.pending[0].reason, /Both dimensions/);
-    assert.match(result.pending[1].reason, /6,000 mm/);
-    assert.equal(result.rows[1].overlength, true);
+    assert.equal(result.rows[1].cuts[0], 6000);
 });
 
-test("packs all valid cuts and accounts for saw kerf", () => {
+test("sums gross perimeter across openings", () => {
     const result = estimator.estimateProject({
         windows: [
             { id: "W1", length: 2000, width: 1000 },
@@ -63,24 +52,17 @@ test("packs all valid cuts and accounts for saw kerf", () => {
         ]
     });
 
-    assert.equal(result.totalCutLength, 12000);
-    assert.equal(result.cutCount, 8);
-    assert.equal(result.stockBars, 3);
-    assert.equal(result.stockLengthTotal, 18000);
-    assert.equal(result.estimatedOffcut, 5976);
+    assert.equal(result.grossPerimeterMm, 12000);
+    assert.equal(result.memberDimensionCount, 8);
+    assert.equal(result.rows.length, 2);
 });
 
 test("returns an empty estimate for projects without windows", () => {
     assert.deepEqual(estimator.estimateProject({ windows: [] }), {
         rows: [],
         pending: [],
-        cutCount: 0,
-        totalCutLength: 0,
-        stockLength: 6000,
-        stockBars: 0,
-        stockLengthTotal: 0,
-        estimatedOffcut: 0,
-        bars: []
+        grossPerimeterMm: 0,
+        memberDimensionCount: 0
     });
 });
 
@@ -97,7 +79,7 @@ test("uses the Palace manual's end-cap allowance only for sill extensions", () =
     assert.equal(estimator.estimatePalaceSillExtension(""), null);
     assert.equal(estimator.estimateProject({
         windows: [{ id: "W1", length: 1200, width: 900 }]
-    }).totalCutLength, 4200);
+    }).grossPerimeterMm, 4200);
 });
 
 test("publishes selected Palace profile references from the current manual revision", () => {
@@ -108,7 +90,7 @@ test("publishes selected Palace profile references from the current manual revis
     assert.ok(Object.isFrozen(estimator.PALACE_MANUAL.profiles));
 });
 
-test("includes captured dimensions and a provisional cut list on project worksheets", () => {
+test("includes captured dimensions and labels the generic estimate as not a cutting list", () => {
     const root = path.join(__dirname, "..");
     const app = fs.readFileSync(path.join(root, "app.js"), "utf8");
     const html = fs.readFileSync(path.join(root, "index.html"), "utf8");
@@ -120,15 +102,20 @@ test("includes captured dimensions and a provisional cut list on project workshe
     assert.match(app, /buildPalaceManualReferenceHtml\(\)/);
     assert.match(app, /estimatePalaceSillExtension\(event\.target\.value\)/);
     assert.match(app, /height: Number\(row\.width\)/);
-    assert.match(app, /profileEstimate\.innerHTML = buildProfileCutListHtml\(project, false\)/);
-    assert.match(app, /buildProfileCutListHtml\(project, true\)/);
+    assert.match(app, /profileEstimate\.innerHTML = buildFrameDimensionEstimateHtml\(project, false\)/);
+    assert.match(app, /buildFrameDimensionEstimateHtml\(project, true\)/);
+    assert.match(app, /Generic frame dimensions — not a cutting list/);
+    assert.match(app, /Requires StarFront/);
+    assert.doesNotMatch(app, /6,000 mm stock bars/);
     assert.match(app, /profileEstimate\.hidden = true/);
     assert.match(html, /<script src="profile-estimator\.js"><\/script>\s*<script src="app\.js"><\/script>/);
     assert.match(html, /<th>Width \(mm\)<\/th>\s*<th>Height \(mm\)<\/th>/);
     assert.match(html, /Width and height in mm/);
-    assert.match(html, /documented\s+sill-extension allowance below/);
+    assert.match(html, /Palace references below/);
     assert.match(html, /id="printProfileEstimate"/);
-    assert.match(email, /worksheetProfileCutList\(project\)/);
+    assert.match(email, /worksheetFrameDimensionEstimate\(project\)/);
+    assert.match(email, /Generic frame dimensions — not a cutting list/);
+    assert.doesNotMatch(email, /estimated 6,000 mm stock bars/);
     assert.match(email, /<th>Width<\/th>\s*<th>Height<\/th>/);
     assert.match(serviceWorker, /"\.\/profile-estimator\.js"/);
 });

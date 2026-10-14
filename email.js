@@ -794,42 +794,43 @@ function worksheetScheduleRows(windows, showPhotos) {
     }).join("");
 }
 
-function worksheetProfileCutList(project) {
+function worksheetFrameDimensionEstimate(project) {
     if (!window.CrealcoProfileEstimator) {
         return `<section class="profile-estimate">
-            <h3 class="section-title">Provisional profile estimate &amp; cutting list</h3>
-            <p>The estimator is unavailable; no profile quantities or cutting list were included.</p>
+            <h3 class="section-title">Generic frame dimensions — not a cutting list</h3>
+            <p>The estimator is unavailable; no frame-dimension estimate was included.</p>
         </section>`;
     }
 
     const estimate = window.CrealcoProfileEstimator.estimateProject(project);
-    const rows = estimate.bars.flatMap(bar => bar.cuts.map(cut => `
+    const memberNames = ["Width 1", "Width 2", "Height 1", "Height 2"];
+    const dimensionCount = estimate.memberDimensionCount;
+    const grossPerimeter = estimate.grossPerimeterMm;
+    const rows = estimate.rows.flatMap(row => row.cuts.map((length, index) => `
         <tr>
-            <td>Generic frame profile</td>
-            <td class="num">${bar.number}</td>
-            <td>${escapeEmailHtml(cut.itemId)}</td>
-            <td>${escapeEmailHtml(cut.member)}</td>
-            <td class="num">${escapeEmailHtml(worksheetSize(cut.length))} mm</td>
+            <td>${escapeEmailHtml(row.id)}</td>
+            <td>${memberNames[index]}</td>
+            <td class="num">${escapeEmailHtml(worksheetSize(length))} mm (unadjusted)</td>
         </tr>`)).join("");
     const pending = estimate.pending.map(item => `
         <li><strong>${escapeEmailHtml(item.id)}:</strong> ${escapeEmailHtml(item.reason)}</li>`).join("");
 
     return `<section class="profile-estimate">
-        <h3 class="section-title">Provisional profile estimate &amp; cutting list</h3>
+        <h3 class="section-title">Generic frame dimensions — not a cutting list</h3>
         <p class="profile-caveat">
-            Generic frame perimeter only; this is not a Crealco-series cut list or profile-code take-off.
-            Confirm profile types, deductions and quantities against the selected Crealco system before cutting or ordering.
+            Assumes two members at the recorded width and two at the recorded height. These are unadjusted
+            opening dimensions, not fabrication cut lengths; no profile codes, system deductions, mitre
+            angles or profile-specific stock optimisation are included.
         </p>
         <p>
-            ${estimate.cutCount} cuts · ${escapeEmailHtml(worksheetSize(estimate.totalCutLength / 1000))} m total cut length ·
-            ${estimate.stockBars} estimated 6,000 mm stock bars ·
-            ${escapeEmailHtml(worksheetSize(estimate.estimatedOffcut))} mm estimated remaining stock · 3 mm saw kerf per cut.
+            ${dimensionCount} unadjusted member dimensions ·
+            ${escapeEmailHtml(worksheetSize(grossPerimeter / 1000))} m gross frame perimeter.
         </p>
-        ${rows ? `<table class="cut-list">
-            <thead><tr><th>Provisional profile</th><th>Bar</th><th>Item</th><th>Member</th><th>Cut length</th></tr></thead>
+        ${rows ? `<table class="dimension-estimate-table">
+            <thead><tr><th>Item</th><th>Assumed frame side</th><th>Recorded dimension</th></tr></thead>
             <tbody>${rows}</tbody>
-        </table>` : `<p>No frame cuts could be estimated from the recorded dimensions.</p>`}
-        ${pending ? `<p><strong>Not included in stock totals:</strong></p><ul>${pending}</ul>` : ""}
+        </table>` : `<p>No frame dimensions could be estimated from the recorded dimensions.</p>`}
+        ${pending ? `<p><strong>Dimensions requiring completion:</strong></p><ul>${pending}</ul>` : ""}
     </section>`;
 }
 
@@ -1030,10 +1031,10 @@ function createProjectWorksheetHtml(project) {
     .schedule .empty { text-align: center; color: #6b7280; padding: 10px; }
     .profile-estimate { margin-top: 12px; break-inside: auto; }
     .profile-caveat { color: #4b5563; }
-    .cut-list { width: 100%; border-collapse: collapse; font-size: 8pt; }
-    .cut-list th, .cut-list td { border: 0.5pt solid #6b7280; padding: 3px 5px; text-align: left; }
-    .cut-list th { background: #e5e7eb; }
-    .cut-list .num { text-align: right; white-space: nowrap; }
+    .dimension-estimate-table { width: 100%; border-collapse: collapse; font-size: 8pt; }
+    .dimension-estimate-table th, .dimension-estimate-table td { border: 0.5pt solid #6b7280; padding: 3px 5px; text-align: left; }
+    .dimension-estimate-table th { background: #e5e7eb; }
+    .dimension-estimate-table .num { text-align: right; white-space: nowrap; }
 
     /*
        Photos print as a small thumbnail beside their row. height
@@ -1155,7 +1156,7 @@ function createProjectWorksheetHtml(project) {
         </tbody>
     </table>
 
-    ${worksheetProfileCutList(project)}
+    ${worksheetFrameDimensionEstimate(project)}
 
     <div class="signoff">
         <div><span>Manufactured by</span></div>

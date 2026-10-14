@@ -8402,19 +8402,19 @@ body.trade-open {
     min-width: 760px;
 }
 
-.profile-cut-list-scroll {
+.profile-dimension-estimate-scroll {
     overflow-x: auto;
 }
 
-.profile-cut-list-table,
+.profile-dimension-estimate-table,
 .worksheet-preview-profile-table {
     width: 100%;
     border-collapse: collapse;
     font-size: 12px;
 }
 
-.profile-cut-list-table th,
-.profile-cut-list-table td,
+.profile-dimension-estimate-table th,
+.profile-dimension-estimate-table td,
 .worksheet-preview-profile-table th,
 .worksheet-preview-profile-table td {
     padding: 6px 8px;
@@ -8423,7 +8423,7 @@ body.trade-open {
     vertical-align: top;
 }
 
-.profile-cut-list-table th,
+.profile-dimension-estimate-table th,
 .worksheet-preview-profile-table th {
     background: var(--surface-light);
 }
@@ -8545,17 +8545,17 @@ body.trade-open {
         min-width: 0;
     }
 
-    #printProfileEstimate .profile-cut-list-table {
+    #printProfileEstimate .profile-dimension-estimate-table {
         font-size: 8pt;
     }
 
-    #printProfileEstimate .profile-cut-list-table th,
-    #printProfileEstimate .profile-cut-list-table td {
+    #printProfileEstimate .profile-dimension-estimate-table th,
+    #printProfileEstimate .profile-dimension-estimate-table td {
         padding: 2mm;
         border-color: #aaa;
     }
 
-    #printProfileEstimate .profile-cut-list-scroll {
+    #printProfileEstimate .profile-dimension-estimate-scroll {
         overflow: visible;
     }
 }

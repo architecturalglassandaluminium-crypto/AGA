@@ -1,5 +1,5 @@
 /*
- * Provisional Crealco frame-perimeter estimator.
+ * Gross opening-dimension estimator; this does not produce fabrication cuts.
  *
  * This intentionally estimates one generic profile only. Crealco
  * series-specific deductions, sash layouts, mullions, beads and hardware
@@ -16,8 +16,6 @@
 }(typeof globalThis !== "undefined" ? globalThis : this, function () {
     "use strict";
 
-    const STOCK_LENGTH_MM = 6000;
-    const SAW_KERF_MM = 3;
     const PALACE_MANUAL = Object.freeze({
         revision: "Rev. 9 (2025-02-26)",
         sourceUrl: "https://crealco.co.za/wp-content/uploads/2025/12/Rev.9-2025-02-26-Palace-Manual.pdf",
@@ -49,33 +47,6 @@
         return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
     }
 
-    function packCuts(cuts) {
-        const bars = [];
-
-        [...cuts]
-            .sort((a, b) => b.length - a.length)
-            .forEach(cut => {
-                const required = cut.length + SAW_KERF_MM;
-                let bar = bars.find(item => item.remaining >= required);
-
-                if (!bar) {
-                    bar = { cuts: [], remaining: STOCK_LENGTH_MM };
-                    bars.push(bar);
-                }
-
-                bar.remaining -= required;
-                bar.cuts.push(cut);
-            });
-
-        return bars.map((bar, index) => ({
-            number: index + 1,
-            cuts: bar.cuts,
-            usedLength: bar.cuts.reduce((total, cut) => total + cut.length, 0),
-            kerf: bar.cuts.length * SAW_KERF_MM,
-            remaining: bar.remaining
-        }));
-    }
-
     function estimatePalaceSillExtension(overallDimension) {
         const measuredDimension = dimension(overallDimension);
         const endCapAllowanceEachEnd = PALACE_MANUAL.sillExtensionEndCapAllowanceMm;
@@ -96,8 +67,8 @@
     function estimateProject(project) {
         const windows = Array.isArray(project?.windows) ? project.windows : [];
         const rows = [];
-        const cuts = [];
         const pending = [];
+        let grossPerimeterMm = 0;
 
         windows.forEach((window, index) => {
             const length = dimension(window.length);
@@ -111,59 +82,31 @@
             }
 
             const itemCuts = [
-                { length, member: "Width 1" },
-                { length, member: "Width 2" },
-                { length: width, member: "Height 1" },
-                { length: width, member: "Height 2" }
+                length,
+                length,
+                width,
+                width
             ];
-            const overlength = itemCuts.some(cut => cut.length + SAW_KERF_MM > STOCK_LENGTH_MM);
-
-            if (overlength) {
-                pending.push({
-                    id,
-                    reason: "At least one frame member is longer than a 6,000 mm stock bar."
-                });
-                rows.push({
-                    id,
-                    length,
-                    width,
-                    perimeter: length * 2 + width * 2,
-                    cuts: itemCuts.map(cut => cut.length),
-                    overlength: true
-                });
-                return;
-            }
-
-            cuts.push(...itemCuts.map(cut => ({ ...cut, itemId: id })));
+            const perimeter = itemCuts.reduce((total, dimension) => total + dimension, 0);
+            grossPerimeterMm += perimeter;
             rows.push({
                 id,
                 length,
                 width,
-                perimeter: length * 2 + width * 2,
-                cuts: itemCuts.map(cut => cut.length),
-                overlength: false
+                perimeter,
+                cuts: itemCuts
             });
         });
-
-        const bars = packCuts(cuts);
-        const totalCutLength = cuts.reduce((total, cut) => total + cut.length, 0);
 
         return {
             rows,
             pending,
-            bars,
-            cutCount: cuts.length,
-            totalCutLength,
-            stockLength: STOCK_LENGTH_MM,
-            stockBars: bars.length,
-            stockLengthTotal: bars.length * STOCK_LENGTH_MM,
-            estimatedOffcut: bars.reduce((total, bar) => total + bar.remaining, 0)
+            grossPerimeterMm,
+            memberDimensionCount: rows.reduce((total, row) => total + row.cuts.length, 0)
         };
     }
 
     return Object.freeze({
-        STOCK_LENGTH_MM,
-        SAW_KERF_MM,
         estimateProject,
         PALACE_MANUAL,
         estimatePalaceSillExtension
