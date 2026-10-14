@@ -4572,6 +4572,18 @@ img {
        Bottom, thumb-friendly navigation on phones.
        Icons sit above small labels, evenly spread.
     */
+    /*
+       The bar carries eight views now (dashboard, projects, windows,
+       team, productivity, planning, quotes, price check), which at
+       390px is about 48px each.
+
+       It is NOT made to scroll. A hidden sideways scroll on the main
+       navigation is a trap: the last two views sit off screen with
+       nothing to say they are there, so the tab is invisible until
+       the user happens to swipe the bar. Better to fit all eight:
+       the icon carries the recognition, the label is shortened (see
+       .nav-label below) and stays legible at this size.
+    */
     .main-navigation {
         position: fixed;
         bottom: 0;
@@ -4585,21 +4597,22 @@ img {
         box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35);
         display: flex;
         justify-content: space-around;
-        align-items: center;
+        align-items: stretch;
         gap: 0;
-        padding: 8px 0 10px;
-        overflow-x: visible;
+        padding: 6px 2px 8px;
+        overflow: visible;
     }
 
     .nav-button {
         border: none;
         background: transparent;
-        padding: 6px 0;
+        padding: 5px 1px;
         flex: 1 1 0;
+        min-width: 0;
         color: rgba(255, 255, 255, 0.75);
         font-weight: 600;
         white-space: nowrap;
-        font-size: 10px;
+        font-size: 9.5px;
         display: flex;
         flex-direction: column;
         align-items: center;
@@ -4618,13 +4631,26 @@ img {
         line-height: 1;
     }
 
+    /*
+       Eight labels on one 390px bar. "Productivity" and "Price
+       Check" each need about 68px at 10px, which does not fit eight
+       ways - so the label drops to 9px, and the two longest names
+       are clipped to one line rather than pushing their neighbours
+       narrow. The icon above carries the recognition; the label only
+       has to confirm it.
+    */
     .nav-label {
-        font-size: 10px;
+        font-size: 9px;
+        letter-spacing: -0.02em;
+        max-width: 100%;
+        overflow: hidden;
+        text-overflow: ellipsis;
     }
 
     .nav-button {
-        min-height: 48px;
+        min-height: 46px;
         justify-content: center;
+        overflow: hidden;
     }
 
     .nav-button.active {
@@ -7745,3 +7771,418 @@ body.trade-open {
     .portfolio-meta { grid-template-columns: 1fr 1fr; }
 }
 @media print { .portfolio-view { display: none !important; } }
+
+/* =========================================================
+   PRICE CHECK
+
+   Two layouts, one renderer.
+
+   On a laptop this is a comparison TABLE: five stores side by
+   side is the whole point, and a number in a column can be
+   scanned down in a way a stack of cards cannot.
+
+   On a phone eight columns do not fit, and the old answer - scroll
+   the table sideways - meant the store names went off screen with
+   the prices, so a name and its figure could never be read
+   together. Below 760px each product becomes a CARD instead: the
+   name at the top, then one labelled row per store, cheapest
+   first. The prices are still a column, just a vertical one.
+
+   The switch is pure CSS off data-label, which price-check.js
+   stamps on every cell, so there is no second renderer to keep in
+   step with the first.
+   ========================================================= */
+
+.price-table-wrap {
+    overflow-x: auto;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+}
+
+.price-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+/*
+   Compact by default. The old cell padding (10px 12px) made an
+   18-product table taller than the screen it was read on; the row
+   height now comes from the input, not from padding around it.
+*/
+.price-table th,
+.price-table td {
+    padding: 5px 8px;
+    text-align: left;
+    border-bottom: 1px solid var(--border);
+    vertical-align: middle;
+    font-size: 13px;
+}
+
+.price-table thead th {
+    position: sticky;
+    top: 0;
+    background: var(--surface-light);
+    color: var(--primary-dark);
+    font-weight: 700;
+    white-space: nowrap;
+    z-index: 1;
+    font-size: 11.5px;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+}
+
+/* The store columns are the same width, so a price sits under its
+   own heading rather than wandering with the product-name width. */
+.price-table thead th:not(:first-child):not(:nth-last-child(2)):not(:last-child),
+.price-table tbody td.price-cell {
+    width: 1%;
+}
+
+/* A category band, not a product row. */
+.price-group th {
+    background: var(--surface-light);
+    color: var(--text-light);
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    font-weight: 700;
+    padding-top: 7px;
+    padding-bottom: 7px;
+}
+
+.price-name { min-width: 200px; }
+.price-name strong { display: block; overflow-wrap: anywhere; font-size: 13.5px; }
+
+.price-checked {
+    display: block;
+    color: var(--text-muted);
+    font-size: 10.5px;
+    margin-top: 1px;
+}
+
+/* A price captured before today is shown, but flagged: it is still
+   the best figure available and hiding it would leave the row
+   blank, which reads as "not sold here". */
+.price-stale .price-checked { color: var(--warning); }
+
+.price-cell { white-space: nowrap; }
+
+/* The one number in each row worth reading first. */
+.price-cell.is-best {
+    background: var(--success-soft);
+    font-weight: 700;
+}
+
+.price-none { color: var(--text-muted); }
+
+.price-input {
+    width: 78px;
+    padding: 4px 6px;
+    border: 1px solid transparent;
+    border-radius: var(--radius-sm);
+    background: transparent;
+    font: inherit;
+    font-size: 13px;
+    color: inherit;
+    text-align: right;
+}
+
+/* Editable in place, but it should not look like a form field
+   until it is hovered or focused - a table of 18 products with 90
+   input boxes reads as a form to fill in, not a price list. */
+.price-input:hover,
+.price-input:focus {
+    border-color: var(--border-dark);
+    background: white;
+}
+
+.price-input:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 1px;
+}
+
+.price-best { white-space: nowrap; }
+.price-best span { display: block; font-weight: 700; color: var(--primary-dark); font-size: 13.5px; }
+.price-best small { display: block; color: var(--text-muted); font-size: 10.5px; }
+
+.price-store-link {
+    display: inline-block;
+    margin-top: 1px;
+    font-size: 10.5px;
+    color: var(--accent);
+    text-decoration: none;
+}
+
+.price-store-link:hover { text-decoration: underline; }
+
+.price-actions { white-space: nowrap; text-align: right; }
+.price-add-button { padding: 5px 10px; font-size: 12px; min-height: 30px; }
+
+.price-empty {
+    padding: 18px;
+    text-align: center;
+    color: var(--text-muted);
+    font-size: 13px;
+}
+
+/* ---- Shopping list ---- */
+
+.price-list-heading {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+}
+
+.shopping-total { color: var(--text-light); font-size: 13px; }
+.shopping-total strong { font-size: 16px; color: var(--primary-dark); }
+
+.shopping-list { display: grid; gap: 12px; }
+
+.shopping-group {
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    overflow: hidden;
+}
+
+.shopping-group-heading {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 12px;
+    background: var(--surface-light);
+    color: var(--primary-dark);
+    font-size: 13.5px;
+}
+
+.shopping-line {
+    display: grid;
+    grid-template-columns: auto 1fr auto auto auto;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 12px;
+    border-top: 1px solid var(--border);
+}
+
+.shopping-line input[type="checkbox"] { width: 17px; height: 17px; }
+
+.shopping-description { overflow-wrap: anywhere; font-size: 13.5px; }
+
+/* A bought line stays visible but is visibly dealt with: deleting
+   it would lose the record of what the trip covered. */
+.shopping-line.is-done .shopping-description,
+.shopping-line.is-done .shopping-price {
+    color: var(--text-muted);
+    text-decoration: line-through;
+}
+
+.shopping-quantity {
+    width: 58px;
+    padding: 5px 6px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    background: white;
+    font: inherit;
+    font-size: 13px;
+    text-align: right;
+}
+
+.shopping-price {
+    min-width: 84px;
+    text-align: right;
+    font-weight: 700;
+    color: var(--primary-dark);
+    font-size: 13.5px;
+}
+
+.shopping-remove {
+    width: 28px;
+    height: 28px;
+    border: 1px solid var(--border);
+    border-radius: 50%;
+    background: white;
+    color: var(--danger);
+    cursor: pointer;
+    line-height: 1;
+    flex: none;
+}
+
+.shopping-remove:hover {
+    background: var(--danger-soft);
+    border-color: var(--danger);
+}
+
+/* The price-check header sits closer than the app average: this
+   view is a working list, and a page of tables does not need the
+   airy top spacing the dashboard uses. */
+#pricecheck-view .page-header { margin-bottom: 14px; }
+#pricecheck-view .page-header h2 { font-size: 22px; }
+#pricecheck-view .page-header p { font-size: 13.5px; margin: 0; }
+#pricecheck-view .section-card { padding: 14px; margin-bottom: 12px; }
+#pricecheck-view .section-card-header { margin-bottom: 10px; }
+
+/* =========================================================
+   PRICE CHECK - PHONE
+
+   760px is where eight columns stop fitting under their own
+   headings. Below it a product row becomes a card.
+
+   tr/td keep their display roles for the accessibility tree by
+   being told display:block here rather than being replaced with
+   divs in the markup - the table's structure is still announced,
+   it is only the painting that changes.
+   ========================================================= */
+
+@media (max-width: 760px) {
+
+    /* The header row is not needed: every cell now labels itself. */
+    .price-table thead { display: none; }
+
+    .price-table,
+    .price-table tbody,
+    .price-table tr,
+    .price-table td,
+    .price-table th {
+        display: block;
+        width: auto;
+    }
+
+    .price-table-wrap { overflow: visible; border: none; border-radius: 0; }
+
+    /* The category band becomes a plain heading over its cards. */
+    .price-group th {
+        padding: 12px 2px 6px;
+        background: none;
+        border-bottom: 0;
+        font-size: 12px;
+    }
+
+    .price-row {
+        border: 1px solid var(--border);
+        border-radius: var(--radius-sm);
+        margin: 0 0 8px;
+        padding: 8px 10px;
+        background: var(--surface);
+    }
+
+    /* The product name leads the card. */
+    .price-row .price-name {
+        padding: 0 0 6px;
+        border-bottom: 1px solid var(--border);
+        margin-bottom: 4px;
+    }
+
+    /*
+       One store per line: label on the left, price on the right,
+       with the figure still editable. The label comes from the
+       cell's own data-label, so no column heading has to survive
+       into this layout.
+    */
+    .price-table tbody td.price-cell {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 10px;
+        padding: 4px 6px;
+        border-bottom: 1px solid var(--border);
+        white-space: normal;
+    }
+
+    .price-table tbody td.price-cell::before {
+        content: attr(data-label);
+        color: var(--text-light);
+        font-size: 12.5px;
+        flex: 1 1 auto;
+        min-width: 0;
+        overflow-wrap: anywhere;
+    }
+
+    /* A store that does not carry the line is dimmed, not hidden:
+       "sold nowhere near here" is useful to know too. */
+    .price-cell:has(.price-none)::before { color: var(--text-muted); }
+
+    .price-input { width: 100%; max-width: 120px; text-align: right; }
+
+    .price-cell.is-best {
+        background: var(--success-soft);
+        border-radius: var(--radius-sm);
+    }
+
+    /* Best price reads as the summary line of the card. */
+    .price-row .price-best {
+        display: flex;
+        align-items: baseline;
+        justify-content: space-between;
+        gap: 10px;
+        flex-wrap: wrap;
+        padding: 6px;
+        border-bottom: 0;
+        margin-top: 2px;
+    }
+
+    .price-row .price-best span { font-size: 15px; }
+
+    .price-row .price-actions {
+        padding: 4px 0 0;
+    }
+
+    /* Full-width, thumb-height action at the foot of the card. */
+    .price-add-button {
+        width: 100%;
+        min-height: 40px;
+        font-size: 13.5px;
+    }
+
+    /* ---- Shopping list, on a phone ---- */
+
+    .price-list-heading {
+        gap: 8px;
+        width: 100%;
+    }
+
+    .price-list-heading .measurement-note { display: none; }
+
+    /* Tick, name and price on the first row; controls beneath it,
+       so the description is never squeezed by the inputs. */
+    .shopping-line {
+        grid-template-columns: auto 1fr auto;
+        gap: 8px 10px;
+        padding: 9px 10px;
+        grid-template-areas:
+            "tick name price"
+            "tick qty remove";
+    }
+
+    .shopping-line input[type="checkbox"] { grid-area: tick; align-self: start; margin-top: 3px; width: 20px; height: 20px; }
+    .shopping-description { grid-area: name; }
+    .shopping-price { grid-area: price; min-width: 0; }
+    .shopping-quantity { grid-area: qty; width: 64px; justify-self: start; min-height: 32px; }
+    .shopping-remove { grid-area: remove; justify-self: end; width: 32px; height: 32px; }
+
+    #pricecheck-view .section-card { padding: 12px; }
+}
+
+/* A very narrow phone: the store label and its figure stack. */
+@media (max-width: 380px) {
+    .price-table tbody td.price-cell {
+        flex-wrap: wrap;
+        row-gap: 2px;
+    }
+
+    .shopping-price { font-size: 12.5px; }
+}
+
+/* ---- Print ---- */
+
+@media print {
+    .price-table-wrap { overflow: visible; border: none; }
+    .price-table { min-width: 0; }
+    .price-input { background: transparent; border-color: transparent; }
+    .price-actions,
+    .shopping-remove,
+    .shopping-line input[type="checkbox"],
+    .shopping-quantity,
+    #priceCheckClearButton,
+    #priceCheckPrintButton { display: none !important; }
+}

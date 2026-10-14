@@ -9907,7 +9907,8 @@ const VIEW_NAMES = [
     "employees",
     "productivity",
     "planning",
-    "quotes"
+    "quotes",
+    "pricecheck"
 ];
 
 /*
@@ -9953,6 +9954,15 @@ function switchView(viewName) {
             button.classList.remove("active");
         }
     });
+
+    /*
+       Repaint the price check when it is opened. Like the schedule
+       and the portfolio, it is a read of stored data, so it is drawn
+       on entry rather than kept live in the background.
+    */
+    if (viewName === "pricecheck" && typeof window.renderPriceCheck === "function") {
+        window.renderPriceCheck();
+    }
 
     /*
        Stop the camera if we leave the scanner view.

@@ -142,6 +142,12 @@
             </span>
             <span class="nav-label">Quotes</span>
         </button>
+        <button type="button" class="nav-button" data-view="pricecheck" aria-label="Price check">
+            <span class="nav-icon" aria-hidden="true">
+                <svg class="icon" viewBox="0 0 24 24"><path d="M4 4h2l2.4 11.2a2 2 0 0 0 2 1.6h7.8a2 2 0 0 0 2-1.55L21 8H6"/><circle cx="10" cy="20" r="1.4"/><circle cx="18" cy="20" r="1.4"/></svg>
+            </span>
+            <span class="nav-label">Price Check</span>
+        </button>
     </nav>
 
     <main class="app-container">
@@ -1220,6 +1226,83 @@
                 <div id="quotesList" class="quote-list"></div>
             </div>
         </section>
+
+        <!--
+           PRICE CHECK VIEW
+
+           Compare one product's price across the five stores the
+           company buys from, and keep a shopping list of the lines
+           worth buying. It is deliberately separate from the quote
+           builder: a quote prices work for a customer, this prices
+           a purchase for the buyer, and mixing the two would put
+           shopping-list rows on a customer's document.
+
+           Every price is a captured figure with the date it was
+           captured, and every row can be corrected in place - a
+           price feed does not exist for these stores, and this app
+           is offline-first, so the figure is only as good as the
+           date beside it.
+        -->
+        <section id="pricecheck-view" class="app-view">
+            <div class="page-header">
+                <div>
+                    <h2>Price Check</h2>
+                    <p>Compare what one product costs at each store, then keep a shopping list of what to buy.</p>
+                </div>
+                <div class="page-header-actions">
+                    <button type="button" class="secondary-button" id="priceCheckPrintButton">
+                        <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9V2h12v7"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><path d="M6 14h12v8H6z"/></svg>
+                        Print list
+                    </button>
+                </div>
+            </div>
+
+            <!-- SIDE-BY-SIDE PRICE COMPARISON -->
+            <div class="section-card">
+                <div class="section-card-header">
+                    <h3>
+                        <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 4h2l2.4 11.2a2 2 0 0 0 2 1.6h7.8a2 2 0 0 0 2-1.55L21 8H6"/><circle cx="10" cy="20" r="1.4"/><circle cx="18" cy="20" r="1.4"/></svg>
+                        Store prices
+                    </h3>
+                    <input type="search" id="priceCheckSearch" class="project-search"
+                        placeholder="Search a product..." aria-label="Search products">
+                </div>
+                <p class="measurement-note">Prices are captured reference figures in Rand, ex VAT. Edit any figure to correct it; the cheapest price in each row is highlighted.</p>
+                <div class="price-table-wrap">
+                    <table class="price-table">
+                        <thead>
+                            <tr>
+                                <th scope="col">Product</th>
+                                <th scope="col">Leroy Merlin</th>
+                                <th scope="col">Plumblink</th>
+                                <th scope="col">Chamberlains</th>
+                                <th scope="col">Bathroom Bizaar</th>
+                                <th scope="col">Builders Warehouse</th>
+                                <th scope="col">Best price</th>
+                                <th scope="col"><span class="visually-hidden">Add to shopping list</span></th>
+                            </tr>
+                        </thead>
+                        <tbody id="priceCheckBody"></tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- SHOPPING LIST -->
+            <div class="section-card">
+                <div class="section-card-header">
+                    <h3>
+                        <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+                        Shopping list
+                    </h3>
+                    <div class="price-list-heading">
+                        <span class="measurement-note">Grouped by store, so each shop gets its own sheet</span>
+                        <span class="shopping-total">To buy: <strong id="priceCheckTotal">R0.00</strong></span>
+                        <button type="button" class="secondary-button" id="priceCheckClearButton">Clear list</button>
+                    </div>
+                </div>
+                <div id="priceCheckList" class="shopping-list"></div>
+            </div>
+        </section>
     </main>
 
     <!--
@@ -1615,6 +1698,7 @@
     -->
     <script src="trades.js"></script>
     <script src="portfolio.js"></script>
+    <script src="price-check.js"></script>
 </body>
 
 </html>
