@@ -60,3 +60,8 @@ node_modules/
 # not needed to run or build the app.
 # ---------------------------------------------------------------------------
 *.pdf
+
+# Text dumped out of a PDF by tools/pdf-extract.js. Derived from the PDFs
+# above, so it is ignored for the same reason: large, regenerable, and not
+# needed to run or build the app.
+*.extracted.txt
