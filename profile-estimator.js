@@ -47,7 +47,32 @@
         ]),
         defaultFrameProfileCode: "W52692",
         sashProfileCode: "W52699",
-        cornerCleatCode: "W52695"
+        cornerCleatCode: "W52695",
+        // Closed-frame corners: the cleat is crimped, then every joint is sealed.
+        cornerJoint: Object.freeze({
+            code: "W52695",
+            description: "Casement 28 corner cleat",
+            jointType: "Crimped corner",
+            cleatsPerCorner: 1,
+            cornersPerClosedFrame: 4,
+            sealant: "Wispeco-approved joint sealer",
+            method: "Corner cleat crimped from inside (hand tool) or outside (hydraulic tool)",
+            finPileBeforeCrimping: true,
+            excludesGlazedAreas: true
+        }),
+        // Mullion / transom cross joints: milled end, screw-fixed, then sealed.
+        crossJoint: Object.freeze({
+            code: "STPPS630",
+            description: "6 x 30 pan-head posi S/S screw",
+            jointType: "Milled cross joint",
+            mullionEndMilling: true,
+            mullionMilledLocked: true,
+            sealant: "Silicone sealant",
+            crossConnector: "CC28 cross connector (PVC)",
+            cottagePaneConnector: "CPC28 cottage pane cross connector 28 mm (black)",
+            finPileBehindGlazingBar: false,
+            note: "Mullion ends are milled to engage the mullion; fin pile must meet and must not run to the edge of the profile."
+        })
     });
 
     function dimension(value) {
@@ -139,6 +164,9 @@
         const pending = [];
         const profileTotals = new Map();
         let cornerCleatQuantity = 0;
+        let frameCornerQuantity = 0;
+        let sashCornerQuantity = 0;
+        let crossJointQuantity = 0;
 
         windows.forEach((window, index) => {
             const width = dimension(window.length) || dimension(window.finalWidth);
@@ -190,17 +218,23 @@
             addCut(cuts, profileTotals, frameProfile, "Frame head / sill", width, 2 * unitCount);
             addCut(cuts, profileTotals, frameProfile, "Frame jamb", height, 2 * unitCount);
             cornerCleatQuantity += 4 * unitCount;
+            frameCornerQuantity += CASEMENT_28_MANUAL.cornerJoint.cornersPerClosedFrame * unitCount;
 
             if (sashCount === 1) {
                 addCut(cuts, profileTotals, sashProfile, "Sash top / bottom", width, 2 * unitCount);
                 addCut(cuts, profileTotals, sashProfile, "Sash stile", height, 2 * unitCount);
                 cornerCleatQuantity += 4 * unitCount;
+                sashCornerQuantity += CASEMENT_28_MANUAL.cornerJoint.cornersPerClosedFrame * unitCount;
             } else if (sashCount > 1) {
                 pending.push({
                     id,
                     reason: "Multiple sashes need individual sash sizes and mullion details; sash cuts are not estimated."
                 });
                 cornerCleatQuantity += 4 * unitCount * sashCount;
+                sashCornerQuantity += CASEMENT_28_MANUAL.cornerJoint.cornersPerClosedFrame * unitCount * sashCount;
+                // One milled, screw-fixed and sealed cross joint per mullion between
+                // adjacent sashes. The layout itself is still a design detail.
+                crossJointQuantity += Math.max(0, sashCount - 1) * unitCount;
             }
 
             rows.push({
@@ -223,9 +257,84 @@
             components: cornerCleatQuantity
                 ? [{ ...cornerCleat, quantity: cornerCleatQuantity }]
                 : [],
+            joints: buildJointSchedule({
+                frameCornerQuantity,
+                sashCornerQuantity,
+                crossJointQuantity
+            }),
             totalCutPieces: rows.reduce((total, row) =>
                 total + row.cuts.reduce((rowTotal, cut) => rowTotal + cut.pieceCount, 0), 0),
             manualRevision: CASEMENT_28_MANUAL.revision
+        };
+    }
+
+    /*
+     * Corner and joint provisions. The manual treats every frame and sash as a
+     * closed rectangle (4 crimped corners each) and every mullion / transom
+     * crossing as a milled, screw-fixed and sealed cross joint.
+     */
+    function buildJointSchedule(quantities = {}) {
+        const frameCorners = Math.max(0, quantities.frameCornerQuantity || 0);
+        const sashCorners = Math.max(0, quantities.sashCornerQuantity || 0);
+        const crossJoints = Math.max(0, quantities.crossJointQuantity || 0);
+        const { cornerJoint, crossJoint } = CASEMENT_28_MANUAL;
+        const lines = [];
+
+        if (frameCorners) {
+            lines.push({
+                id: "frame-corners",
+                kind: "corner",
+                member: "Outer frame corners",
+                jointType: cornerJoint.jointType,
+                quantity: frameCorners,
+                code: cornerJoint.code,
+                description: cornerJoint.description,
+                sealant: cornerJoint.sealant,
+                method: cornerJoint.method,
+                note: "Fin pile fitted to the sash and frame before crimping, excluding areas to be glazed."
+            });
+        }
+
+        if (sashCorners) {
+            lines.push({
+                id: "sash-corners",
+                kind: "corner",
+                member: "Sash corners",
+                jointType: cornerJoint.jointType,
+                quantity: sashCorners,
+                code: cornerJoint.code,
+                description: cornerJoint.description,
+                sealant: cornerJoint.sealant,
+                method: cornerJoint.method,
+                note: "Fin pile fitted to the sash and frame before crimping, excluding areas to be glazed."
+            });
+        }
+
+        if (crossJoints) {
+            lines.push({
+                id: "cross-joints",
+                kind: "cross",
+                member: "Mullion / transom cross joints",
+                jointType: crossJoint.jointType,
+                quantity: crossJoints,
+                code: crossJoint.code,
+                description: crossJoint.description,
+                sealant: crossJoint.sealant,
+                method: "Mullion ends milled to engage the mullion, then screw-fixed",
+                note: crossJoint.note
+            });
+        }
+
+        return {
+            lines,
+            frameCorners,
+            sashCorners,
+            crossJoints,
+            totalCorners: frameCorners + sashCorners,
+            totalJoints: frameCorners + sashCorners + crossJoints,
+            corner: cornerJoint,
+            cross: crossJoint,
+            notCalculated: crossJoints === 0 && (frameCorners + sashCorners) === 0
         };
     }
 
@@ -289,6 +398,7 @@
         estimatePalaceSillExtension,
         CASEMENT_28_MANUAL,
         estimateCasement28,
+        buildJointSchedule,
         groupCasement28CutSchedule
     });
 }));

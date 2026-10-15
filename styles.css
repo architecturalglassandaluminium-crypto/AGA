@@ -8836,6 +8836,47 @@ body.trade-open {
 .c28-cut-table th:nth-child(5) { width: 17%; }
 .c28-cut-table th:nth-child(6) { width: 29%; }
 
+.c28-joint-table th:nth-child(1) { width: 17%; }
+.c28-joint-table th:nth-child(2) { width: 7%; }
+.c28-joint-table th:nth-child(3) { width: 18%; }
+.c28-joint-table th:nth-child(4) { width: 20%; }
+.c28-joint-table th:nth-child(5) { width: 14%; }
+.c28-joint-table th:nth-child(6) { width: 24%; }
+
+.c28-joint-table code {
+    font-size: 9px;
+    font-weight: 700;
+}
+
+.c28-joint-totals {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px 14px;
+    margin-top: 7px;
+    padding: 6px 8px;
+    border: 1px solid var(--c28-rule);
+    border-radius: 4px;
+    break-inside: avoid;
+}
+
+.c28-joint-totals div {
+    display: flex;
+    align-items: baseline;
+    gap: 5px;
+}
+
+.c28-joint-totals span {
+    font-size: 9px;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    color: #555;
+}
+
+.c28-joint-totals strong {
+    font-size: 12px;
+    font-variant-numeric: tabular-nums;
+}
+
 .c28-table small,
 .c28-small,
 .c28-empty {

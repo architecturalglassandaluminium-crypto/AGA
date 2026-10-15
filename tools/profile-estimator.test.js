@@ -126,6 +126,59 @@ test("builds a provisional Casement 28 profile takeoff from opening dimensions",
     assert.equal(result.pending.length, 0);
 });
 
+test("counts Casement 28 corners and cross joints from the manual assemblies", () => {
+    const result = estimator.estimateCasement28({
+        windows: [
+            { id: "single", length: 1200, height: 900 },
+            { id: "pair", length: 1800, height: 900, quantity: 2 }
+        ]
+    }, {
+        sashCounts: [1, 2]
+    });
+
+    // Frame: 4 crimped corners per closed frame. 1 + 2 units = 12 corners.
+    assert.equal(result.joints.frameCorners, 12);
+    // Sash: 4 corners each. One 1-sash unit (4) + two 2-sash units (16) = 20.
+    assert.equal(result.joints.sashCorners, 20);
+    // One milled + sealed cross joint per mullion between adjacent sashes.
+    assert.equal(result.joints.crossJoints, 2);
+    assert.equal(result.joints.totalCorners, 32);
+    assert.equal(result.joints.totalJoints, 34);
+
+    const frameLine = result.joints.lines.find(line => line.id === "frame-corners");
+    const sashLine = result.joints.lines.find(line => line.id === "sash-corners");
+    const crossLine = result.joints.lines.find(line => line.id === "cross-joints");
+
+    // Corners are crimped and sealed with an approved joint sealer.
+    assert.equal(frameLine.jointType, "Crimped corner");
+    assert.equal(frameLine.code, "W52695");
+    assert.match(frameLine.sealant, /Wispeco-approved joint sealer/);
+    assert.match(frameLine.method, /crimped/i);
+    assert.match(frameLine.note, /Fin pile/);
+    assert.equal(sashLine.quantity, 20);
+
+    // Cross joints are milled, screw-fixed and sealed with silicone.
+    assert.equal(crossLine.jointType, "Milled cross joint");
+    assert.equal(crossLine.code, "STPPS630");
+    assert.match(crossLine.sealant, /Silicone sealant/);
+    assert.match(crossLine.method, /milled/i);
+    assert.match(crossLine.note, /must not run to the edge of the profile/);
+});
+
+test("reports no joints when no closed frame is estimated", () => {
+    const result = estimator.estimateCasement28({
+        windows: [{ id: "door", productType: "Aluminium Door", length: 900, height: 2100 }]
+    });
+
+    assert.deepEqual(result.joints.lines, []);
+    assert.equal(result.joints.totalJoints, 0);
+    assert.equal(result.joints.notCalculated, true);
+
+    const direct = estimator.buildJointSchedule();
+    assert.deepEqual(direct.lines, []);
+    assert.equal(direct.totalJoints, 0);
+});
+
 test("supports alternate Casement 28 frame profiles and fixed-light sash counts", () => {
     const result = estimator.estimateCasement28({
         windows: [{ id: "C2", length: 1500, height: 1000, quantity: 2 }]
@@ -234,7 +287,19 @@ test("builds a traceable Casement 28 workshop worksheet with dimensioned diagram
     assert.doesNotMatch(html, /Single-sash raw values|Total raw length/);
     assert.match(html, /Worker initials \/ date/);
     assert.match(html, /Workshop notes/);
-    assert.match(html, /No deductions, end treatments or angles, mullions, stock bars, glass, beads, gaskets, hardware, saw kerf, waste, windload or sash-limit calculations/);
+    // Corners and joints must be provisioned on the workshop sheet.
+    assert.match(html, /Corners &amp; joints schedule/);
+    assert.match(html, /Outer frame corners/);
+    assert.match(html, /Sash corners/);
+    assert.match(html, /Crimped corner/);
+    assert.match(html, /W52695/);
+    assert.match(html, /Wispeco-approved joint sealer/);
+    assert.match(html, /Corner cleats fitted and crimped/);
+    assert.match(html, /All joints sealed with approved sealer/);
+    assert.match(html, /Joint sealer used \(approved\)/);
+    assert.match(html, /Crimp tool checked/);
+    assert.match(html, /All mechanical joints must be sealed with a Wispeco-approved joint sealer/);
+    assert.match(html, /No deductions, end treatments or angles, mullion layout, stock bars, glass, beads, gaskets, hardware, saw kerf, waste, windload or sash-limit calculations/);
     assert.match(html, /StarFront's current design and cutting list remain controlling/);
     assert.doesNotMatch(html, /Palace/);
 
@@ -250,6 +315,30 @@ test("builds a traceable Casement 28 workshop worksheet with dimensioned diagram
     assert.match(equalHtml, /equal-leg FRAME PROFILE/);
     assert.match(equalHtml, /Outer frame — equal-leg/);
     assert.doesNotMatch(equalHtml, /unequal-leg FRAME PROFILE/);
+});
+
+test("prints a cross-joint provision when a multi-sash layout needs one", () => {
+    const project = {
+        projectNumber: "AGA-2048",
+        projectName: "Multi-sash elevation",
+        windows: [{ id: "CW-10", productType: "Casement Window", length: 1800, height: 900, quantity: 2 }]
+    };
+    const estimate = estimator.estimateCasement28(project, { sashCounts: [2] });
+    const html = worksheet.buildWorksheetMarkup(project, estimate, {
+        frameProfile: estimator.CASEMENT_28_MANUAL.profiles[0],
+        idPrefix: "cross",
+        cutSchedule: estimator.groupCasement28CutSchedule(estimate.rows)
+    });
+
+    assert.match(html, /Mullion \/ transom cross joints/);
+    assert.match(html, /Milled cross joint/);
+    assert.match(html, /Silicone sealant/);
+    assert.match(html, /STPPS630/);
+    assert.match(html, /milled to engage the mullion/);
+    assert.match(html, /must not run to the edge of the profile/);
+    // 2 units -> 8 frame corners, 16 sash corners, 2 cross joints.
+    assert.match(html, /<span>Cross joints<\/span><strong>2<\/strong>/);
+    assert.match(html, /<span>Total joints<\/span><strong>26<\/strong>/);
 });
 
 test("does not draw Casement diagrams for unsupported products", () => {
@@ -281,6 +370,10 @@ test("prints only the selected Casement 28 worksheet and keeps worksheet actions
     assert.match(app, /idPrefix: "c28-print"/);
     assert.match(app, /Opening-size reference only — actual sash size \/ cut not calculated; not a saw instruction/);
     assert.match(app, /Opening-size reference schedule — not a cut list/);
+    assert.match(app, /<h4>Corners &amp; joints<\/h4>/);
+    assert.match(app, /estimate\.joints\?\.lines/);
+    assert.match(styles, /\.c28-joint-table th:nth-child\(6\)/);
+    assert.match(styles, /\.c28-joint-totals\s*\{/);
     assert.match(app, /fixed-width A4 sheet/);
     assert.match(app, /tabindex="0" role="region" aria-label="Scrollable A4 workshop worksheet preview"/);
     assert.match(app, /swipe horizontally or focus the preview and use the arrow keys/);

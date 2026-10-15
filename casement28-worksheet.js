@@ -98,6 +98,8 @@
         const dateLabel = options.dateLabel || "";
         const profileTotals = Array.isArray(estimate?.profiles) ? estimate.profiles : [];
         const components = Array.isArray(estimate?.components) ? estimate.components : [];
+        const joints = estimate?.joints || null;
+        const jointLines = Array.isArray(joints?.lines) ? joints.lines : [];
         const openings = rows.map((row, index) => {
             const item = windows[index] || {};
             const id = row.id || item.windowNumber || item.id || `Item ${index + 1}`;
@@ -156,6 +158,8 @@
                 <div class="c28-checks" aria-label="Workshop checks">
                     ${check("Opening size verified")}
                     ${check("Cut lengths checked against StarFront")}
+                    ${check("Corner cleats fitted and crimped")}
+                    ${check("All joints sealed with approved sealer")}
                     ${check("Frame assembled / square")}
                     ${check("Glazing and hardware checked")}
                 </div>
@@ -172,6 +176,25 @@
         const componentRows = components.map(component => `
             <tr><td>${escapeHtml(component.code)}</td><td>${escapeHtml(component.description)}</td>
                 <td class="c28-number">${escapeHtml(component.quantity)} pcs (estimated)</td></tr>`).join("");
+        const jointRows = jointLines.map(line => {
+            const isCorner = line.kind === "corner";
+            const codeCell = code => `<code>${escapeHtml(code)}</code>`;
+            const connector = isCorner
+                ? codeCell(line.code)
+                : codeCell(joints.cross.crossConnector.split(" (")[0]);
+            const sealant = escapeHtml(line.sealant);
+            return `<tr>
+                <td><strong>${escapeHtml(line.member)}</strong><br><small>${escapeHtml(line.jointType)}</small></td>
+                <td class="c28-number">${escapeHtml(line.quantity)}</td>
+                <td>${escapeHtml(line.code)}<br><small>${escapeHtml(line.description)}</small></td>
+                <td>${connector}<br><small>${escapeHtml(line.method)}</small></td>
+                <td>${sealant}</td>
+                <td>${escapeHtml(line.note || "")}</td>
+            </tr>`;
+        }).join("");
+        const jointTotals = joints && joints.totalJoints
+            ? joints
+            : { frameCorners: 0, sashCorners: 0, crossJoints: 0, totalCorners: 0, totalJoints: 0 };
         const scheduleRows = cutSchedule.map(cut => {
             const references = (cut.itemReferences || [])
                 .map(item => `${escapeHtml(item.id)} (${escapeHtml(item.pieceCount)} pcs)`)
@@ -221,6 +244,19 @@
                 <p class="c28-small">This summary includes only estimated outer-frame / standard-sash profiles and corner cleats. Other materials are not calculated.</p>
             </section>
             <section class="c28-section">
+                <h2>Corners &amp; joints schedule</h2>
+                ${jointRows
+                    ? `<table class="c28-table c28-joint-table"><thead><tr><th>Joint</th><th>Qty</th><th>Cleat / fixing</th><th>Connector &amp; method</th><th>Sealant</th><th>Notes</th></tr></thead><tbody>${jointRows}</tbody></table>
+                    <div class="c28-joint-totals">
+                        <div><span>Outer frame corners</span><strong>${escapeHtml(jointTotals.frameCorners)}</strong></div>
+                        <div><span>Sash corners</span><strong>${escapeHtml(jointTotals.sashCorners)}</strong></div>
+                        <div><span>Cross joints</span><strong>${escapeHtml(jointTotals.crossJoints)}</strong></div>
+                        <div><span>Total joints</span><strong>${escapeHtml(jointTotals.totalJoints)}</strong></div>
+                    </div>
+                    <p class="c28-small">Corner cleats (${escapeHtml(joints?.corner?.code || "W52695")}) are crimped, then every joint is sealed. Mullion / transom cross joints are milled to engage the mullion, screw-fixed and sealed with silicone. Counts are derived from the number of closed frames and sashes; the cross-joint count assumes one mullion between adjacent sashes.</p>`
+                    : `<p class="c28-empty">No corners or joints are estimated for this project.</p>`}
+            </section>
+            <section class="c28-section">
                 <h2>Opening details &amp; workshop checks</h2>
                 ${openings || `<p class="c28-empty">No openings recorded for this project.</p>`}
             </section>
@@ -232,10 +268,11 @@
                 <div><span>Fabricator</span><i></i><span>Date</span><i></i></div>
                 <div><span>Checker</span><i></i><span>Date</span><i></i></div>
                 <div><span>StarFront drawing / cut-list reference</span><i></i></div>
+                <div><span>Joint sealer used (approved)</span><i></i><span>Crimp tool checked</span><i></i></div>
             </section>
             <footer class="c28-footer">
                 <strong>Shop-floor caveat</strong>
-                <p>Based on the available October 2013 Casement 28 reference, all lengths shown are unadjusted opening-size references only—not fabrication cuts or saw instructions. Single-sash values repeat the opening W × H for reference; actual sash dimensions and cuts are not calculated. No deductions, end treatments or angles, mullions, stock bars, glass, beads, gaskets, hardware, saw kerf, waste, windload or sash-limit calculations are provided. StarFront's current design and cutting list remain controlling. Confirm all fabrication details before cutting.</p>
+                <p>Based on the available October 2013 Casement 28 reference, all lengths shown are unadjusted opening-size references only—not fabrication cuts or saw instructions. Single-sash values repeat the opening W × H for reference; actual sash dimensions and cuts are not calculated. Corner cleats and cross joints are counted from the number of closed frames and sashes; the cross-joint count assumes one mullion between adjacent sashes and does not design the mullion layout. All mechanical joints must be sealed with a Wispeco-approved joint sealer. Fin pile must be fitted before crimping, excluding areas to be glazed. No deductions, end treatments or angles, mullion layout, stock bars, glass, beads, gaskets, hardware, saw kerf, waste, windload or sash-limit calculations are provided. StarFront's current design and cutting list remain controlling. Confirm all fabrication details before cutting.</p>
             </footer>
         </article>`;
     }

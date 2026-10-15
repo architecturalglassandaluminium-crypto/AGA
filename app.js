@@ -10552,6 +10552,15 @@ function renderCrealcoProfileEstimator(projectId) {
             <td class="profile-estimator-number">${formatEstimatorMillimetres(component.quantity)}</td>
             <td>Each frame / sash corner</td>
         </tr>`).join("");
+    const jointLines = Array.isArray(estimate.joints?.lines) ? estimate.joints.lines : [];
+    const jointTotals = jointLines.map(line => `
+        <tr>
+            <td>${escapeHtml(line.member)}</td>
+            <td>${escapeHtml(line.jointType)}</td>
+            <td class="profile-estimator-number">${formatEstimatorMillimetres(line.quantity)}</td>
+            <td>${escapeHtml(line.code)} — ${escapeHtml(line.description)}</td>
+            <td>${escapeHtml(line.sealant)}</td>
+        </tr>`).join("");
     const pendingRows = estimate.pending.map(item => `
         <li><strong>${escapeHtml(item.id)}:</strong> ${escapeHtml(item.reason)}</li>`).join("");
 
@@ -10610,6 +10619,14 @@ function renderCrealcoProfileEstimator(projectId) {
                 <thead><tr><th>Code</th><th>Description</th><th>Quantity</th><th>Basis</th></tr></thead>
                 <tbody>${componentTotals}</tbody>
             </table></div>` : ""}
+        <h4>Corners &amp; joints</h4>
+        ${jointTotals
+            ? `<div class="profile-dimension-estimate-scroll"><table class="profile-dimension-estimate-table">
+                <thead><tr><th>Joint</th><th>Type</th><th>Quantity</th><th>Cleat / fixing</th><th>Sealant</th></tr></thead>
+                <tbody>${jointTotals}</tbody>
+               </table></div>
+               <p class="profile-estimator-caveat">Corner cleats are crimped, then all mechanical joints must be sealed with a Wispeco-approved joint sealer. Cross joints are milled, screw-fixed and sealed with silicone. Counts come from the number of closed frames and sashes; the mullion layout itself is not designed here.</p>`
+            : `<p class="profile-estimator-caveat">No corners or joints can be estimated for the current items.</p>`}
         <h4>Opening-size reference schedule — not a cut list</h4>
         ${cutRows
             ? `<div class="profile-dimension-estimate-scroll"><table class="profile-dimension-estimate-table">
@@ -10627,8 +10644,8 @@ function renderCrealcoProfileEstimator(projectId) {
         </details>
         <p class="profile-estimator-caveat">
             This is a provisional opening-size material takeoff, not a fabrication cutting list or saw instruction. It estimates the selected
-            outer-frame profile, standard sash profile and corner cleats only. Glass, beads, gaskets, stays, handles,
-            fasteners, mullions, machining, end angles, deductions, saw kerf, waste, stock-bar optimisation, windload and
+            outer-frame profile, standard sash profile, corner cleats and corner / cross joints only. Glass, beads, gaskets, stays, handles,
+            mullion layout, machining, end angles, deductions, saw kerf, waste, stock-bar optimisation, windload and
             sash-limit checks are not calculated. Verify every size and all material requirements against the current
             StarFront design and cutting list.
         </p>`;
