@@ -484,19 +484,18 @@
         <section id="estimator-view" class="app-view">
             <div class="page-header">
                 <div>
-                    <h2>Crealco Opening Dimension Estimate</h2>
-                    <p>Review gross opening dimensions and verified Palace manual references; StarFront remains the source for fabrication cuts.</p>
+                    <h2>Casement 28 Material Estimate</h2>
+                    <p>Review profile quantities and opening-size references — not fabrication cuts — from the recorded opening dimensions.</p>
                 </div>
             </div>
 
             <div class="section-card estimator-warning" role="note">
-                <strong>Provisional estimate only</strong>
+                <strong>Provisional material takeoff — not for fabrication</strong>
                 <p>
-                    This is a gross rectangular frame-dimension estimate, not a cutting list.
-                    It does not assign Crealco profile codes, calculate system deductions or mitre angles,
-                    separate frame members from sashes, or optimise stock. The Palace references below
-                    are not applied to these dimensions. Use the current StarFront design and cutting
-                    schedule for manufacturing and ordering.
+                    Casement 28 profile references come from the October 2013 product manual. Listed values
+                    are unadjusted opening-size references — not fabrication cuts or saw instructions.
+                    The manual directs fabricators to use the latest StarFront design and cutting list.
+                    Deductions, sash layouts, glass, hardware, stock bars and waste are not inferred here.
                 </p>
             </div>
 
@@ -1665,6 +1664,13 @@
     </div>
 
     <!--
+        Independent print target for the Casement 28 estimator.
+        printCasement28Worksheet() builds it from only the selected
+        project's records; its print mode excludes every other sheet.
+    -->
+    <div id="printCasement28Worksheet" class="print-only"></div>
+
+    <!--
        PRINTABLE ITEM LABEL
        A small sticker for ONE window: its number, a QR and a barcode.
        Separate from #printWorksheet on purpose - the worksheet is a
@@ -1767,6 +1773,7 @@
     -->
     <script src="planning-core.js"></script>
     <script src="profile-estimator.js"></script>
+    <script src="casement28-worksheet.js"></script>
     <script src="app.js"></script>
     <!-- quotes.js must load first: it defines AGA_STANDARD_PRODUCTS,
          the built-in price list catalogue.js falls back to. -->

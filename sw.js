@@ -11,7 +11,7 @@
    Bump this whenever the app shell changes. It is the signal to
    every installed browser that its cached copy is obsolete.
 */
-const CACHE_NAME = "aga-shell-v25";
+const CACHE_NAME = "aga-shell-v28";
 
 /* The app shell: everything needed to boot the UI offline. */
 const APP_SHELL = [
@@ -30,6 +30,7 @@ const APP_SHELL = [
     "./sync.js",
     "./signin.js",
     "./profile-estimator.js",
+    "./casement28-worksheet.js",
     "./app.js",
     "./catalogue.js",
     "./quotes.js",

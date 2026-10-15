@@ -117,7 +117,10 @@ const STATUSES = [
     "Project Completed"
 ];
 
-const MAX_PHOTO_SIZE = 5 * 1024 * 1024; // 5 MB
+const MAX_PHOTO_INPUT_SIZE = 20 * 1024 * 1024; // 20 MB
+const MAX_STORED_PHOTO_SIZE = 160 * 1024; // 160 KB
+const MAX_PHOTO_DIMENSION = 1600;
+let activePhotoEditor = null;
 
 /*
    Measurement validation rules.
@@ -566,11 +569,123 @@ function validatePhoto(file) {
         return "Please upload an image file.";
     }
 
-    if (file.size > MAX_PHOTO_SIZE) {
-        return "The photo must be smaller than 5 MB.";
+    if (file.size > MAX_PHOTO_INPUT_SIZE) {
+        return "The selected photo is larger than 20 MB. Please choose a smaller image.";
     }
 
     return null;
+}
+
+function canvasToBlob(canvas, quality) {
+    return new Promise((resolve, reject) => {
+        canvas.toBlob(blob => {
+            if (!blob) {
+                reject(new Error("The photo could not be compressed."));
+                return;
+            }
+
+            resolve(blob);
+        }, "image/jpeg", quality);
+    });
+}
+
+function blobToDataUrl(blob) {
+    return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+
+        reader.onload = () => {
+            if (typeof reader.result !== "string") {
+                reject(new Error("The compressed photo could not be read."));
+                return;
+            }
+
+            resolve(reader.result);
+        };
+
+        reader.onerror = () => reject(new Error("The compressed photo could not be read."));
+        reader.readAsDataURL(blob);
+    });
+}
+
+async function compressCanvasToDataUrl(sourceCanvas) {
+    const maxDimension = Math.max(sourceCanvas.width, sourceCanvas.height);
+    const initialScale = Math.min(1, MAX_PHOTO_DIMENSION / maxDimension);
+    let width = Math.max(1, Math.round(sourceCanvas.width * initialScale));
+    let height = Math.max(1, Math.round(sourceCanvas.height * initialScale));
+    const qualities = [0.78, 0.68, 0.58, 0.48];
+
+    for (let attempt = 0; attempt < 18; attempt += 1) {
+        const canvas = document.createElement("canvas");
+        canvas.width = width;
+        canvas.height = height;
+
+        const context = canvas.getContext("2d");
+        if (!context) {
+            throw new Error("Your browser could not prepare the photo for saving.");
+        }
+
+        context.fillStyle = "#ffffff";
+        context.fillRect(0, 0, width, height);
+        context.drawImage(sourceCanvas, 0, 0, width, height);
+
+        for (const quality of qualities) {
+            const blob = await canvasToBlob(canvas, quality);
+            if (blob.size <= MAX_STORED_PHOTO_SIZE) {
+                return blobToDataUrl(blob);
+            }
+        }
+
+        const nextWidth = Math.max(1, Math.round(width * 0.8));
+        const nextHeight = Math.max(1, Math.round(height * 0.8));
+        if (nextWidth === width && nextHeight === height) {
+            break;
+        }
+
+        width = nextWidth;
+        height = nextHeight;
+    }
+
+    throw new Error("This photo could not be reduced enough to save. Please choose a smaller photo.");
+}
+
+function compressPhotoFile(file) {
+    return new Promise((resolve, reject) => {
+        const image = new Image();
+        const objectUrl = URL.createObjectURL(file);
+
+        image.onload = async () => {
+            URL.revokeObjectURL(objectUrl);
+
+            try {
+                const scale = Math.min(
+                    1,
+                    MAX_PHOTO_DIMENSION / Math.max(image.naturalWidth, image.naturalHeight)
+                );
+                const canvas = document.createElement("canvas");
+                canvas.width = Math.max(1, Math.round(image.naturalWidth * scale));
+                canvas.height = Math.max(1, Math.round(image.naturalHeight * scale));
+
+                const context = canvas.getContext("2d");
+                if (!context) {
+                    throw new Error("Your browser could not prepare the photo for saving.");
+                }
+
+                context.fillStyle = "#ffffff";
+                context.fillRect(0, 0, canvas.width, canvas.height);
+                context.drawImage(image, 0, 0, canvas.width, canvas.height);
+                resolve(await compressCanvasToDataUrl(canvas));
+            } catch (error) {
+                reject(error);
+            }
+        };
+
+        image.onerror = () => {
+            URL.revokeObjectURL(objectUrl);
+            reject(new Error("The photo could not be opened. Please choose a JPEG or PNG image."));
+        };
+
+        image.src = objectUrl;
+    });
 }
 
 /* =========================================================
@@ -823,53 +938,16 @@ function generateWindowNumber() {
    ========================================================= */
 
 function readPhoto(file) {
-    return new Promise((resolve, reject) => {
+    if (!file) {
+        return Promise.reject(new Error("No photo was selected."));
+    }
 
-        if (!file) {
-            reject(
-                new Error("No photo was selected.")
-            );
+    const validationError = validatePhoto(file);
+    if (validationError) {
+        return Promise.reject(new Error(validationError));
+    }
 
-            return;
-        }
-
-        const validationError =
-            validatePhoto(file);
-
-        if (validationError) {
-            reject(
-                new Error(validationError)
-            );
-
-            return;
-        }
-
-        const reader = new FileReader();
-
-        reader.onload = () => {
-            if (!reader.result) {
-                reject(
-                    new Error(
-                        "The photo could not be read."
-                    )
-                );
-
-                return;
-            }
-
-            resolve(reader.result);
-        };
-
-        reader.onerror = () => {
-            reject(
-                new Error(
-                    "There was an error reading the photo."
-                )
-            );
-        };
-
-        reader.readAsDataURL(file);
-    });
+    return compressPhotoFile(file);
 }
 
 /* =========================================================
@@ -1803,6 +1881,9 @@ function addProjectWindowRow(rowData = {}) {
 
                 <div class="row-photo-preview" hidden>
                     <img alt="Window photo">
+                    <button type="button" class="row-photo-mark"
+                        title="Draw a line and add a measurement"
+                        onclick="openPhotoEditor(this)">Mark</button>
                     <button type="button" class="row-photo-remove" title="Remove photo"
                         onclick="clearRowPhoto(this)">×</button>
                 </div>
@@ -1894,43 +1975,33 @@ function setRowPhotoThumbnail(photoCell, dataUrl) {
 
 function handleRowPhotoPick(input) {
 
-    try {
+    const file = input?.files?.[0];
 
-        const file = input?.files?.[0];
-
-        if (!file) {
-            return;
-        }
-
-        const validationError = validatePhoto(file);
-
-        if (validationError) {
-            showError(validationError);
-            input.value = "";
-            return;
-        }
-
-        const photoCell = input.closest('[data-field="photo"]');
-
-        const reader = new FileReader();
-
-        reader.onload = () => {
-            setRowPhotoThumbnail(photoCell, String(reader.result));
-        };
-
-        reader.onerror = () => {
-            showError("The photo could not be read. Please try another image.");
-            input.value = "";
-        };
-
-        reader.readAsDataURL(file);
-
-    } catch (error) {
-
-        console.error("Row photo error:", error);
-
-        showError("There was a problem with the selected photo.");
+    if (!file) {
+        return;
     }
+
+    const validationError = validatePhoto(file);
+    if (validationError) {
+        showError(validationError);
+        input.value = "";
+        return;
+    }
+
+    input.dataset.photoProcessing = "true";
+
+    compressPhotoFile(file)
+        .then(dataUrl => {
+            const photoCell = input.closest('[data-field="photo"]');
+            setRowPhotoThumbnail(photoCell, dataUrl);
+            delete input.dataset.photoProcessing;
+        })
+        .catch(error => {
+            console.error("Row photo compression error:", error);
+            showError(error.message || "The photo could not be prepared for saving.");
+            input.value = "";
+            delete input.dataset.photoProcessing;
+        });
 }
 
 function clearRowPhoto(button) {
@@ -1966,6 +2037,252 @@ function clearRowPhoto(button) {
 
 window.handleRowPhotoPick = handleRowPhotoPick;
 window.clearRowPhoto = clearRowPhoto;
+
+function openPhotoEditor(button) {
+    const photoCell = button?.closest('[data-field="photo"]');
+    const input = photoCell?.querySelector(".row-photo-input");
+    const dataUrl = input?.dataset.photo;
+
+    if (!photoCell || !dataUrl) {
+        showError("Add a photo before marking it.");
+        return;
+    }
+
+    const title = $("modalWindowTitle");
+    const content = $("modalWindowContent");
+    const modal = $("windowModal");
+
+    if (!title || !content || !modal) {
+        showError("The photo editor could not be opened.");
+        return;
+    }
+
+    title.textContent = "Mark Window Photo";
+    content.innerHTML = `
+        <div class="photo-editor">
+            <p class="photo-editor-instructions">
+                Drag across the photo to draw a line, then enter the measured length in millimetres.
+            </p>
+            <div class="photo-editor-canvas-wrap">
+                <canvas class="photo-editor-canvas" id="photoEditorCanvas"
+                    aria-label="Photo annotation area"></canvas>
+            </div>
+            <div class="photo-editor-tools">
+                <label for="photoMeasurementMm">Measured length (mm)</label>
+                <input id="photoMeasurementMm" type="number" min="1" max="10000"
+                    step="1" inputmode="numeric" placeholder="e.g. 1200">
+                <button type="button" class="secondary-button" id="photoEditorClearLine">
+                    Clear line
+                </button>
+            </div>
+            <div class="photo-editor-footer">
+                <small>After saving the mark, select Save Project to sync it to the cloud.</small>
+                <div>
+                    <button type="button" class="secondary-button" id="photoEditorCancel">Cancel</button>
+                    <button type="button" class="primary-button" id="photoEditorSave">
+                        Save marked photo &amp; close
+                    </button>
+                </div>
+            </div>
+        </div>
+    `;
+
+    modal.classList.add("open");
+    modal.setAttribute("aria-hidden", "false");
+
+    const canvas = $("photoEditorCanvas");
+    const measurementInput = $("photoMeasurementMm");
+    const image = new Image();
+
+    activePhotoEditor = {
+        canvas,
+        context: canvas?.getContext("2d"),
+        image,
+        photoCell,
+        start: null,
+        end: null,
+        drawing: false
+    };
+
+    image.onload = () => {
+        if (!activePhotoEditor || activePhotoEditor.canvas !== canvas) {
+            return;
+        }
+
+        const scale = Math.min(
+            1,
+            MAX_PHOTO_DIMENSION / Math.max(image.naturalWidth, image.naturalHeight)
+        );
+        canvas.width = Math.max(1, Math.round(image.naturalWidth * scale));
+        canvas.height = Math.max(1, Math.round(image.naturalHeight * scale));
+        drawPhotoEditor();
+    };
+
+    image.onerror = () => {
+        showError("The photo could not be opened for marking.");
+        closeWindowModal();
+    };
+
+    image.src = dataUrl;
+
+    const pointFromEvent = event => {
+        const rect = canvas.getBoundingClientRect();
+        return {
+            x: (event.clientX - rect.left) * canvas.width / rect.width,
+            y: (event.clientY - rect.top) * canvas.height / rect.height
+        };
+    };
+
+    canvas.addEventListener("pointerdown", event => {
+        if (!activePhotoEditor || !canvas.width || !canvas.height) {
+            return;
+        }
+
+        event.preventDefault();
+        canvas.setPointerCapture(event.pointerId);
+        activePhotoEditor.start = pointFromEvent(event);
+        activePhotoEditor.end = activePhotoEditor.start;
+        activePhotoEditor.drawing = true;
+        drawPhotoEditor();
+    });
+
+    canvas.addEventListener("pointermove", event => {
+        if (!activePhotoEditor?.drawing) {
+            return;
+        }
+
+        activePhotoEditor.end = pointFromEvent(event);
+        drawPhotoEditor();
+    });
+
+    canvas.addEventListener("pointerup", event => {
+        if (!activePhotoEditor?.drawing) {
+            return;
+        }
+
+        activePhotoEditor.end = pointFromEvent(event);
+        activePhotoEditor.drawing = false;
+        drawPhotoEditor();
+    });
+
+    canvas.addEventListener("pointercancel", () => {
+        if (activePhotoEditor) {
+            activePhotoEditor.drawing = false;
+        }
+    });
+
+    measurementInput?.addEventListener("input", drawPhotoEditor);
+
+    $("photoEditorClearLine")?.addEventListener("click", () => {
+        if (activePhotoEditor) {
+            activePhotoEditor.start = null;
+            activePhotoEditor.end = null;
+            activePhotoEditor.drawing = false;
+            measurementInput.value = "";
+            drawPhotoEditor();
+        }
+    });
+
+    $("photoEditorCancel")?.addEventListener("click", closeWindowModal);
+    $("photoEditorSave")?.addEventListener("click", saveMarkedPhoto);
+}
+
+function drawPhotoEditor() {
+    const editor = activePhotoEditor;
+    if (!editor?.canvas || !editor.context || !editor.canvas.width) {
+        return;
+    }
+
+    const { canvas, context, image, start, end } = editor;
+    context.clearRect(0, 0, canvas.width, canvas.height);
+    context.drawImage(image, 0, 0, canvas.width, canvas.height);
+
+    if (!start || !end) {
+        return;
+    }
+
+    const lineWidth = Math.max(4, canvas.width / 260);
+    context.lineCap = "round";
+    context.strokeStyle = "#ffffff";
+    context.lineWidth = lineWidth * 2.5;
+    context.beginPath();
+    context.moveTo(start.x, start.y);
+    context.lineTo(end.x, end.y);
+    context.stroke();
+
+    context.strokeStyle = "#d43b18";
+    context.lineWidth = lineWidth;
+    context.beginPath();
+    context.moveTo(start.x, start.y);
+    context.lineTo(end.x, end.y);
+    context.stroke();
+
+    [start, end].forEach(point => {
+        context.beginPath();
+        context.arc(point.x, point.y, lineWidth * 1.5, 0, Math.PI * 2);
+        context.fillStyle = "#d43b18";
+        context.fill();
+        context.strokeStyle = "#ffffff";
+        context.lineWidth = Math.max(2, lineWidth / 2);
+        context.stroke();
+    });
+
+    const measurement = $("photoMeasurementMm")?.value.trim();
+    if (!measurement) {
+        return;
+    }
+
+    const label = `${measurement} mm`;
+    const fontSize = Math.max(20, canvas.width / 36);
+    context.font = `700 ${fontSize}px sans-serif`;
+    const textWidth = context.measureText(label).width;
+    const padding = fontSize * 0.35;
+    const labelX = (start.x + end.x) / 2 - (textWidth + padding * 2) / 2;
+    const labelY = (start.y + end.y) / 2 - fontSize;
+    context.fillStyle = "rgba(15, 23, 42, 0.86)";
+    context.fillRect(
+        Math.max(0, labelX),
+        Math.max(0, labelY - fontSize * 0.2),
+        textWidth + padding * 2,
+        fontSize + padding
+    );
+    context.fillStyle = "#ffffff";
+    context.textBaseline = "top";
+    context.fillText(label, Math.max(0, labelX) + padding, Math.max(0, labelY));
+}
+
+async function saveMarkedPhoto() {
+    const editor = activePhotoEditor;
+
+    if (!editor) {
+        return;
+    }
+
+    const measurement = $("photoMeasurementMm")?.value.trim() || "";
+    if (editor.start || editor.end || measurement) {
+        const measurementError = validateMeasurement(measurement, "Measured length");
+        if (measurementError) {
+            showError(measurementError);
+            return;
+        }
+
+        if (!editor.start || !editor.end) {
+            showError("Draw a line on the photo before saving its measurement.");
+            return;
+        }
+    }
+
+    try {
+        const dataUrl = await compressCanvasToDataUrl(editor.canvas);
+        setRowPhotoThumbnail(editor.photoCell, dataUrl);
+        closeWindowModal();
+    } catch (error) {
+        console.error("Could not save marked photo:", error);
+        showError(error.message || "The marked photo could not be saved.");
+    }
+}
+
+window.openPhotoEditor = openPhotoEditor;
 
 /*
    Open a saved window photo full size.
@@ -2580,6 +2897,12 @@ function createProject(event) {
     event?.preventDefault();
 
     try {
+        if (document.querySelector(
+            '.row-photo-input[data-photo-processing="true"]'
+        )) {
+            showError("Please wait for the photo to finish preparing before saving the project.");
+            return;
+        }
 
         const errors = validateProjectForm();
 
@@ -2789,21 +3112,17 @@ function handlePhotoPreview(event) {
             return;
         }
 
-        const reader = new FileReader();
-
-        reader.onload = function () {
+        readPhoto(file).then(dataUrl => {
             preview.innerHTML =
-                `<img src="${reader.result}" alt="Window photo preview">`;
+                `<img src="${escapeHtml(dataUrl)}" alt="Compressed window photo preview">`;
             preview.classList.add("show");
             preview.hidden = false;
-        };
-
-        reader.onerror = function () {
-            showError("The photo preview could not be displayed.");
+        }).catch(error => {
+            console.error("Photo preview compression error:", error);
+            showError(error.message || "The photo preview could not be displayed.");
             event.target.value = "";
-        };
-
-        reader.readAsDataURL(file);
+            showNoPreview();
+        });
 
     } catch (error) {
         console.error("Photo preview error:", error);
@@ -3717,7 +4036,10 @@ function closeWindowModal() {
 
     if (modal) {
         modal.classList.remove("open");
+        modal.setAttribute("aria-hidden", "true");
     }
+
+    activePhotoEditor = null;
 
     /*
        Clearing the scan proof means a status can only be changed
@@ -9933,12 +10255,69 @@ const VIEW_NAMES = [
 ];
 
 let profileEstimatorProjectId = null;
+let profileEstimatorFrameProfileCode = "W52692";
+const profileEstimatorSashCounts = new Map();
 
 function formatEstimatorMillimetres(value) {
     return Number(value).toLocaleString("en-ZA", {
         maximumFractionDigits: 1
     });
 }
+
+function printCasement28Worksheet() {
+    const project = getProjects().find(item => String(item.id) === String(profileEstimatorProjectId));
+    if (!project) {
+        showError("Select a project before printing its Casement 28 worksheet.");
+        return false;
+    }
+
+    const estimator = window.CrealcoProfileEstimator;
+    const worksheet = window.Casement28Worksheet;
+    const target = $("printCasement28Worksheet");
+    if (!estimator || !worksheet || !target) {
+        showError("The Casement 28 worksheet could not be loaded.");
+        return false;
+    }
+
+    const windows = Array.isArray(project.windows) ? project.windows : [];
+    const sashCounts = windows.map((_, index) =>
+        profileEstimatorSashCounts.get(`${project.id}:${index}`) ?? 1
+    );
+    const estimate = estimator.estimateCasement28(project, {
+        frameProfileCode: profileEstimatorFrameProfileCode,
+        sashCounts
+    });
+    const frameProfile = estimator.CASEMENT_28_MANUAL.profiles.find(profile =>
+        profile.code === profileEstimatorFrameProfileCode
+    ) || estimator.CASEMENT_28_MANUAL.profiles.find(profile =>
+        profile.code === estimator.CASEMENT_28_MANUAL.defaultFrameProfileCode
+    );
+    const dateLabel = new Date().toLocaleDateString("en-ZA", {
+        day: "numeric", month: "short", year: "numeric"
+    });
+
+    target.innerHTML = worksheet.buildWorksheetMarkup(project, estimate, {
+        frameProfile,
+        idPrefix: "c28-print",
+        dateLabel,
+        cutSchedule: estimator.groupCasement28CutSchedule(estimate.rows)
+    });
+    document.body.classList.add("printing-casement28");
+
+    const clear = () => {
+        document.body.classList.remove("printing-casement28");
+        window.removeEventListener("afterprint", clear);
+    };
+    window.addEventListener("afterprint", clear);
+    try {
+        window.print();
+    } finally {
+        setTimeout(clear, 2000);
+    }
+    return true;
+}
+
+window.printCasement28Worksheet = printCasement28Worksheet;
 
 function buildPalaceManualReferenceHtml() {
     const manual = window.CrealcoProfileEstimator?.PALACE_MANUAL;
@@ -9950,11 +10329,11 @@ function buildPalaceManualReferenceHtml() {
         <tr><td>${escapeHtml(profile.code)}</td><td>${escapeHtml(profile.description)}</td></tr>`).join("");
 
     return `<section class="palace-manual-reference" aria-labelledby="palaceManualReferenceTitle">
-        <h3 id="palaceManualReferenceTitle">Palace: verified manual references</h3>
+        <h3 id="palaceManualReferenceTitle">Separate system reference: Palace</h3>
         <p>
             Selected profile codes and instructions transcribed from
             <a href="${escapeHtml(manual.sourceUrl)}" target="_blank" rel="noopener noreferrer">Palace Product Manual ${escapeHtml(manual.revision)}</a>.
-            These references apply only to Palace and are not applied to the generic frame-dimension estimate.
+            These Palace references are not used in the Casement 28 material estimate above.
         </p>
         <h4>Selected profile codes (not a complete system take-off)</h4>
         <div class="palace-manual-table-wrap">
@@ -9973,7 +10352,7 @@ function buildPalaceManualReferenceHtml() {
             <label for="palaceSillExtensionDimension">Palace Multi sill-extension overall dimension (mm)</label>
             <input id="palaceSillExtensionDimension" type="number" min="9" step="1" inputmode="decimal" placeholder="Enter measured dimension">
             <p id="palaceSillExtensionResult" role="status" aria-live="polite">
-                Enter the measured sill-extension dimension to calculate its end-cap allowance. This is separate from the generic opening-dimension estimate.
+                Enter the measured sill-extension dimension to calculate its end-cap allowance. This is separate from the Casement 28 estimate.
             </p>
         </div>
         <p class="profile-estimator-caveat">
@@ -10090,58 +10469,168 @@ function renderCrealcoProfileEstimator(projectId) {
         return;
     }
 
-    const estimate = window.CrealcoProfileEstimator.estimateProject(currentProject);
     const windows = Array.isArray(currentProject.windows) ? currentProject.windows : [];
-    const rows = estimate.rows.map((row, index) => {
+    const manual = window.CrealcoProfileEstimator.CASEMENT_28_MANUAL;
+    const frameProfiles = manual.profiles.filter(profile =>
+        ![manual.sashProfileCode, manual.cornerCleatCode].includes(profile.code)
+    );
+    const sashCounts = windows.map((_, index) =>
+        profileEstimatorSashCounts.get(`${currentProject.id}:${index}`) ?? 1
+    );
+    const estimate = window.CrealcoProfileEstimator.estimateCasement28(currentProject, {
+        frameProfileCode: profileEstimatorFrameProfileCode,
+        sashCounts
+    });
+    const selectedFrameProfile = frameProfiles.find(profile =>
+        profile.code === profileEstimatorFrameProfileCode
+    ) || frameProfiles.find(profile =>
+        profile.code === manual.defaultFrameProfileCode
+    );
+    const worksheetMarkup = window.Casement28Worksheet
+        ? window.Casement28Worksheet.buildWorksheetMarkup(currentProject, estimate, {
+            frameProfile: selectedFrameProfile,
+            idPrefix: "c28-preview",
+            dateLabel: new Date().toLocaleDateString("en-ZA", {
+                day: "numeric", month: "short", year: "numeric"
+            }),
+            cutSchedule: window.CrealcoProfileEstimator.groupCasement28CutSchedule(estimate.rows)
+        })
+        : `<p class="profile-estimator-caveat">The workshop worksheet preview is unavailable. Refresh the app and try again.</p>`;
+    const sashOptions = (selectedCount) => [
+        { value: 0, label: "Fixed light (0)" },
+        { value: 1, label: "One sash (1)" },
+        { value: 2, label: "Two sashes (layout required)" }
+    ].map(option => `<option value="${option.value}"${selectedCount === option.value ? " selected" : ""}>${option.label}</option>`).join("");
+    const cutRows = estimate.rows.flatMap(row => row.cuts.map(cut => {
+        const isSash = /^sash\b/i.test(cut.member || "") || /sash/i.test(cut.profileDescription || "");
+        return `
+        <tr>
+            <td>${escapeHtml(row.id)}</td>
+            <td>${escapeHtml(cut.profileCode)} — ${escapeHtml(cut.profileDescription)}</td>
+            <td>${escapeHtml(cut.member)}</td>
+            <td class="profile-estimator-number">${formatEstimatorMillimetres(cut.pieceCount)}</td>
+            <td class="profile-estimator-number">${formatEstimatorMillimetres(cut.cutLengthMm)} mm</td>
+            <td>${isSash
+                ? "Opening-size reference only — actual sash size / cut not calculated; not a saw instruction"
+                : "Unadjusted opening-size reference — not a fabrication cut or saw instruction"}</td>
+        </tr>`;
+    })).join("");
+    const itemRows = estimate.rows.map((row, index) => {
         const item = windows[index] || {};
         const type = safeText(item.productType || item.windowType) || "Window / door";
-        const size = row.length && row.width
-            ? `${formatEstimatorMillimetres(row.length)} × ${formatEstimatorMillimetres(row.width)}`
+        const size = row.width && row.height
+            ? `${formatEstimatorMillimetres(row.width)} × ${formatEstimatorMillimetres(row.height)}`
             : "Dimensions required";
-        const cuts = row.cuts.length
-            ? `2 × width ${formatEstimatorMillimetres(row.length)} + 2 × height ${formatEstimatorMillimetres(row.width)} (unadjusted)`
-            : "—";
-        const status = row.perimeter === null ? "Missing dimensions" : "Dimensions recorded";
+        const status = row.status;
 
         return `<tr>
             <td>${escapeHtml(row.id)}</td>
             <td>${escapeHtml(type)}</td>
             <td>${escapeHtml(size)}</td>
-            <td>${escapeHtml(cuts)}</td>
-            <td class="profile-estimator-number">${row.perimeter === null ? "—" : `${formatEstimatorMillimetres(row.perimeter / 1000)} m`}</td>
+            <td>
+                <label class="profile-estimator-sash-control">
+                    <span class="sr-only">Sash count for ${escapeHtml(row.id)}</span>
+                    <select data-estimator-sash-row="${index}" aria-label="Sash count for ${escapeHtml(row.id)}">
+                        ${sashOptions(row.sashCount)}
+                    </select>
+                </label>
+            </td>
             <td>${escapeHtml(status)}</td>
         </tr>`;
     }).join("");
+    const profileTotals = estimate.profiles.map(profile => `
+        <tr>
+            <td>${escapeHtml(profile.code)}</td>
+            <td>${escapeHtml(profile.description)}</td>
+            <td class="profile-estimator-number">${formatEstimatorMillimetres(profile.pieceCount)}</td>
+            <td class="profile-estimator-number">${formatEstimatorMillimetres(profile.totalLengthMm / 1000)} m</td>
+        </tr>`).join("");
+    const componentTotals = estimate.components.map(component => `
+        <tr>
+            <td>${escapeHtml(component.code)}</td>
+            <td>${escapeHtml(component.description)}</td>
+            <td class="profile-estimator-number">${formatEstimatorMillimetres(component.quantity)}</td>
+            <td>Each frame / sash corner</td>
+        </tr>`).join("");
+    const pendingRows = estimate.pending.map(item => `
+        <li><strong>${escapeHtml(item.id)}:</strong> ${escapeHtml(item.reason)}</li>`).join("");
 
     content.innerHTML = `
         <div class="profile-estimator-project">
             <h3>${escapeHtml(currentProject.projectName || currentProject.projectNumber || "Project")}</h3>
             <span>${escapeHtml(currentProject.projectNumber || "")}</span>
         </div>
-        <div class="profile-estimator-summary" aria-label="Opening dimension estimate totals">
-            <div><span>Windows / doors</span><strong>${windows.length}</strong></div>
-            <div><span>Gross frame perimeter</span><strong>${formatEstimatorMillimetres(estimate.grossPerimeterMm / 1000)} m</strong></div>
-            <div><span>Fabrication cut list</span><strong>Requires StarFront</strong></div>
-            <div><span>Unestimated items</span><strong>${estimate.pending.length}</strong></div>
+        <div class="casement28-worksheet-actions">
+            <button type="button" class="primary-button" onclick="printCasement28Worksheet()">
+                Print workshop worksheet / Save PDF
+            </button>
+            <span>Prints only this selected project's Casement 28 worksheet.</span>
+        </div>
+        <div class="profile-estimator-controls profile-estimator-design-controls">
+            <label class="form-group" for="casement28FrameProfile">
+                <span>Casement 28 outer frame profile</span>
+                <select id="casement28FrameProfile">
+                    ${frameProfiles.map(profile => `<option value="${escapeHtml(profile.code)}"${profile.code === profileEstimatorFrameProfileCode ? " selected" : ""}>${escapeHtml(profile.code)} — ${escapeHtml(profile.description)}</option>`).join("")}
+                </select>
+            </label>
+        </div>
+        <div class="profile-estimator-summary" aria-label="Casement 28 material estimate totals">
+            <div><span>Project rows</span><strong>${windows.length}</strong></div>
+            <div><span>Profile pieces referenced</span><strong>${formatEstimatorMillimetres(estimate.totalCutPieces)}</strong></div>
+            <div><span>Corner cleats estimated</span><strong>${formatEstimatorMillimetres(estimate.components.reduce((total, component) => total + component.quantity, 0))}</strong></div>
+            <div><span>Items requiring design details</span><strong>${estimate.pending.length}</strong></div>
         </div>
         <p class="profile-estimator-assumptions">
-            Gross rectangular perimeter only · 2 × width + 2 × height per opening.
-            No cut deductions, end angles, profile codes, saw kerf or stock optimisation are inferred.
+            Profile references are from the Casement 28 Product Manual (${escapeHtml(estimate.manualRevision)}).
+            Each opening defaults to one sash; change the selection for fixed lights or multi-sash designs.
+            Every displayed length is an unadjusted opening-size reference — not a fabrication cut or saw instruction.
+            For one-sash items, the sash references repeat the opening dimensions; actual sash dimensions and cuts are not calculated.
         </p>
         ${windows.length
             ? `<div class="window-rows-wrapper profile-estimator-table-wrap">
                 <table class="window-rows-table profile-estimator-table">
                     <thead><tr>
-                        <th>Item</th><th>Type</th><th>Size (W × H mm)</th>
-                        <th>Unadjusted member dimensions</th><th>Gross perimeter</th><th>Check</th>
+                        <th>Item</th><th>Type</th><th>Opening (W × H mm)</th>
+                        <th>Sash configuration</th><th>Estimate status</th>
                     </tr></thead>
-                    <tbody>${rows}</tbody>
+                    <tbody>${itemRows}</tbody>
                 </table>
                </div>`
             : `<p class="details-small">No windows or doors are recorded for this project.</p>`}
-        ${buildFrameDimensionEstimateHtml(currentProject, false)}
+        <h4>Profile quantities</h4>
+        ${profileTotals
+            ? `<div class="profile-dimension-estimate-scroll"><table class="profile-dimension-estimate-table">
+                <thead><tr><th>Profile</th><th>Description</th><th>Pieces</th><th>Total opening-reference length</th></tr></thead>
+                <tbody>${profileTotals}</tbody>
+               </table></div>
+               <p class="profile-estimator-caveat">Reference totals are not fabrication cuts or saw instructions. Any standard-sash total is an unadjusted opening-size reference only.</p>`
+            : `<p class="profile-estimator-caveat">No profile quantities can be estimated until supported items have valid dimensions.</p>`}
+        ${componentTotals ? `<h4>Other identified components</h4>
+            <div class="profile-dimension-estimate-scroll"><table class="profile-dimension-estimate-table">
+                <thead><tr><th>Code</th><th>Description</th><th>Quantity</th><th>Basis</th></tr></thead>
+                <tbody>${componentTotals}</tbody>
+            </table></div>` : ""}
+        <h4>Opening-size reference schedule — not a cut list</h4>
+        ${cutRows
+            ? `<div class="profile-dimension-estimate-scroll"><table class="profile-dimension-estimate-table">
+                <thead><tr><th>Item</th><th>Profile</th><th>Member</th><th>Pieces</th><th>Opening reference (mm)</th><th>Length meaning</th></tr></thead>
+                <tbody>${cutRows}</tbody>
+               </table></div>`
+            : `<p class="profile-estimator-caveat">No opening-size references are available for the current items.</p>`}
+        ${pendingRows ? `<div class="profile-estimator-unestimated">
+            <strong>Design details requiring completion</strong><ul>${pendingRows}</ul>
+        </div>` : ""}
+        <details class="casement28-preview">
+            <summary>Preview workshop worksheet · fixed-width A4 sheet</summary>
+            <p class="casement28-preview-hint">On a phone, swipe horizontally or focus the preview and use the arrow keys to inspect the full-width page.</p>
+            <div class="casement28-preview-paper" tabindex="0" role="region" aria-label="Scrollable A4 workshop worksheet preview">${worksheetMarkup}</div>
+        </details>
         <p class="profile-estimator-caveat">
-            This does not produce a profile schedule or fabrication cut list. Generate and verify those in StarFront.
+            This is a provisional opening-size material takeoff, not a fabrication cutting list or saw instruction. It estimates the selected
+            outer-frame profile, standard sash profile and corner cleats only. Glass, beads, gaskets, stays, handles,
+            fasteners, mullions, machining, end angles, deductions, saw kerf, waste, stock-bar optimisation, windload and
+            sash-limit checks are not calculated. Verify every size and all material requirements against the current
+            StarFront design and cutting list.
         </p>`;
 
     content.insertAdjacentHTML("beforeend", buildPalaceManualReferenceHtml());
@@ -10591,6 +11080,25 @@ function initialiseEventListeners() {
 
         const profileEstimatorContent = $("profileEstimatorContent");
         if (profileEstimatorContent) {
+            profileEstimatorContent.addEventListener("change", event => {
+                const target = event.target;
+
+                if (target?.id === "casement28FrameProfile") {
+                    profileEstimatorFrameProfileCode = target.value;
+                    renderCrealcoProfileEstimator(profileEstimatorProjectId);
+                    return;
+                }
+
+                const rowIndex = target?.dataset?.estimatorSashRow;
+                if (rowIndex !== undefined) {
+                    profileEstimatorSashCounts.set(
+                        `${profileEstimatorProjectId}:${rowIndex}`,
+                        Number(target.value)
+                    );
+                    renderCrealcoProfileEstimator(profileEstimatorProjectId);
+                }
+            });
+
             profileEstimatorContent.addEventListener("input", event => {
                 if (event.target?.id !== "palaceSillExtensionDimension") {
                     return;
