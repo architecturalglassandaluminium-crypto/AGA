@@ -48,6 +48,13 @@
         defaultFrameProfileCode: "W52692",
         sashProfileCode: "W52699",
         cornerCleatCode: "W52695",
+        /*
+         * The manual states opening sizes in red and the actual window sizes in
+         * black in brackets. Every published pair (600/590, 900/890, 1200/1190,
+         * 1500/1490, 1800/1790, 2400/2390) differs by 10 mm on each axis, so the
+         * actual window is 10 mm smaller than the opening it fits.
+         */
+        openingToWindowDeductionMm: 10,
         // Closed-frame corners: the cleat is crimped, then every joint is sealed.
         cornerJoint: Object.freeze({
             code: "W52695",
@@ -160,6 +167,7 @@
             profile.code === CASEMENT_28_MANUAL.cornerCleatCode
         );
         const sashCounts = options.sashCounts || [];
+        const openingDeduction = CASEMENT_28_MANUAL.openingToWindowDeductionMm;
         const rows = [];
         const pending = [];
         const profileTotals = new Map();
@@ -215,14 +223,22 @@
                 return;
             }
 
-            addCut(cuts, profileTotals, frameProfile, "Frame head / sill", width, 2 * unitCount);
-            addCut(cuts, profileTotals, frameProfile, "Frame jamb", height, 2 * unitCount);
+            /*
+             * The opening dimension is the hole in the wall. The manual publishes
+             * the actual window size 10 mm smaller, so the outer frame members are
+             * cut to the reduced window size, not to the raw opening size.
+             */
+            const windowWidth = Math.max(0, width - openingDeduction);
+            const windowHeight = Math.max(0, height - openingDeduction);
+
+            addCut(cuts, profileTotals, frameProfile, "Frame head / sill", windowWidth, 2 * unitCount);
+            addCut(cuts, profileTotals, frameProfile, "Frame jamb", windowHeight, 2 * unitCount);
             cornerCleatQuantity += 4 * unitCount;
             frameCornerQuantity += CASEMENT_28_MANUAL.cornerJoint.cornersPerClosedFrame * unitCount;
 
             if (sashCount === 1) {
-                addCut(cuts, profileTotals, sashProfile, "Sash top / bottom", width, 2 * unitCount);
-                addCut(cuts, profileTotals, sashProfile, "Sash stile", height, 2 * unitCount);
+                addCut(cuts, profileTotals, sashProfile, "Sash top / bottom", windowWidth, 2 * unitCount);
+                addCut(cuts, profileTotals, sashProfile, "Sash stile", windowHeight, 2 * unitCount);
                 cornerCleatQuantity += 4 * unitCount;
                 sashCornerQuantity += CASEMENT_28_MANUAL.cornerJoint.cornersPerClosedFrame * unitCount;
             } else if (sashCount > 1) {
@@ -241,6 +257,9 @@
                 id,
                 width,
                 height,
+                windowWidth,
+                windowHeight,
+                openingDeductionMm: openingDeduction,
                 unitCount,
                 sashCount,
                 cuts,

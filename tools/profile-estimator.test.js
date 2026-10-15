@@ -102,13 +102,13 @@ test("builds a provisional Casement 28 profile takeoff from opening dimensions",
             code: "W52692",
             description: "Casement 28 equal-leg standard outer frame",
             pieceCount: 4,
-            totalLengthMm: 4200
+            totalLengthMm: 4160
         },
         {
             code: "W52699",
             description: "Casement 28 standard sash",
             pieceCount: 4,
-            totalLengthMm: 4200
+            totalLengthMm: 4160
         }
     ]);
     assert.deepEqual(result.components, [{
@@ -118,12 +118,36 @@ test("builds a provisional Casement 28 profile takeoff from opening dimensions",
     }]);
     assert.equal(result.totalCutPieces, 8);
     assert.deepEqual(result.rows[0].cuts.map(cut => [cut.member, cut.cutLengthMm, cut.pieceCount]), [
-        ["Frame head / sill", 1200, 2],
-        ["Frame jamb", 900, 2],
-        ["Sash top / bottom", 1200, 2],
-        ["Sash stile", 900, 2]
+        ["Frame head / sill", 1190, 2],
+        ["Frame jamb", 890, 2],
+        ["Sash top / bottom", 1190, 2],
+        ["Sash stile", 890, 2]
     ]);
     assert.equal(result.pending.length, 0);
+});
+
+test("deducts the manual's opening-to-window allowance from every Casement 28 member", () => {
+    const result = estimator.estimateCasement28({
+        windows: [{ id: "C1", length: 1200, height: 900 }]
+    });
+    const row = result.rows[0];
+
+    assert.equal(estimator.CASEMENT_28_MANUAL.openingToWindowDeductionMm, 10);
+    assert.equal(row.width, 1200);
+    assert.equal(row.height, 900);
+    assert.equal(row.windowWidth, 1190);
+    assert.equal(row.windowHeight, 890);
+    assert.equal(row.openingDeductionMm, 10);
+});
+
+test("falls back to the opening size for openings smaller than the deduction", () => {
+    const result = estimator.estimateCasement28({
+        windows: [{ id: "SMALL", length: 8, height: 6 }]
+    });
+
+    assert.equal(result.rows[0].windowWidth, 0);
+    assert.equal(result.rows[0].windowHeight, 0);
+    assert.equal(result.rows[0].cuts.length, 4);
 });
 
 test("counts Casement 28 corners and cross joints from the manual assemblies", () => {
@@ -225,7 +249,7 @@ test("groups identical Casement 28 cuts while retaining per-item piece traceabil
         cut.profileCode === "W52692" && cut.member === "Frame head / sill"
     );
 
-    assert.equal(frameHead.cutLengthMm, 1000);
+    assert.equal(frameHead.cutLengthMm, 990);
     assert.equal(frameHead.pieceCount, 6);
     assert.deepEqual(frameHead.itemReferences, [
         { id: "CW-01", pieceCount: 2 },
