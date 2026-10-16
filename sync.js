@@ -723,11 +723,91 @@ async function uploadProject(projectId) {
             .upsert(windowRows, { onConflict: "id" });
 
         if (windowsRes.error) {
+
+            /*
+               A column added to the app but not yet to the database
+               rejects the whole row (Postgres 42703, "column does not
+               exist"). The queue would then retry, fail three times
+               and park the save - so the workshop is told "could not
+               save" over a field they can see is only cosmetic.
+
+               Recover by dropping the optional columns and sending the
+               row again. The window itself, its status and its history
+               all land; only the not-yet-migrated field is skipped.
+            */
+            if (isMissingColumnError(windowsRes.error)) {
+
+                const trimmedRows = windowRows.map(row => {
+                    const copy = Object.assign({}, row);
+                    OPTIONAL_WINDOW_COLUMNS.forEach(column => delete copy[column]);
+                    return copy;
+                });
+
+                const retryRes = await client
+                    .from("windows")
+                    .upsert(trimmedRows, { onConflict: "id" });
+
+                if (retryRes.error) {
+                    return { ok: false, reason: retryRes.error.message };
+                }
+
+                console.warn(
+                    "AGA: saved without " + OPTIONAL_WINDOW_COLUMNS.join(", ") +
+                    " - run supabase/schema.sql to add the missing column(s)."
+                );
+
+                return { ok: true };
+            }
+
             return { ok: false, reason: windowsRes.error.message };
         }
     }
 
     return { ok: true };
+}
+
+/*
+   Columns the app writes but the database may not have yet. Kept in
+   one place so adding another optional field is a one-line change.
+*/
+const OPTIONAL_WINDOW_COLUMNS = ["window_reference"];
+
+/*
+   Is this a "column does not exist" error?
+
+   The shape depends on which layer rejects the write, and getting
+   this wrong is silent: the fallback would never fire and the save
+   would still be parked.
+
+   PostgREST (the client this app uses) answers HTTP 400 with code
+   PGRST204 and a message naming the column and the schema cache:
+
+     "Could not find the 'window_reference' column of 'windows' in
+      the schema cache"
+
+   A direct Postgres connection reports SQLSTATE 42703 instead. Both
+   are recognised, plus the plain wording, so a change of client does
+   not quietly disable the recovery.
+*/
+function isMissingColumnError(error) {
+
+    if (!error) {
+        return false;
+    }
+
+    const code = String(error.code || "").toUpperCase();
+
+    if (code === "42703" || code === "PGRST204") {
+        return true;
+    }
+
+    const message = String(error.message || "").toLowerCase();
+
+    return message.includes("schema cache") ||
+        message.includes("does not exist") ||
+        OPTIONAL_WINDOW_COLUMNS.some(column =>
+            message.includes(column.toLowerCase())
+        );
 }
 
 /*
