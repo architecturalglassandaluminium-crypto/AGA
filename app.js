@@ -1824,6 +1824,16 @@ function addProjectWindowRow(rowData = {}) {
         <td class="window-row-id-cell">
             <span class="window-row-id" data-field="windowId">${escapeHtml(rowData.windowNumber || "—")}</span>
         </td>
+        <!--
+           Window Reference: the name the workshop gives this window,
+           typed in by hand. It is what people say on site ("Kitchen
+           slider"), so it is separate from the app-minted Window ID.
+        -->
+        <td>
+            <input type="text" class="window-row-input" data-field="windowReference"
+                placeholder="e.g. Kitchen slider" maxlength="80"
+                value="${escapeHtml(rowData.windowReference)}">
+        </td>
         <td>
             <select class="window-row-input" data-field="productType">
                 <option value="">Select type</option>
@@ -2445,6 +2455,9 @@ function collectProjectWindowRows() {
     return Array.from(
         tbody.querySelectorAll("tr")
     ).map(tr => ({
+        windowReference: safeText(
+            tr.querySelector('[data-field="windowReference"]')?.value
+        ),
         productType: safeText(
             tr.querySelector('[data-field="productType"]')?.value
         ),
@@ -2485,7 +2498,8 @@ function collectProjectWindowRows() {
    unused row never blocks the save.
 */
 function isBlankWindowRow(row) {
-    return !row.productType &&
+    return !row.windowReference &&
+        !row.productType &&
         !row.description &&
         !row.location &&
         !row.length &&
@@ -2727,8 +2741,34 @@ function validateProjectForm() {
         errors.push("Add at least one window row to the project.");
     }
 
+    /*
+       The window reference is the name the workshop gives a window,
+       so two rows sharing one would be ambiguous on the floor and in
+       search. Checked case-insensitively, because "Kitchen" and
+       "kitchen" are the same window to a person reading the label.
+    */
+    const seenReferences = new Map();
+
     rows.forEach((row, index) => {
         const position = `Row ${index + 1}`;
+
+        const reference = safeText(row.windowReference);
+
+        if (reference.length > 80) {
+            errors.push(`${position}: window reference cannot exceed 80 characters.`);
+        }
+
+        if (reference) {
+            const key = reference.toLowerCase();
+
+            if (seenReferences.has(key)) {
+                errors.push(
+                    `${position}: window reference "${reference}" is already used by row ${seenReferences.get(key)}. Each window needs its own reference.`
+                );
+            } else {
+                seenReferences.set(key, index + 1);
+            }
+        }
 
         if (!row.productType) {
             errors.push(`${position}: select the window or door type.`);
@@ -2856,6 +2896,7 @@ function buildWindowFromRow(row, existing, nextWindowId) {
             : (base.windowNumber || formatWindowId(base.windowId)),
 
         /* Editable specification. */
+        windowReference: row.windowReference || "",
         productType: row.productType || "Window",
         description: row.description,
         location: row.location,
@@ -3612,6 +3653,9 @@ function buildWindowDetailsHtml(item) {
                      belong to the retired single-window flow, so
                      both are checked to keep old records readable.
                   */ ""}
+                ${item.windowReference
+            ? `<p><strong>Reference:</strong> ${escapeHtml(item.windowReference)}</p>`
+            : ""}
                 <p><strong>Type:</strong> ${productTypeBadgeHtml(item.productType || item.windowType)}</p>
                 <p><strong>Location:</strong> ${escapeHtml(item.location || item.windowLocation || "-")}</p>
                 <p><strong>Allocated To:</strong> ${allocatedBadgeHtml(item.allocatedTo)}</p>
@@ -4508,6 +4552,7 @@ function windowRowTableHtml(windows) {
             onclick="openWindowRow(event, '${escapeHtml(window.id)}')"
             onkeydown="if(event.key==='Enter'){event.preventDefault();viewWindow('${escapeHtml(window.id)}');}">
             <td class="col-id"><span class="window-id-badge">${escapeHtml(window.windowNumber || formatWindowId(window.windowId) || "—")}</span></td>
+            <td class="col-ref">${escapeHtml(window.windowReference || "—")}</td>
             <td class="col-type">${productTypeBadgeHtml(window.productType)}</td>
             <td class="col-desc">${escapeHtml(window.description)}</td>
             <td class="col-loc">${escapeHtml(window.location)}</td>
@@ -4549,6 +4594,7 @@ function windowRowTableHtml(windows) {
                 <thead>
                     <tr>
                         <th class="col-id">Window ID</th>
+                        <th class="col-ref">Window Reference</th>
                         <th class="col-type">Type</th>
                         <th class="col-desc">Description</th>
                         <th class="col-loc">Location</th>
@@ -6945,7 +6991,7 @@ function renderScanSearch() {
         scanSearchMatches = [];
 
         if (hint) {
-            hint.textContent = "Type part of a window ID, project, customer or location to find the window without the camera.";
+            hint.textContent = "Type part of a window ID, reference, project, customer or location to find the window without the camera.";
         }
 
         return;
@@ -6955,6 +7001,7 @@ function renderScanSearch() {
 
         return (
             safeText(item.windowNumber).toLowerCase().includes(query) ||
+            safeText(item.windowReference).toLowerCase().includes(query) ||
             safeText(item.projectNumber).toLowerCase().includes(query) ||
             safeText(item.projectName).toLowerCase().includes(query) ||
             safeText(item.customerName).toLowerCase().includes(query) ||
@@ -6990,8 +7037,8 @@ function renderScanSearch() {
     results.innerHTML = shown.map((item, index) => `
         <button type="button" class="scan-result" data-scan-index="${index}">
             <span class="scan-result-main">
-                <strong>${escapeHtml(item.windowNumber || "-")}</strong>
-                <small>${escapeHtml(item.description || "")}${item.location ? ` \u00b7 ${escapeHtml(item.location)}` : ""}</small>
+                <strong>${escapeHtml(item.windowReference || item.windowNumber || "-")}</strong>
+                <small>${escapeHtml(item.windowReference ? item.windowNumber || "" : item.description || "")}${item.location ? ` \u00b7 ${escapeHtml(item.location)}` : ""}</small>
             </span>
             <span class="scan-result-meta">
                 ${productTypeBadgeHtml(item.productType)}
@@ -7137,13 +7184,21 @@ function handleScannedQRCode(decodedText) {
         /*
            A window now lives inside a project, so look through the
            flattened list. Match the printed window number first, then
-           fall back to the internal id.
+           the internal id, then the window reference - so a code
+           carrying the name the workshop uses still opens the record.
+           References are unique within a project, and a bare reference
+           is only matched when it is unambiguous across all of them.
         */
         const all = getAllWindowsWithProject();
+
+        const referenceMatches = all.filter(
+            w => safeText(w.windowReference).toLowerCase() === windowKey.toLowerCase()
+        );
 
         const item =
             all.find(w => safeText(w.windowNumber) === windowKey) ||
             all.find(w => w.id === windowKey) ||
+            (referenceMatches.length === 1 ? referenceMatches[0] : null) ||
             getWindows().find(w => w.id === windowKey);
 
         if (!item) {

@@ -130,6 +130,11 @@ create table if not exists windows (
     description     text,
     location        text,
 
+    -- A unique name the workshop gives the window, e.g. "Kitchen
+    -- slider". Unlike window_number (minted by the app) this is
+    -- typed in, and it is what people on site actually call it.
+    window_reference text,
+
     length_mm       numeric(10,1),
     width_mm        numeric(10,1),
 
@@ -169,6 +174,17 @@ create index if not exists windows_status_idx   on windows(status);
 
 create unique index if not exists windows_workshop_number_idx
     on windows(workshop_id, window_number);
+
+-- ---------------------------------------------------------
+-- MIGRATION: window_reference
+-- ---------------------------------------------------------
+-- Added after the first deployment. "create table if not
+-- exists" above does nothing to a table that already exists, so
+-- an older project would silently miss the column and every sync
+-- that carries a reference would fail. This alter is idempotent,
+-- so the whole file stays safe to re-run.
+--
+alter table windows add column if not exists window_reference text;
 
 -- =========================================================
 -- STATUS HISTORY

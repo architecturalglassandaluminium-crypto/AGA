@@ -1681,6 +1681,11 @@ img {
     width: 108px;
 }
 
+/* The workshop's own name for the window, e.g. "Kitchen slider". */
+.window-rows-table .col-ref {
+    min-width: 140px;
+}
+
 .window-rows-table .col-desc {
     min-width: 190px;
 }

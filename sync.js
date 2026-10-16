@@ -460,6 +460,7 @@ function projectToRows(project, workshopId) {
         product_type: window.productType || "",
         description: window.description || "",
         location: window.location || "",
+        window_reference: window.windowReference || "",
 
         length_mm: window.length === "" || window.length === undefined
             ? null
@@ -541,6 +542,7 @@ function rowsToProject(projectRow, windowRows, historyRows) {
             productType: row.product_type || "",
             description: row.description || "",
             location: row.location || "",
+            windowReference: row.window_reference || "",
 
             length: row.length_mm === null ? "" : row.length_mm,
             width: row.width_mm === null ? "" : row.width_mm,
