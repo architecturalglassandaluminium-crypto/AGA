@@ -1426,6 +1426,41 @@
     <!-- ROOF & WATERPROOFING QUOTATION PRINT SHEET -->
     <div id="roofQuotePrintSheet" class="print-only"></div>
 
+    <!-- CONFIRM NEXT PRODUCTION STEP MODAL -->
+    <!--
+       Shown straight after a successful scan (or a search-open) when an
+       employee has chosen their name. The scanned step is confirmed here
+       before the window's status is moved, so a scan always ends in an
+       explicit confirmation by the person who did the work.
+    -->
+    <div id="scanStatusModal" class="modal" aria-hidden="true">
+        <div class="modal-overlay" data-close-scan-status></div>
+        <div class="modal-content scan-status-content">
+            <div class="modal-header">
+                <h2 id="scanStatusTitle">Confirm Next Step</h2>
+                <button type="button" class="modal-close" id="closeScanStatusModal" aria-label="Close step confirmation">
+                    <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg>
+                </button>
+            </div>
+            <div class="modal-body scan-status-body">
+                <p class="scan-status-window" id="scanStatusWindow"></p>
+
+                <label class="scan-status-label" for="scanStatusSelect">Next step to record</label>
+                <select id="scanStatusSelect" class="scan-status-select"></select>
+
+                <p class="scan-status-who" id="scanStatusWho"></p>
+                <p class="scan-status-note" id="scanStatusNote"></p>
+            </div>
+            <div class="modal-footer scan-status-footer">
+                <button type="button" class="secondary-button" id="scanStatusCancelButton">Cancel</button>
+                <button type="button" class="primary-button" id="scanStatusConfirmButton">
+                    <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>
+                    Confirm Step
+                </button>
+            </div>
+        </div>
+    </div>
+
     <!-- WINDOW DETAILS MODAL -->
     <div id="windowModal" class="modal" aria-hidden="true">
         <div class="modal-overlay"></div>

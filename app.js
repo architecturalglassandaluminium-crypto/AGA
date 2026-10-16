@@ -7072,13 +7072,12 @@ function openWindowFromSearch(item) {
 
         stopScanner();
 
-        switchView("projects");
-
-        if (item.projectId) {
-            highlightProjectWindow(item.projectId, item.id);
-        }
-
-        viewWindow(item.id);
+        /*
+           Same as a QR scan: the window is found, but the employee
+           still confirms which step was completed before the status
+           moves.
+        */
+        openScanStatusPopup(item);
 
     } catch (error) {
 
@@ -7187,16 +7186,11 @@ function handleScannedQRCode(decodedText) {
         stopScanner();
 
         /*
-           Open the window's production record straight away, so
-           the next tap is the step that was just completed.
+           The scan is proof, not the change itself. Ask the
+           employee which step they completed and require a
+           confirmation before the status moves.
         */
-        switchView("projects");
-
-        if (item.projectId) {
-            highlightProjectWindow(item.projectId, item.id);
-        }
-
-        viewWindow(item.id);
+        openScanStatusPopup(item);
 
     } catch (error) {
 
@@ -7210,6 +7204,168 @@ function handleScannedQRCode(decodedText) {
         );
     }
 }
+
+/* =========================================================
+   CONFIRM NEXT STEP (after a scan)
+   =========================================================
+
+   Once the employee has chosen their name and scanned a window,
+   the scan proof is in place but nothing has moved yet. This popup
+   asks which step was actually completed and requires an explicit
+   Confirm before updateWindowStatus() is allowed to advance the
+   window - so the record only ever reflects a deliberate action.
+*/
+
+let pendingScanStatus = null;
+
+function openScanStatusPopup(item) {
+
+    try {
+
+        if (!item) {
+            return;
+        }
+
+        const modal = $("scanStatusModal");
+        const select = $("scanStatusSelect");
+
+        if (!modal || !select) {
+            return;
+        }
+
+        /*
+           Default to the step that follows the window's current
+           status, which is what the person on the floor is almost
+           always recording. Earlier steps stay selectable for the
+           case where a step was skipped.
+        */
+        const currentIndex = STATUSES.indexOf(item.status);
+
+        const nextStatus = currentIndex >= 0 && currentIndex < STATUSES.length - 1
+            ? STATUSES[currentIndex + 1]
+            : item.status;
+
+        select.innerHTML = STATUSES.map(status => {
+
+            const selected = status === nextStatus ? " selected" : "";
+
+            return `<option value="${escapeHtml(status)}"${selected}>${escapeHtml(status)}</option>`;
+        }).join("");
+
+        setTextIfExists(
+            "scanStatusWindow",
+            `${item.windowNumber || item.description || "Window"} - currently "${item.status || "Measured"}".`
+        );
+
+        setTextIfExists(
+            "scanStatusWho",
+            window.scannedEmployeeName
+                ? `Recording as ${window.scannedEmployeeName}.`
+                : "Choose your name on the scanner before scanning."
+        );
+
+        setTextIfExists(
+            "scanStatusNote",
+            "Confirm the step you just completed. The status only moves when you confirm."
+        );
+
+        /*
+           Remember which window this popup is for, so Confirm can
+           never be pointed at a different window than was scanned.
+        */
+        pendingScanStatus = {
+            windowId: item.id,
+            employeeId: safeText(window.scannedEmployeeId),
+            employeeName: safeText(window.scannedEmployeeName)
+        };
+
+        modal.classList.add("open");
+        modal.setAttribute("aria-hidden", "false");
+
+    } catch (error) {
+
+        console.error("Scan status popup error:", error);
+
+        showError("The next-step confirmation could not be opened.");
+    }
+}
+
+function closeScanStatusModal() {
+
+    const modal = $("scanStatusModal");
+
+    if (modal) {
+        modal.classList.remove("open");
+        modal.setAttribute("aria-hidden", "true");
+    }
+
+    pendingScanStatus = null;
+}
+
+/*
+   The employee confirmed which step they completed. This is the
+   only place the popup moves a window, and it re-checks that the
+   confirmation still belongs to the window that was scanned.
+*/
+function confirmScanStatus() {
+
+    try {
+
+        if (!pendingScanStatus) {
+            showError("Scan a window before confirming a step.");
+            return;
+        }
+
+        const select = $("scanStatusSelect");
+
+        const newStatus = safeText(select?.value);
+
+        if (!newStatus) {
+            showError("Choose the step you completed.");
+            return;
+        }
+
+        const { windowId, employeeId, employeeName } = pendingScanStatus;
+
+        /*
+           updateWindowStatus() still enforces the scan proof and
+           every business rule (QC separation, no accidental
+           backwards moves), so this is a confirmation, not a
+           bypass.
+        */
+        const changed = updateWindowStatus(
+            windowId,
+            newStatus,
+            employeeId,
+            employeeName
+        );
+
+        closeScanStatusModal();
+
+        if (changed) {
+
+            showSuccess(
+                `Step recorded: ${newStatus}${employeeName ? ` by ${employeeName}` : ""}.`
+            );
+
+            /*
+               Refresh the window record so the tracker shows the
+               new status immediately.
+            */
+            viewWindow(windowId);
+        }
+
+    } catch (error) {
+
+        console.error("Confirm scan status error:", error);
+
+        showError("The step could not be recorded.");
+    }
+}
+
+window.openScanStatusPopup = openScanStatusPopup;
+window.closeScanStatusModal = closeScanStatusModal;
+window.confirmScanStatus = confirmScanStatus;
 
 /* =========================================================
    PRINT WINDOW WORKSHEET
@@ -11078,6 +11234,35 @@ function initialiseEventListeners() {
                 closeWindowModal
             );
         }
+
+        /*
+           Next-step confirmation popup shown after a scan.
+        */
+        const scanStatusConfirm = $("scanStatusConfirmButton");
+
+        if (scanStatusConfirm) {
+            scanStatusConfirm.addEventListener("click", confirmScanStatus);
+        }
+
+        const scanStatusClose = $("closeScanStatusModal");
+
+        if (scanStatusClose) {
+            scanStatusClose.addEventListener("click", closeScanStatusModal);
+        }
+
+        const scanStatusCancel = $("scanStatusCancelButton");
+
+        if (scanStatusCancel) {
+            scanStatusCancel.addEventListener("click", closeScanStatusModal);
+        }
+
+        /*
+           Tapping the backdrop dismisses the confirmation without
+           changing anything - the status only moves on Confirm.
+        */
+        document.querySelectorAll("[data-close-scan-status]").forEach(overlay => {
+            overlay.addEventListener("click", closeScanStatusModal);
+        });
 
         /*
            Navigation buttons

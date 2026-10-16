@@ -2987,6 +2987,59 @@ img {
     gap: 10px;
 }
 
+/* =========================================================
+   CONFIRM NEXT STEP MODAL (after a scan)
+   ========================================================= */
+
+.scan-status-content {
+    width: min(100%, 520px);
+}
+
+.scan-status-body {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.scan-status-window {
+    margin: 0;
+    font-size: 17px;
+    font-weight: 700;
+    color: var(--primary-dark);
+}
+
+.scan-status-label {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-light);
+}
+
+.scan-status-select {
+    width: 100%;
+    padding: 10px 12px;
+    border: 1px solid var(--border);
+    border-radius: 9px;
+    font-size: 15px;
+    background: white;
+    color: var(--text);
+}
+
+.scan-status-who {
+    margin: 0;
+    font-size: 14px;
+    color: var(--text);
+}
+
+.scan-status-note {
+    margin: 0;
+    font-size: 13px;
+    color: var(--text-light);
+}
+
+.scan-status-footer {
+    justify-content: flex-end;
+}
+
 
 /* =========================================================
    PRODUCTION TRACKER (in modal)
